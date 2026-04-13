@@ -598,74 +598,8 @@ function AirLayeringSimulator() {
           {view === "long" ? renderLongView() : renderCrossView()}
         </div>
 
-        {/* Legend */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center", marginBottom: 12, fontSize: 11, color: "#9ca3af" }}>
-          {[
-            { c: "#60a5fa", l: "Water flow ↑" },
-            { c: "#fbbf24", l: "Sugar/Auxin ↓" },
-            { c: "#22c55e", l: "Cambium" },
-            { c: "#facc15", l: "Callus" },
-            { c: "#d4edda", l: "Adv. Roots" },
-          ].map(({ c, l }) => (
-            <span key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: c, display: "inline-block" }} />{l}
-            </span>
-          ))}
-        </div>
-
-        {/* Stage info */}
-        <div className="sc" style={{ marginBottom: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <div style={{ width: 10, height: 10, borderRadius: "50%", background: stage.color, flexShrink: 0, animation: playing ? "p2 1.5s infinite" : "none" }} />
-            <span style={{ fontSize: 15, fontWeight: 700, color: stage.color }}>{stage.name}</span>
-            <span style={{ fontSize: 11, color: "#6b7280", marginLeft: "auto" }}>Days {stage.dayRange[0]}–{stage.dayRange[1]}</span>
-          </div>
-          <p style={{ fontSize: 14, color: "#d1d5db", lineHeight: 1.65, marginBottom: 10 }}>{stage.description}</p>
-          <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Cellular Events</div>
-          <p style={{ fontSize: 13, color: "#9ca3af", lineHeight: 1.6 }}>{stage.cellular}</p>
-          {/* Dynamic outcome based on current wrap/moisture conditions */}
-          {wrap !== "none" && effDay > 14 && bio.rootMult < 0.9 && (
-            <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, fontSize: 12, lineHeight: 1.5,
-              border: `1px solid ${bio.rootMult < 0.3 ? "#7f1d1d" : "#78350f"}`,
-              background: bio.rootMult < 0.3 ? "#1c0a0a" : "#1c1408",
-              color: bio.rootMult < 0.3 ? "#fca5a5" : "#fcd34d",
-            }}>
-              <strong>Current outcome:</strong>{" "}
-              {bio.rootMult < 0.1
-                ? "Rooting failure expected. Light exposure degrades auxin at the wound site, preventing root primordia from organizing. Callus may form but will not differentiate into roots."
-                : bio.rootMult < 0.3
-                ? "Very poor rooting. Light and/or moisture conditions are inhibiting adventitious root formation. Only weak, sparse roots may develop."
-                : bio.rootMult < 0.6
-                ? "Reduced rooting. Suboptimal conditions are slowing root initiation — fewer roots forming and elongation is stunted compared to ideal (dark, moist) conditions."
-                : "Slightly reduced rooting success. Monitor moisture levels and consider rewrapping if roots are slow to develop."}
-            </div>
-          )}
-        </div>
-
-        {/* Treatment */}
-        <div className="sc" style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Treatment Effects</div>
-          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto 1fr", gap: "6px 16px", fontSize: 13 }}>
-            <span style={{ color: "#6b7280" }}>Hormone:</span><span>{hData.label}</span>
-            <span style={{ color: "#6b7280" }}>Speed:</span><span style={{ color: hData.speed > 1 ? "#C8A951" : "#9ca3af" }}>{hData.speed}×</span>
-            <span style={{ color: "#6b7280" }}>Callus:</span><span>{hData.quality}</span>
-            <span style={{ color: "#6b7280" }}>Root Density:</span><span>{hData.density}</span>
-            <span style={{ color: "#6b7280" }}>Wrap:</span><span>{wData.label}</span>
-            <span style={{ color: "#6b7280" }}>Light Block:</span><span style={{ color: wrap === "none" || wData.lightBlock ? "#C8A951" : "#ef4444" }}>{wrap === "none" ? "N/A (ideal)" : wData.lightBlock ? "Yes — dark" : "No — light exposed"}</span>
-            <span style={{ color: "#6b7280" }}>Root Quality:</span><span style={{ color: simRootQuality >= 0.8 ? "#C8A951" : simRootQuality >= 0.6 ? "#eab308" : "#ef4444" }}>{Math.round(bio.rootMult * 100)}% effective</span>
-          </div>
-          {/* Wrap-specific risk note */}
-          <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, fontSize: 12,
-            border: `1px solid ${riskInfo.level === "high" ? "#7f1d1d" : riskInfo.level === "mod" ? "#78350f" : "#14532d"}`,
-            background: riskInfo.level === "high" ? "#1c0a0a" : riskInfo.level === "mod" ? "#1c1408" : "#0a1c0a",
-            color: riskInfo.level === "high" ? "#fca5a5" : riskInfo.level === "mod" ? "#fcd34d" : "#86efac",
-          }}>
-            {riskInfo.level === "high" ? "⚠" : riskInfo.level === "mod" ? "⚡" : "✓"} {wData.riskNote}{riskInfo.msg ? ` — ${riskInfo.msg}` : ""}
-          </div>
-        </div>
-
         {/* Controls */}
-        <div className="sc" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="sc" style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 12 }}>
           <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1 }}>Controls</div>
 
           <div>
@@ -744,6 +678,72 @@ function AirLayeringSimulator() {
               </button>
             </div>
             <button className="sb" onClick={() => { setDay(0); setPlaying(false); }}>Reset</button>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center", marginBottom: 12, fontSize: 11, color: "#9ca3af" }}>
+          {[
+            { c: "#60a5fa", l: "Water flow ↑" },
+            { c: "#fbbf24", l: "Sugar/Auxin ↓" },
+            { c: "#22c55e", l: "Cambium" },
+            { c: "#facc15", l: "Callus" },
+            { c: "#d4edda", l: "Adv. Roots" },
+          ].map(({ c, l }) => (
+            <span key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: c, display: "inline-block" }} />{l}
+            </span>
+          ))}
+        </div>
+
+        {/* Stage info */}
+        <div className="sc" style={{ marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: stage.color, flexShrink: 0, animation: playing ? "p2 1.5s infinite" : "none" }} />
+            <span style={{ fontSize: 15, fontWeight: 700, color: stage.color }}>{stage.name}</span>
+            <span style={{ fontSize: 11, color: "#6b7280", marginLeft: "auto" }}>Days {stage.dayRange[0]}–{stage.dayRange[1]}</span>
+          </div>
+          <p style={{ fontSize: 14, color: "#d1d5db", lineHeight: 1.65, marginBottom: 10 }}>{stage.description}</p>
+          <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Cellular Events</div>
+          <p style={{ fontSize: 13, color: "#9ca3af", lineHeight: 1.6 }}>{stage.cellular}</p>
+          {/* Dynamic outcome based on current wrap/moisture conditions */}
+          {wrap !== "none" && effDay > 14 && bio.rootMult < 0.9 && (
+            <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, fontSize: 12, lineHeight: 1.5,
+              border: `1px solid ${bio.rootMult < 0.3 ? "#7f1d1d" : "#78350f"}`,
+              background: bio.rootMult < 0.3 ? "#1c0a0a" : "#1c1408",
+              color: bio.rootMult < 0.3 ? "#fca5a5" : "#fcd34d",
+            }}>
+              <strong>Current outcome:</strong>{" "}
+              {bio.rootMult < 0.1
+                ? "Rooting failure expected. Light exposure degrades auxin at the wound site, preventing root primordia from organizing. Callus may form but will not differentiate into roots."
+                : bio.rootMult < 0.3
+                ? "Very poor rooting. Light and/or moisture conditions are inhibiting adventitious root formation. Only weak, sparse roots may develop."
+                : bio.rootMult < 0.6
+                ? "Reduced rooting. Suboptimal conditions are slowing root initiation — fewer roots forming and elongation is stunted compared to ideal (dark, moist) conditions."
+                : "Slightly reduced rooting success. Monitor moisture levels and consider rewrapping if roots are slow to develop."}
+            </div>
+          )}
+        </div>
+
+        {/* Treatment */}
+        <div className="sc" style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Treatment Effects</div>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto 1fr", gap: "6px 16px", fontSize: 13 }}>
+            <span style={{ color: "#6b7280" }}>Hormone:</span><span>{hData.label}</span>
+            <span style={{ color: "#6b7280" }}>Speed:</span><span style={{ color: hData.speed > 1 ? "#C8A951" : "#9ca3af" }}>{hData.speed}×</span>
+            <span style={{ color: "#6b7280" }}>Callus:</span><span>{hData.quality}</span>
+            <span style={{ color: "#6b7280" }}>Root Density:</span><span>{hData.density}</span>
+            <span style={{ color: "#6b7280" }}>Wrap:</span><span>{wData.label}</span>
+            <span style={{ color: "#6b7280" }}>Light Block:</span><span style={{ color: wrap === "none" || wData.lightBlock ? "#C8A951" : "#ef4444" }}>{wrap === "none" ? "N/A (ideal)" : wData.lightBlock ? "Yes — dark" : "No — light exposed"}</span>
+            <span style={{ color: "#6b7280" }}>Root Quality:</span><span style={{ color: simRootQuality >= 0.8 ? "#C8A951" : simRootQuality >= 0.6 ? "#eab308" : "#ef4444" }}>{Math.round(bio.rootMult * 100)}% effective</span>
+          </div>
+          {/* Wrap-specific risk note */}
+          <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, fontSize: 12,
+            border: `1px solid ${riskInfo.level === "high" ? "#7f1d1d" : riskInfo.level === "mod" ? "#78350f" : "#14532d"}`,
+            background: riskInfo.level === "high" ? "#1c0a0a" : riskInfo.level === "mod" ? "#1c1408" : "#0a1c0a",
+            color: riskInfo.level === "high" ? "#fca5a5" : riskInfo.level === "mod" ? "#fcd34d" : "#86efac",
+          }}>
+            {riskInfo.level === "high" ? "⚠" : riskInfo.level === "mod" ? "⚡" : "✓"} {wData.riskNote}{riskInfo.msg ? ` — ${riskInfo.msg}` : ""}
           </div>
         </div>
 
