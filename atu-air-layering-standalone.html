@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Air Layering Simulator · Arkansas Tech University</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2300573F'/><text x='16' y='22' text-anchor='middle' font-size='18' fill='%23C8A951' font-family='serif' font-weight='bold'>A</text></svg>">
+<style>
+  html, body, #root { margin: 0; padding: 0; min-height: 100vh; background: #0a0a08; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo } = React;
+
+const STAGES = [
+  {
+    id: "healthy", name: "Healthy Stem", dayRange: [0, 0],
+    description: "Intact stem with functional xylem and phloem. Water and nutrients flow freely. The cambium layer sits between xylem and phloem, actively dividing.",
+    cellular: "Vascular cambium produces xylem inward and phloem outward. Auxin flows basipetally (downward) through phloem. Sugars translocated via sieve tubes.",
+    color: "#22c55e",
+  },
+  {
+    id: "girdling", name: "Girdling", dayRange: [1, 3],
+    description: "A ring of bark (phloem + cambium) is removed, severing the downward transport pathway. Xylem remains intact, supplying water upward.",
+    cellular: "Phloem sieve tubes severed — photosynthates cannot pass the girdle. Auxin accumulates above the wound. Exposed xylem begins to desiccate.",
+    color: "#ef4444",
+  },
+  {
+    id: "callus", name: "Callus Formation", dayRange: [4, 14],
+    description: "Parenchyma cells near the wound dedifferentiate and divide rapidly, forming undifferentiated callus tissue at the upper edge of the girdle.",
+    cellular: "Accumulated auxin + cytokinin triggers dedifferentiation. Parenchyma re-enters the cell cycle. High auxin:cytokinin ratio favors root initiation.",
+    color: "#eab308",
+  },
+  {
+    id: "initials", name: "Root Initials", dayRange: [15, 28],
+    description: "Within the callus, clusters of meristematic cells organize into root primordia — the first signs of adventitious root formation.",
+    cellular: "Polar auxin transport concentrates auxin in callus regions. Cells organize into root apical meristems with a root cap and quiescent center.",
+    color: "#f97316",
+  },
+  {
+    id: "elongation", name: "Root Elongation", dayRange: [29, 49],
+    description: "Root primordia elongate through moist sphagnum moss. Young adventitious roots develop root hairs and begin absorbing water.",
+    cellular: "Root apical meristem undergoes rapid mitosis. Cells expand via turgor pressure. Root hairs differentiate. Vascular tissue connects to stem xylem.",
+    color: "#a3e635",
+  },
+  {
+    id: "mature", name: "Mature Roots", dayRange: [50, 70],
+    description: "A well-developed adventitious root system is established. The air layer is ready for severance — the clone can sustain itself independently.",
+    cellular: "Secondary root branching increases absorptive area. Vascular connections fully functional. Mycorrhizal associations may form. Physiologically independent.",
+    color: "#C8A951",
+  },
+];
+
+const HORMONES = {
+  none: { speed: 1.0, quality: "Slow", density: "Sparse", label: "None" },
+  standard: { speed: 1.4, quality: "Good", density: "Moderate", label: "IBA 3,000 ppm" },
+  high: { speed: 1.8, quality: "Excellent", density: "Dense", label: "IBA 8,000 ppm" },
+};
+
+// Wrap properties: moisture retention, light blocking, root formation quality
+const WRAPS = {
+  none:          { moisture: "Ideal",    lightBlock: true,  rootQuality: 1.0, label: "None (view only)", riskNote: "Visibility mode — simulates ideal dark, moist conditions" },
+  black_plastic: { moisture: "High",     lightBlock: true,  rootQuality: 1.0, label: "Black Plastic",   riskNote: "Excellent — dark, retains moisture well" },
+  clear_plastic: { moisture: "High",     lightBlock: false, rootQuality: 1.0, label: "Clear Plastic",   riskNote: "Good moisture retention, but light exposure reduces root initiation and may promote algae" },
+  foil:          { moisture: "Moderate", lightBlock: true,  rootQuality: 0.85, label: "Aluminum Foil",  riskNote: "Dark environment, but can tear and lose moisture over time" },
+  burlap:        { moisture: "Low",      lightBlock: false, rootQuality: 0.5,  label: "Burlap",         riskNote: "Poor — dries quickly, no light exclusion, low rooting success" },
+};
+
+function calcProgress(effDay, rootQuality, moistureOn, lightBlock) {
+  // Callus forms regardless of wrap — it's a wound response
+  // But moisture loss slows it
+  const moistMult = moistureOn ? 1.0 : 0.3;
+  const callus = effDay < 4 ? 0 : effDay >= 14 ? Math.min(1, moistMult) : ((effDay - 4) / 10) * moistMult;
+
+  // Roots are affected by light and moisture
+  // Full darkness = best. Light exposure reduces rooting but doesn't eliminate it.
+  // Clear plastic: light gets through but moisture is retained — moderate rooting (~50-60%)
+  // Burlap: light + poor moisture = very poor rooting
+  const lightMult = lightBlock ? 1.0 : 0.55; // light reduces rooting ~45%, doesn't eliminate
+  const rootMult = rootQuality * moistMult * lightMult;
+  const rootsRaw = effDay < 15 ? 0 : effDay >= 28 ? 1 : (effDay - 15) / 13;
+  const roots = rootsRaw * rootMult;
+
+  // Maturation — scales with how well roots formed
+  const matureRaw = effDay < 29 ? 0 : effDay >= 70 ? 1 : (effDay - 29) / 41;
+  const mature = roots > 0.15 ? matureRaw * rootMult : 0;
+
+  // Number of roots that form (for count in viz)
+  const rootCount = Math.max(0, Math.ceil(roots * 5 * rootQuality));
+
+  return { callus, roots, mature, rootCount, rootMult };
+}
+
+function calcRisk(wrap, moistureOn, effDay, wData) {
+  if (wrap === "none") return { level: "low", msg: "Visibility mode — ideal conditions assumed" };
+  
+  const issues = [];
+  // Moisture issues
+  if (!moistureOn && effDay > 3) return { level: "high", msg: "No moisture — callus desiccation and tissue death likely" };
+  if (wData.moisture === "Low" && effDay > 7) issues.push("rapid moisture loss through wrap");
+  if (wData.moisture === "Moderate" && effDay > 21) issues.push("gradual moisture loss — rewrap may be needed");
+  
+  // Light issues — roots need darkness
+  if (!wData.lightBlock && effDay > 14) issues.push("light exposure inhibits root primordia formation");
+  if (!wData.lightBlock && effDay > 28) issues.push("algae growth competes with developing roots");
+  
+  if (issues.length === 0) return { level: "low", msg: "" };
+  if (wData.moisture === "Low" || (!wData.lightBlock && !moistureOn)) return { level: "high", msg: issues.join("; ") };
+  return { level: "mod", msg: issues.join("; ") };
+}
+
+function AirLayeringSimulator() {
+  const [day, setDay] = useState(0);
+  const [hormone, setHormone] = useState("standard");
+  const [moistureOn, setMoistureOn] = useState(true);
+  const [wrap, setWrap] = useState("black_plastic");
+  const [view, setView] = useState("long");
+  const [playing, setPlaying] = useState(false);
+  const [tick, setTick] = useState(0); // animation tick for flow particles
+  const timerRef = useRef(null);
+
+  const MAX = 70;
+  const hData = HORMONES[hormone];
+  const wData = WRAPS[wrap];
+  const effDay = Math.min(MAX, Math.round(day * hData.speed));
+
+  const stage = useMemo(() => {
+    for (let i = STAGES.length - 1; i >= 0; i--) {
+      if (effDay >= STAGES[i].dayRange[0]) return { ...STAGES[i], index: i };
+    }
+    return { ...STAGES[0], index: 0 };
+  }, [effDay]);
+
+  const stageProgress = useMemo(() => {
+    const [s, e] = stage.dayRange;
+    if (e === s) return effDay > 0 ? 1 : 0;
+    return Math.min(1, (effDay - s) / (e - s));
+  }, [effDay, stage]);
+
+  // "none" wrap = ideal conditions for visibility
+  const simLightBlock = wrap === "none" ? true : wData.lightBlock;
+  const simRootQuality = wrap === "none" ? 1.0 : wData.rootQuality;
+  const bio = useMemo(() => calcProgress(effDay, simRootQuality, moistureOn, simLightBlock), [effDay, simRootQuality, moistureOn, simLightBlock]);
+  const riskInfo = useMemo(() => calcRisk(wrap, moistureOn, effDay, wData), [wrap, moistureOn, effDay, wData]);
+
+  const moistLabel = wrap === "none" ? "Ideal" 
+    : !moistureOn ? "Dry" 
+    : wData.moisture === "High" || wData.moisture === "Ideal" ? "Optimal" 
+    : wData.moisture === "Moderate" ? "Adequate" 
+    : "Low";
+
+  // Animation loop for flow particles
+  useEffect(() => {
+    const anim = setInterval(() => setTick(t => (t + 1) % 1000), 80);
+    return () => clearInterval(anim);
+  }, []);
+
+  useEffect(() => {
+    if (playing) {
+      timerRef.current = setInterval(() => {
+        setDay(d => { if (d >= MAX) { setPlaying(false); return MAX; } return d + 1; });
+      }, 250);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [playing]);
+
+  // --- SVG constants ---
+  const W = 380, H = 460;
+  const svgCx = W / 2;
+  const stemW = 80, barkW = 14;
+  const stemL = svgCx - stemW / 2, stemR = svgCx + stemW / 2;
+  const gY = 160, gH = 50;
+  const showGirdle = effDay >= 1;
+  const showWrap = effDay >= 3 && wrap !== "none";
+
+  // Flow particle positions (animated)
+  const waterParticles = useMemo(() => {
+    // 6 particles moving upward through xylem
+    return [0,1,2,3,4,5].map(i => {
+      const phase = ((tick * 3 + i * 60) % 360);
+      const y = H - 30 - (phase / 360) * (H - 60);
+      return y;
+    });
+  }, [tick, H]);
+
+  const sugarParticles = useMemo(() => {
+    // 4 particles moving downward through phloem
+    return [0,1,2,3].map(i => {
+      const phase = ((tick * 2.5 + i * 90) % 360);
+      const y = 25 + (phase / 360) * (H - 60);
+      return y;
+    });
+  }, [tick, H]);
+
+  // Wrap-specific SVG rendering
+  const renderWrapVisual = () => {
+    if (!showWrap) return null;
+    const wx = stemL - 40, wy = gY - 28, ww = stemW + 80, wh = gH + 56;
+    const mossX = stemL - 35, mossY = gY - 25, mossW = stemW + 70, mossH = gH + 50;
+
+    // Sphagnum moss (always present under wrap)
+    const moss = (
+      <rect x={mossX} y={mossY} width={mossW} height={mossH} rx={8} fill="#2d4a0f" opacity={0.4} />
+    );
+
+    switch(wrap) {
+      case "black_plastic":
+        return (<g>
+          {moss}
+          {/* Solid dark wrap with slight sheen */}
+          <rect x={wx} y={wy} width={ww} height={wh} rx={12} fill="#1a1a2e" opacity={0.5} />
+          <rect x={wx} y={wy} width={ww} height={wh} rx={12} fill="none" stroke="#334155" strokeWidth={2.5} opacity={0.8} />
+          {/* Plastic tie marks at edges */}
+          <line x1={wx + 8} y1={wy + 4} x2={wx + 8} y2={wy + wh - 4} stroke="#475569" strokeWidth={1} opacity={0.4} strokeDasharray="2 6" />
+          <line x1={wx + ww - 8} y1={wy + 4} x2={wx + ww - 8} y2={wy + wh - 4} stroke="#475569" strokeWidth={1} opacity={0.4} strokeDasharray="2 6" />
+          {/* Condensation dots inside */}
+          {moistureOn && [0,1,2,3,4].map(i => {
+            const dx = mossX + 8 + (i * 14);
+            const dy = mossY + 6 + ((tick * 0.3 + i * 7) % 20);
+            return <circle key={i} cx={dx} cy={dy} r={1.2} fill="#93c5fd" opacity={0.3 + Math.sin(tick * 0.1 + i) * 0.15} />;
+          })}
+          <text x={svgCx} y={wy + wh + 14} textAnchor="middle" fill="#9ca3af" fontSize={8} fontFamily="sans-serif">Black Plastic + Sphagnum Moss</text>
+        </g>);
+
+      case "clear_plastic":
+        return (<g>
+          {moss}
+          {/* Transparent wrap — you can see through */}
+          <rect x={wx} y={wy} width={ww} height={wh} rx={12} fill="rgba(200,220,255,0.06)" />
+          <rect x={wx} y={wy} width={ww} height={wh} rx={12} fill="none" stroke="rgba(180,200,230,0.5)" strokeWidth={2} />
+          {/* Light rays penetrating */}
+          {[0,1,2].map(i => (
+            <line key={i} x1={wx + 15 + i * 30} y1={wy - 8} x2={wx + 20 + i * 30} y2={wy + wh + 8}
+              stroke="#fde68a" strokeWidth={0.8} opacity={0.15 + Math.sin(tick * 0.05 + i) * 0.08} />
+          ))}
+          {/* Algae hint after day 28 */}
+          {effDay > 28 && <>
+            <circle cx={mossX + 12} cy={mossY + mossH - 8} r={4} fill="#84cc16" opacity={0.2} />
+            <circle cx={mossX + mossW - 16} cy={mossY + mossH - 12} r={3} fill="#84cc16" opacity={0.15} />
+          </>}
+          {/* Condensation */}
+          {moistureOn && [0,1,2,3].map(i => {
+            const dx = mossX + 10 + (i * 16);
+            const dy = mossY + 4 + ((tick * 0.25 + i * 9) % 18);
+            return <circle key={i} cx={dx} cy={dy} r={1} fill="#93c5fd" opacity={0.2 + Math.sin(tick * 0.08 + i) * 0.1} />;
+          })}
+          <text x={svgCx} y={wy + wh + 14} textAnchor="middle" fill="#9ca3af" fontSize={8} fontFamily="sans-serif">Clear Plastic + Sphagnum Moss</text>
+        </g>);
+
+      case "foil":
+        return (<g>
+          {moss}
+          {/* Aluminum foil — reflective, crinkled */}
+          <rect x={wx} y={wy} width={ww} height={wh} rx={10} fill="#71717a" opacity={0.25} />
+          <rect x={wx} y={wy} width={ww} height={wh} rx={10} fill="none" stroke="#a1a1aa" strokeWidth={2} />
+          {/* Crinkle lines */}
+          {[0,1,2,3,4,5].map(i => {
+            const ly = wy + 6 + i * (wh / 6);
+            return <line key={i} x1={wx + 4} y1={ly} x2={wx + ww - 4} y2={ly + (i % 2 === 0 ? 3 : -3)}
+              stroke="#a1a1aa" strokeWidth={0.5} opacity={0.25} />;
+          })}
+          {/* Small tear after extended time */}
+          {effDay > 35 && (
+            <path d={`M${wx + ww - 15},${wy + wh - 18} l4,-6 l2,3 l3,-4`} stroke="#ef4444" strokeWidth={0.8} fill="none" opacity={0.4} />
+          )}
+          <text x={svgCx} y={wy + wh + 14} textAnchor="middle" fill="#9ca3af" fontSize={8} fontFamily="sans-serif">Aluminum Foil + Sphagnum Moss</text>
+        </g>);
+
+      case "burlap":
+        return (<g>
+          {moss}
+          {/* Burlap — woven texture, gaps */}
+          <rect x={wx} y={wy} width={ww} height={wh} rx={8} fill="#78716c" opacity={0.15} />
+          <rect x={wx} y={wy} width={ww} height={wh} rx={8} fill="none" stroke="#a8a29e" strokeWidth={2} strokeDasharray="5 3" />
+          {/* Weave pattern */}
+          {[0,1,2,3,4,5,6,7].map(i => {
+            const ly = wy + 4 + i * (wh / 8);
+            return <line key={`h${i}`} x1={wx + 6} y1={ly} x2={wx + ww - 6} y2={ly}
+              stroke="#a8a29e" strokeWidth={0.6} opacity={0.2} strokeDasharray="3 5" />;
+          })}
+          {[0,1,2,3,4,5].map(i => {
+            const lx = wx + 8 + i * (ww / 6);
+            return <line key={`v${i}`} x1={lx} y1={wy + 4} x2={lx} y2={wy + wh - 4}
+              stroke="#a8a29e" strokeWidth={0.6} opacity={0.15} strokeDasharray="4 4" />;
+          })}
+          {/* Moisture escaping — evaporation arrows */}
+          {moistureOn && [0,1,2].map(i => {
+            const ex = wx + 18 + i * 30;
+            const ey = wy - 4 - ((tick * 0.4 + i * 12) % 14);
+            return <g key={i} opacity={0.25}>
+              <line x1={ex} y1={wy + 2} x2={ex} y2={ey} stroke="#93c5fd" strokeWidth={0.8} />
+              <polygon points={`${ex - 2},${ey + 4} ${ex + 2},${ey + 4} ${ex},${ey}`} fill="#93c5fd" />
+            </g>;
+          })}
+          {/* Light coming through gaps */}
+          {[0,1].map(i => (
+            <line key={i} x1={wx + 25 + i * 40} y1={wy - 5} x2={wx + 28 + i * 40} y2={wy + 15}
+              stroke="#fde68a" strokeWidth={0.6} opacity={0.12} />
+          ))}
+          <text x={svgCx} y={wy + wh + 14} textAnchor="middle" fill="#9ca3af" fontSize={8} fontFamily="sans-serif">Burlap + Sphagnum Moss</text>
+        </g>);
+
+      default: return null;
+    }
+  };
+
+  const renderLongView = () => (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: 380 }}>
+      <defs>
+        <linearGradient id="xg" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#1e3a8a" /><stop offset="50%" stopColor="#3b82f6" /><stop offset="100%" stopColor="#1e3a8a" />
+        </linearGradient>
+        <filter id="gl"><feGaussianBlur stdDeviation="2.5" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+        <filter id="wglow"><feGaussianBlur stdDeviation="1.5" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+      </defs>
+
+      {/* Xylem core */}
+      <rect x={stemL + barkW} y={20} width={stemW - barkW * 2} height={H - 40} rx={2} fill="url(#xg)" opacity={0.5} />
+
+      {/* Animated water particles moving UP through xylem */}
+      {waterParticles.map((y, i) => {
+        // Skip particles in girdle zone if girdled — water still passes through xylem
+        const xOff = (i % 3 - 1) * 6;
+        return (
+          <g key={`wp${i}`} filter="url(#wglow)">
+            <circle cx={svgCx + xOff} cy={y} r={2.5} fill="#60a5fa" opacity={0.7} />
+            <line x1={svgCx + xOff} y1={y + 8} x2={svgCx + xOff} y2={y + 2} stroke="#93c5fd" strokeWidth={1} opacity={0.4} />
+          </g>
+        );
+      })}
+
+      {/* Phloem upper */}
+      <rect x={stemL} y={20} width={barkW} height={showGirdle ? gY - 20 : H - 40} rx={2} fill="#b45309" opacity={0.6} />
+      <rect x={stemR - barkW} y={20} width={barkW} height={showGirdle ? gY - 20 : H - 40} rx={2} fill="#b45309" opacity={0.6} />
+      {/* Phloem lower */}
+      {showGirdle && <>
+        <rect x={stemL} y={gY + gH} width={barkW} height={H - 20 - gY - gH} rx={2} fill="#b45309" opacity={0.6} />
+        <rect x={stemR - barkW} y={gY + gH} width={barkW} height={H - 20 - gY - gH} rx={2} fill="#b45309" opacity={0.6} />
+      </>}
+
+      {/* Animated sugar/auxin particles moving DOWN through phloem */}
+      {sugarParticles.map((y, i) => {
+        const side = i % 2 === 0 ? stemL + barkW / 2 : stemR - barkW / 2;
+        // If girdled, particles only flow above the girdle and pile up
+        if (showGirdle && y > gY - 5) {
+          // Show accumulated particles at girdle edge
+          return (
+            <g key={`sp${i}`} filter="url(#wglow)">
+              <circle cx={side} cy={gY - 2 - (i % 3) * 3} r={2} fill="#fbbf24" opacity={0.6 + Math.sin(tick * 0.1 + i) * 0.2} />
+            </g>
+          );
+        }
+        return (
+          <g key={`sp${i}`} filter="url(#wglow)">
+            <circle cx={side} cy={y} r={2} fill="#fbbf24" opacity={0.6} />
+            <line x1={side} y1={y - 6} x2={side} y2={y - 1} stroke="#fbbf24" strokeWidth={0.8} opacity={0.3} />
+          </g>
+        );
+      })}
+
+      {/* Cambium upper */}
+      <line x1={stemL + barkW} y1={20} x2={stemL + barkW} y2={showGirdle ? gY : H - 20} stroke="#22c55e" strokeWidth={1.5} opacity={0.6} />
+      <line x1={stemR - barkW} y1={20} x2={stemR - barkW} y2={showGirdle ? gY : H - 20} stroke="#22c55e" strokeWidth={1.5} opacity={0.6} />
+      {showGirdle && <>
+        <line x1={stemL + barkW} y1={gY + gH} x2={stemL + barkW} y2={H - 20} stroke="#22c55e" strokeWidth={1.5} opacity={0.6} />
+        <line x1={stemR - barkW} y1={gY + gH} x2={stemR - barkW} y2={H - 20} stroke="#22c55e" strokeWidth={1.5} opacity={0.6} />
+      </>}
+
+      {/* Girdle zone */}
+      {showGirdle && (
+        <rect x={stemL} y={gY} width={stemW} height={gH} fill="none" stroke="#ef4444" strokeWidth={1.5} strokeDasharray="5 3" opacity={0.7} />
+      )}
+
+      {/* Auxin accumulation glow */}
+      {showGirdle && effDay >= 2 && <>
+        <ellipse cx={stemL + barkW / 2} cy={gY} rx={5 + bio.callus * 8} ry={4 + bio.callus * 5} fill="#d97706" opacity={0.4 + bio.callus * 0.3} filter="url(#gl)" />
+        <ellipse cx={stemR - barkW / 2} cy={gY} rx={5 + bio.callus * 8} ry={4 + bio.callus * 5} fill="#d97706" opacity={0.4 + bio.callus * 0.3} filter="url(#gl)" />
+        <text x={svgCx} y={gY - 12} textAnchor="middle" fill="#fbbf24" fontSize={9} fontFamily="sans-serif" fontWeight="600" opacity={0.8}>AUXIN / SUGAR ACCUMULATION</text>
+      </>}
+
+      {/* Callus tissue */}
+      {bio.callus > 0 && <>
+        <ellipse cx={stemL} cy={gY + 6} rx={6 + bio.callus * 12} ry={5 + bio.callus * 10} fill="#facc15" opacity={0.3 + bio.callus * 0.4} filter="url(#gl)" />
+        <ellipse cx={stemR} cy={gY + 6} rx={6 + bio.callus * 12} ry={5 + bio.callus * 10} fill="#facc15" opacity={0.3 + bio.callus * 0.4} filter="url(#gl)" />
+      </>}
+
+      {/* Wrap visual — material-specific */}
+      {renderWrapVisual()}
+
+      {/* Roots — count and length affected by wrap conditions */}
+      {bio.roots > 0.05 && <>
+        {[0,1,2,3,4].slice(0, Math.max(1, bio.rootCount)).map(i => {
+          const len = 15 + bio.roots * 25 + bio.mature * 35;
+          const sy = gY + 8 + i * 9;
+          const ang = (25 + i * 14) * Math.PI / 180;
+          const branchLen = bio.mature * 12;
+          const rootOpacity = 0.3 + bio.rootMult * 0.6;
+          return (
+            <g key={`r${i}`} filter="url(#gl)">
+              <path d={`M${stemL - 2},${sy} Q${stemL - len * 0.5 - 4},${sy + len * 0.3} ${stemL - len * Math.cos(ang)},${sy + len * Math.sin(ang)}`}
+                stroke="#d4edda" strokeWidth={1.2 + bio.mature * 1.2} fill="none" opacity={rootOpacity} />
+              <path d={`M${stemR + 2},${sy} Q${stemR + len * 0.5 + 4},${sy + len * 0.3} ${stemR + len * Math.cos(ang)},${sy + len * Math.sin(ang)}`}
+                stroke="#d4edda" strokeWidth={1.2 + bio.mature * 1.2} fill="none" opacity={rootOpacity} />
+              {bio.mature > 0.3 && <>
+                <line x1={stemL - len * Math.cos(ang)} y1={sy + len * Math.sin(ang)}
+                  x2={stemL - len * Math.cos(ang) - branchLen * 0.7} y2={sy + len * Math.sin(ang) + branchLen}
+                  stroke="#d4edda" strokeWidth={0.8} opacity={bio.mature * 0.6 * bio.rootMult} />
+                <line x1={stemR + len * Math.cos(ang)} y1={sy + len * Math.sin(ang)}
+                  x2={stemR + len * Math.cos(ang) + branchLen * 0.7} y2={sy + len * Math.sin(ang) + branchLen}
+                  stroke="#d4edda" strokeWidth={0.8} opacity={bio.mature * 0.6 * bio.rootMult} />
+              </>}
+              {bio.mature > 0.7 && <>
+                <circle cx={stemL - len * Math.cos(ang)} cy={sy + len * Math.sin(ang)} r={1.5} fill="#d4edda" opacity={0.5 * bio.rootMult} />
+                <circle cx={stemR + len * Math.cos(ang)} cy={sy + len * Math.sin(ang)} r={1.5} fill="#d4edda" opacity={0.5 * bio.rootMult} />
+              </>}
+            </g>
+          );
+        })}
+      </>}
+
+      {/* Labels */}
+      <g fontSize={9} fontFamily="sans-serif">
+        <line x1={stemL - 6} y1={55} x2={stemL + barkW / 2} y2={55} stroke="#9ca3af" strokeWidth={0.5} />
+        <text x={stemL - 8} y={58} textAnchor="end" fill="#d97706">Phloem</text>
+        <line x1={stemL - 6} y1={75} x2={stemL + barkW + 1} y2={75} stroke="#9ca3af" strokeWidth={0.5} />
+        <text x={stemL - 8} y={78} textAnchor="end" fill="#22c55e">Cambium</text>
+        <line x1={stemR + 6} y1={95} x2={svgCx + 4} y2={95} stroke="#9ca3af" strokeWidth={0.5} />
+        <text x={stemR + 8} y={98} textAnchor="start" fill="#60a5fa">Xylem</text>
+      </g>
+
+      {/* Flow legend at bottom */}
+      <g fontSize={8} fontFamily="sans-serif">
+        <circle cx={svgCx - 70} cy={H - 10} r={2.5} fill="#60a5fa" opacity={0.7} />
+        <text x={svgCx - 64} y={H - 7} fill="#93c5fd" opacity={0.7}>Water ↑</text>
+        <circle cx={svgCx + 20} cy={H - 10} r={2} fill="#fbbf24" opacity={0.7} />
+        <text x={svgCx + 26} y={H - 7} fill="#fbbf24" opacity={0.7}>Sugars/Auxin ↓</text>
+      </g>
+    </svg>
+  );
+
+  const renderCrossView = () => {
+    const CW = 360, CH = 360;
+    const ccx = CW / 2, ccy = CH / 2;
+    const outerR = 110, camR = 86, xyR = 82, pithR = 26, phlR = 90;
+    const girdled = effDay >= 1;
+
+    return (
+      <svg viewBox={`0 0 ${CW} ${CH}`} width="100%" style={{ maxWidth: 360 }}>
+        <defs>
+          <filter id="gl2"><feGaussianBlur stdDeviation="2" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+          <filter id="wg2"><feGaussianBlur stdDeviation="1.2" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+        </defs>
+
+        <circle cx={ccx} cy={ccy} r={outerR} fill="#3d2817" opacity={0.5} stroke="#5c3a20" strokeWidth={1} />
+
+        {!girdled ? (
+          <circle cx={ccx} cy={ccy} r={(outerR + phlR) / 2} fill="none" stroke="#b45309" strokeWidth={outerR - phlR} opacity={0.45} />
+        ) : (<>
+          <circle cx={ccx} cy={ccy} r={(outerR + phlR) / 2} fill="none" stroke="#4a2a10" strokeWidth={outerR - phlR} opacity={0.15} strokeDasharray="4 8" />
+          <text x={ccx} y={ccy - outerR - 6} textAnchor="middle" fill="#ef4444" fontSize={10} fontFamily="sans-serif" fontWeight="600">PHLOEM REMOVED</text>
+        </>)}
+
+        {!girdled && <circle cx={ccx} cy={ccy} r={camR} fill="none" stroke="#22c55e" strokeWidth={2.5} opacity={0.6} />}
+
+        <circle cx={ccx} cy={ccy} r={xyR} fill="#3b82f6" opacity={0.2} />
+        {Array.from({ length: 12 }).map((_, i) => {
+          const a = (i * 30) * Math.PI / 180;
+          return <line key={i} x1={ccx + pithR * Math.cos(a)} y1={ccy + pithR * Math.sin(a)} x2={ccx + xyR * Math.cos(a)} y2={ccy + xyR * Math.sin(a)} stroke="#3b82f6" strokeWidth={1} opacity={0.3} />;
+        })}
+
+        {/* Animated water particles in xylem cross-section */}
+        {[0,1,2,3].map(i => {
+          const a = ((tick * 2 + i * 90) % 360) * Math.PI / 180;
+          const r = pithR + 10 + (i % 2) * 20;
+          return <circle key={`xw${i}`} cx={ccx + r * Math.cos(a)} cy={ccy + r * Math.sin(a)} r={2} fill="#60a5fa" opacity={0.6} filter="url(#wg2)" />;
+        })}
+
+        {/* Sugar particles in phloem ring (only if not girdled) */}
+        {!girdled && [0,1,2].map(i => {
+          const a = ((tick * 1.8 + i * 120) % 360) * Math.PI / 180;
+          const r = (outerR + phlR) / 2;
+          return <circle key={`xs${i}`} cx={ccx + r * Math.cos(a)} cy={ccy + r * Math.sin(a)} r={2} fill="#fbbf24" opacity={0.5} filter="url(#wg2)" />;
+        })}
+
+        <circle cx={ccx} cy={ccy} r={pithR} fill="#0f1f0f" stroke="#2d4a2d" strokeWidth={1} />
+        <text x={ccx} y={ccy + 4} textAnchor="middle" fill="#6b7280" fontSize={9} fontFamily="sans-serif">Pith</text>
+
+        {bio.callus > 0 && Array.from({ length: 8 }).map((_, i) => {
+          const a = (i * 45) * Math.PI / 180;
+          const r = camR + 4 + bio.callus * 14;
+          return <circle key={i} cx={ccx + r * Math.cos(a)} cy={ccy + r * Math.sin(a)} r={2.5 + bio.callus * 5} fill="#facc15" opacity={0.25 + bio.callus * 0.35} filter="url(#gl2)" />;
+        })}
+
+        {bio.roots > 0.05 && Array.from({ length: Math.max(1, Math.min(6, bio.rootCount + 1)) }).map((_, i) => {
+          const a = (i * 60 + 15) * Math.PI / 180;
+          const r = outerR + 6 + bio.roots * 20 + bio.mature * 16;
+          return (
+            <g key={i}>
+              <line x1={ccx + (outerR + 2) * Math.cos(a)} y1={ccy + (outerR + 2) * Math.sin(a)} x2={ccx + r * Math.cos(a)} y2={ccy + r * Math.sin(a)} stroke="#d4edda" strokeWidth={1 + bio.mature} opacity={0.3 + bio.rootMult * 0.4} />
+              <circle cx={ccx + r * Math.cos(a)} cy={ccy + r * Math.sin(a)} r={2 + bio.mature * 2} fill="#d4edda" opacity={0.4 + bio.rootMult * 0.3} filter="url(#gl2)" />
+            </g>
+          );
+        })}
+
+        <g fontSize={9} fontFamily="sans-serif">
+          <text x={ccx + outerR + 8} y={ccy - 14} fill="#d97706">Phloem</text>
+          <text x={ccx + outerR + 8} y={ccy} fill="#22c55e">Cambium</text>
+          <text x={ccx + outerR + 8} y={ccy + 14} fill="#60a5fa">Xylem</text>
+        </g>
+      </svg>
+    );
+  };
+
+  return (
+    <div style={{
+      background: "#0a0a08", color: "#e5e7eb",
+      fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
+      minHeight: "100vh", padding: 16,
+    }}>
+      <style>{`
+        * { box-sizing: border-box; margin: 0; }
+        .sc { background: #121210; border: 1px solid #2a2a1a; border-radius: 10px; padding: 16px; }
+        .sb { display: inline-flex; align-items: center; justify-content: center; padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; border: 1px solid #2a2a1e; background: #16160f; color: #9ca3af; cursor: pointer; transition: all 0.15s; min-height: 36px; }
+        .sb:hover { border-color: #3a3a28; color: #d1d5db; }
+        .sb.on { border-color: #C8A951; background: rgba(200,169,81,0.12); color: #C8A951; }
+        .stog { width: 44px; height: 24px; border-radius: 12px; border: none; cursor: pointer; position: relative; transition: background 0.2s; padding: 0; }
+        .stog .k { width: 20px; height: 20px; border-radius: 50%; background: white; position: absolute; top: 2px; transition: left 0.2s; }
+        .slc { position: relative; flex: 1; display: flex; align-items: center; }
+        .slc input[type=range] {
+          -webkit-appearance: none; appearance: none;
+          width: 100%; height: 44px;
+          background: transparent; cursor: pointer; margin: 0; padding: 0;
+          touch-action: none;
+        }
+        .slc input[type=range]::-webkit-slider-runnable-track { height: 8px; background: #1a1e1a; border-radius: 4px; }
+        .slc input[type=range]::-webkit-slider-thumb {
+          -webkit-appearance: none; width: 28px; height: 28px;
+          background: #C8A951; border-radius: 50%; margin-top: -10px;
+          border: 3px solid #080c08; box-shadow: 0 0 8px rgba(200,169,81,0.4);
+        }
+        .slc input[type=range]::-moz-range-track { height: 8px; background: #1a1e1a; border-radius: 4px; border: none; }
+        .slc input[type=range]::-moz-range-thumb {
+          width: 28px; height: 28px; background: #C8A951; border-radius: 50%;
+          border: 3px solid #080c08; box-shadow: 0 0 8px rgba(200,169,81,0.4);
+        }
+        .ssel { background: #16160f; border: 1px solid #2a2a1e; border-radius: 8px; padding: 8px 12px; color: #d1d5db; font-size: 13px; min-height: 36px; }
+        .ssel:focus { outline: none; border-color: #C8A951; }
+        @keyframes p2 { 0%,100% { opacity:0.5; } 50% { opacity:1; } }
+      `}</style>
+
+      <div style={{ maxWidth: 720, margin: "0 auto" }}>
+
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 8 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#C8A951", letterSpacing: -0.5 }}>Air Layering Simulator</h1>
+          <span style={{ fontSize: 12, color: "#6b7280" }}>AGPS 3044 · Plant Propagation · ATU</span>
+        </div>
+        <div style={{ height: 2, background: "linear-gradient(to right, #C8A951, transparent)", marginBottom: 16 }} />
+
+        {/* Status */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8, marginBottom: 12 }}>
+          {[
+            { l: "Stage", v: stage.name, c: stage.color },
+            { l: "Eff. Day", v: `${effDay} (${(effDay / 7).toFixed(1)} wk)` },
+            { l: "Moisture", v: moistLabel, c: moistLabel === "Dry" ? "#ef4444" : moistLabel === "Optimal" || moistLabel === "Ideal" ? "#C8A951" : moistLabel === "Adequate" ? "#eab308" : "#ef4444" },
+            { l: "Light", v: wrap === "none" ? "Dark (ideal)" : wData.lightBlock ? "Blocked" : "Exposed", c: wrap === "none" || wData.lightBlock ? "#C8A951" : "#ef4444" },
+            { l: "Risk", v: riskInfo.level === "high" ? "HIGH" : riskInfo.level === "mod" ? "MODERATE" : "Low", c: riskInfo.level === "high" ? "#ef4444" : riskInfo.level === "mod" ? "#eab308" : "#C8A951" },
+          ].map(({ l, v, c }) => (
+            <div key={l} className="sc" style={{ padding: "10px 12px" }}>
+              <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{l}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: c || "#e5e7eb" }}>{v}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Stage progress */}
+        <div style={{ display: "flex", gap: 3, marginBottom: 16 }}>
+          {STAGES.map((s, i) => (
+            <div key={s.id} style={{ flex: 1 }}>
+              <div style={{ height: 6, borderRadius: 3, background: "#1a2e1a", overflow: "hidden" }}>
+                <div style={{
+                  height: "100%", borderRadius: 3, transition: "width 0.3s ease",
+                  width: i < stage.index ? "100%" : i === stage.index ? `${stageProgress * 100}%` : "0%",
+                  background: i <= stage.index ? "#C8A951" : "transparent",
+                }} />
+              </div>
+              <div style={{ fontSize: 8, color: i === stage.index ? "#9ca3af" : "#3a4a3a", textAlign: "center", marginTop: 3 }}>{s.name}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Visualization */}
+        <div className="sc" style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300 }}>
+          {view === "long" ? renderLongView() : renderCrossView()}
+        </div>
+
+        {/* Legend */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center", marginBottom: 12, fontSize: 11, color: "#9ca3af" }}>
+          {[
+            { c: "#60a5fa", l: "Water flow ↑" },
+            { c: "#fbbf24", l: "Sugar/Auxin ↓" },
+            { c: "#22c55e", l: "Cambium" },
+            { c: "#facc15", l: "Callus" },
+            { c: "#d4edda", l: "Adv. Roots" },
+          ].map(({ c, l }) => (
+            <span key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: c, display: "inline-block" }} />{l}
+            </span>
+          ))}
+        </div>
+
+        {/* Stage info */}
+        <div className="sc" style={{ marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: stage.color, flexShrink: 0, animation: playing ? "p2 1.5s infinite" : "none" }} />
+            <span style={{ fontSize: 15, fontWeight: 700, color: stage.color }}>{stage.name}</span>
+            <span style={{ fontSize: 11, color: "#6b7280", marginLeft: "auto" }}>Days {stage.dayRange[0]}–{stage.dayRange[1]}</span>
+          </div>
+          <p style={{ fontSize: 14, color: "#d1d5db", lineHeight: 1.65, marginBottom: 10 }}>{stage.description}</p>
+          <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Cellular Events</div>
+          <p style={{ fontSize: 13, color: "#9ca3af", lineHeight: 1.6 }}>{stage.cellular}</p>
+          {/* Dynamic outcome based on current wrap/moisture conditions */}
+          {wrap !== "none" && effDay > 14 && bio.rootMult < 0.9 && (
+            <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, fontSize: 12, lineHeight: 1.5,
+              border: `1px solid ${bio.rootMult < 0.3 ? "#7f1d1d" : "#78350f"}`,
+              background: bio.rootMult < 0.3 ? "#1c0a0a" : "#1c1408",
+              color: bio.rootMult < 0.3 ? "#fca5a5" : "#fcd34d",
+            }}>
+              <strong>Current outcome:</strong>{" "}
+              {bio.rootMult < 0.1
+                ? "Rooting failure expected. Light exposure degrades auxin at the wound site, preventing root primordia from organizing. Callus may form but will not differentiate into roots."
+                : bio.rootMult < 0.3
+                ? "Very poor rooting. Light and/or moisture conditions are inhibiting adventitious root formation. Only weak, sparse roots may develop."
+                : bio.rootMult < 0.6
+                ? "Reduced rooting. Suboptimal conditions are slowing root initiation — fewer roots forming and elongation is stunted compared to ideal (dark, moist) conditions."
+                : "Slightly reduced rooting success. Monitor moisture levels and consider rewrapping if roots are slow to develop."}
+            </div>
+          )}
+        </div>
+
+        {/* Treatment */}
+        <div className="sc" style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Treatment Effects</div>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto 1fr", gap: "6px 16px", fontSize: 13 }}>
+            <span style={{ color: "#6b7280" }}>Hormone:</span><span>{hData.label}</span>
+            <span style={{ color: "#6b7280" }}>Speed:</span><span style={{ color: hData.speed > 1 ? "#C8A951" : "#9ca3af" }}>{hData.speed}×</span>
+            <span style={{ color: "#6b7280" }}>Callus:</span><span>{hData.quality}</span>
+            <span style={{ color: "#6b7280" }}>Root Density:</span><span>{hData.density}</span>
+            <span style={{ color: "#6b7280" }}>Wrap:</span><span>{wData.label}</span>
+            <span style={{ color: "#6b7280" }}>Light Block:</span><span style={{ color: wrap === "none" || wData.lightBlock ? "#C8A951" : "#ef4444" }}>{wrap === "none" ? "N/A (ideal)" : wData.lightBlock ? "Yes — dark" : "No — light exposed"}</span>
+            <span style={{ color: "#6b7280" }}>Root Quality:</span><span style={{ color: simRootQuality >= 0.8 ? "#C8A951" : simRootQuality >= 0.6 ? "#eab308" : "#ef4444" }}>{Math.round(bio.rootMult * 100)}% effective</span>
+          </div>
+          {/* Wrap-specific risk note */}
+          <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, fontSize: 12,
+            border: `1px solid ${riskInfo.level === "high" ? "#7f1d1d" : riskInfo.level === "mod" ? "#78350f" : "#14532d"}`,
+            background: riskInfo.level === "high" ? "#1c0a0a" : riskInfo.level === "mod" ? "#1c1408" : "#0a1c0a",
+            color: riskInfo.level === "high" ? "#fca5a5" : riskInfo.level === "mod" ? "#fcd34d" : "#86efac",
+          }}>
+            {riskInfo.level === "high" ? "⚠" : riskInfo.level === "mod" ? "⚡" : "✓"} {wData.riskNote}{riskInfo.msg ? ` — ${riskInfo.msg}` : ""}
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="sc" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1 }}>Controls</div>
+
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+              <button className={`sb ${playing ? "on" : ""}`} onClick={() => setPlaying(!playing)} style={{ width: 70, flexShrink: 0 }}>
+                {playing ? "Pause" : "▶ Play"}
+              </button>
+              <span style={{ fontSize: 12, color: "#6b7280", whiteSpace: "nowrap" }}>Day</span>
+              <div className="slc">
+                <input type="range" min={0} max={MAX} value={day}
+                  onChange={e => { setDay(Number(e.target.value)); setPlaying(false); }} />
+              </div>
+              <span style={{ fontSize: 18, fontWeight: 700, color: "#C8A951", minWidth: 32, textAlign: "right" }}>{day}</span>
+            </div>
+            {/* Tick marks and week labels */}
+            <div style={{ display: "flex", alignItems: "flex-start", marginLeft: 152, marginRight: 44, position: "relative", height: 22 }}>
+              {[0, 7, 14, 21, 28, 35, 42, 49, 56, 63, 70].map(d => {
+                const pct = (d / MAX) * 100;
+                const isWeek = d % 7 === 0;
+                const weekNum = d / 7;
+                const isPast = day >= d;
+                return (
+                  <div key={d} style={{
+                    position: "absolute", left: `${pct}%`, transform: "translateX(-50%)",
+                    display: "flex", flexDirection: "column", alignItems: "center",
+                  }}>
+                    <div style={{
+                      width: 1.5, height: 8,
+                      background: isPast ? "#C8A951" : "#2a3a2a",
+                      borderRadius: 1,
+                    }} />
+                    <span style={{
+                      fontSize: 8, marginTop: 1,
+                      color: isPast ? "#6b7280" : "#3a4a3a",
+                      whiteSpace: "nowrap",
+                    }}>
+                      {weekNum}w
+                    </span>
+                  </div>
+                );
+              })}
+              {/* Filled track overlay indicator */}
+              <div style={{
+                position: "absolute", top: 0, left: 0,
+                width: `${(day / MAX) * 100}%`, height: 2,
+                background: "#22c55e", borderRadius: 1, opacity: 0.5,
+              }} />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, color: "#6b7280", width: 70, flexShrink: 0 }}>View</span>
+            <button className={`sb ${view === "long" ? "on" : ""}`} onClick={() => setView("long")}>Longitudinal</button>
+            <button className={`sb ${view === "cross" ? "on" : ""}`} onClick={() => setView("cross")}>Cross Section</button>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: "#6b7280", width: 70, flexShrink: 0 }}>Hormone</span>
+            {Object.keys(HORMONES).map(k => (
+              <button key={k} className={`sb ${hormone === k ? "on" : ""}`} onClick={() => setHormone(k)}>
+                {k === "none" ? "None" : k === "standard" ? "IBA 3K" : "IBA 8K"}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: "#6b7280", width: 70, flexShrink: 0 }}>Wrap</span>
+            <select className="ssel" value={wrap} onChange={e => setWrap(e.target.value)}>
+              {Object.entries(WRAPS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+              <span style={{ fontSize: 12, color: "#6b7280" }}>Moisture</span>
+              <button className="stog" onClick={() => setMoistureOn(!moistureOn)}
+                style={{ background: moistureOn ? "#00573F" : "#374151" }}>
+                <div className="k" style={{ left: moistureOn ? 22 : 2 }} />
+              </button>
+            </div>
+            <button className="sb" onClick={() => { setDay(0); setPlaying(false); }}>Reset</button>
+          </div>
+        </div>
+
+        <div style={{ textAlign: "center", marginTop: 12, fontSize: 10, color: "#3a4a3a" }}>
+          Arkansas Tech University · Department of Agricultural Sciences · Russellville, AR
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(AirLayeringSimulator));
+</script>
+</body>
+</html>
