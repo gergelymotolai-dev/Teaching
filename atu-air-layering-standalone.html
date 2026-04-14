@@ -122,6 +122,13 @@ function AirLayeringSimulator() {
   const [view, setView] = useState("long");
   const [playing, setPlaying] = useState(false);
   const [tick, setTick] = useState(0); // animation tick for flow particles
+  const [lightMode, setLightMode] = useState(false);
+
+  useEffect(() => {
+    const bg = lightMode ? "#fafaf7" : "#0a0a08";
+    document.body.style.background = bg;
+    document.documentElement.style.background = bg;
+  }, [lightMode]);
   const timerRef = useRef(null);
 
   const MAX = 70;
@@ -517,8 +524,9 @@ function AirLayeringSimulator() {
   };
 
   return (
-    <div style={{
-      background: "#0a0a08", color: "#e5e7eb",
+    <div className={lightMode ? "app light" : "app"} style={{
+      background: lightMode ? "#fafaf7" : "#0a0a08",
+      color: lightMode ? "#1f2937" : "#e5e7eb",
       fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
       minHeight: "100vh", padding: 16,
     }}>
@@ -551,13 +559,32 @@ function AirLayeringSimulator() {
         .ssel { background: #16160f; border: 1px solid #2a2a1e; border-radius: 8px; padding: 8px 12px; color: #d1d5db; font-size: 13px; min-height: 36px; }
         .ssel:focus { outline: none; border-color: #C8A951; }
         @keyframes p2 { 0%,100% { opacity:0.5; } 50% { opacity:1; } }
+
+        /* Light mode overrides */
+        .light .sc { background: #ffffff; border-color: #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+        .light .sb { background: #f9fafb; border-color: #e5e7eb; color: #4b5563; }
+        .light .sb:hover { border-color: #d1d5db; color: #1f2937; }
+        .light .sb.on { border-color: #C8A951; background: rgba(200,169,81,0.18); color: #8a6f2f; }
+        .light .slc input[type=range]::-webkit-slider-runnable-track { background: #e5e7eb; }
+        .light .slc input[type=range]::-moz-range-track { background: #e5e7eb; }
+        .light .slc input[type=range]::-webkit-slider-thumb { border-color: #ffffff; box-shadow: 0 0 8px rgba(200,169,81,0.5); }
+        .light .slc input[type=range]::-moz-range-thumb { border-color: #ffffff; box-shadow: 0 0 8px rgba(200,169,81,0.5); }
+        .light .ssel { background: #ffffff; border-color: #e5e7eb; color: #1f2937; }
+        .light .tbtn { background: #ffffff; border-color: #e5e7eb; color: #4b5563; }
+        .tbtn { background: #16160f; border: 1px solid #2a2a1e; color: #9ca3af; border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer; min-height: 32px; display: inline-flex; align-items: center; gap: 6px; }
+        .tbtn:hover { border-color: #C8A951; color: #C8A951; }
       `}</style>
 
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
 
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 8 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#C8A951", letterSpacing: -0.5 }}>Air Layering Simulator</h1>
-          <span style={{ fontSize: 12, color: "#6b7280" }}>AGPS 3044 · Plant Propagation · ATU</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 12, color: "#6b7280" }}>AGPS 3044 · Plant Propagation · ATU</span>
+            <button className="tbtn" onClick={() => setLightMode(!lightMode)} aria-label="Toggle theme" title={lightMode ? "Switch to dark mode" : "Switch to light mode"}>
+              {lightMode ? "🌙 Dark" : "☀ Light"}
+            </button>
+          </div>
         </div>
         <div style={{ height: 2, background: "linear-gradient(to right, #C8A951, transparent)", marginBottom: 16 }} />
 
@@ -581,7 +608,7 @@ function AirLayeringSimulator() {
         <div style={{ display: "flex", gap: 3, marginBottom: 16 }}>
           {STAGES.map((s, i) => (
             <div key={s.id} style={{ flex: 1 }}>
-              <div style={{ height: 6, borderRadius: 3, background: "#1a2e1a", overflow: "hidden" }}>
+              <div style={{ height: 6, borderRadius: 3, background: lightMode ? "#e5e7eb" : "#1a2e1a", overflow: "hidden" }}>
                 <div style={{
                   height: "100%", borderRadius: 3, transition: "width 0.3s ease",
                   width: i < stage.index ? "100%" : i === stage.index ? `${stageProgress * 100}%` : "0%",
@@ -709,9 +736,9 @@ function AirLayeringSimulator() {
           {/* Dynamic outcome based on current wrap/moisture conditions */}
           {wrap !== "none" && effDay > 14 && bio.rootMult < 0.9 && (
             <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, fontSize: 12, lineHeight: 1.5,
-              border: `1px solid ${bio.rootMult < 0.3 ? "#7f1d1d" : "#78350f"}`,
-              background: bio.rootMult < 0.3 ? "#1c0a0a" : "#1c1408",
-              color: bio.rootMult < 0.3 ? "#fca5a5" : "#fcd34d",
+              border: `1px solid ${bio.rootMult < 0.3 ? (lightMode ? "#fca5a5" : "#7f1d1d") : (lightMode ? "#fcd34d" : "#78350f")}`,
+              background: bio.rootMult < 0.3 ? (lightMode ? "#fef2f2" : "#1c0a0a") : (lightMode ? "#fffbeb" : "#1c1408"),
+              color: bio.rootMult < 0.3 ? (lightMode ? "#991b1b" : "#fca5a5") : (lightMode ? "#92400e" : "#fcd34d"),
             }}>
               <strong>Current outcome:</strong>{" "}
               {bio.rootMult < 0.1
@@ -739,9 +766,9 @@ function AirLayeringSimulator() {
           </div>
           {/* Wrap-specific risk note */}
           <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, fontSize: 12,
-            border: `1px solid ${riskInfo.level === "high" ? "#7f1d1d" : riskInfo.level === "mod" ? "#78350f" : "#14532d"}`,
-            background: riskInfo.level === "high" ? "#1c0a0a" : riskInfo.level === "mod" ? "#1c1408" : "#0a1c0a",
-            color: riskInfo.level === "high" ? "#fca5a5" : riskInfo.level === "mod" ? "#fcd34d" : "#86efac",
+            border: `1px solid ${riskInfo.level === "high" ? (lightMode ? "#fca5a5" : "#7f1d1d") : riskInfo.level === "mod" ? (lightMode ? "#fcd34d" : "#78350f") : (lightMode ? "#86efac" : "#14532d")}`,
+            background: riskInfo.level === "high" ? (lightMode ? "#fef2f2" : "#1c0a0a") : riskInfo.level === "mod" ? (lightMode ? "#fffbeb" : "#1c1408") : (lightMode ? "#f0fdf4" : "#0a1c0a"),
+            color: riskInfo.level === "high" ? (lightMode ? "#991b1b" : "#fca5a5") : riskInfo.level === "mod" ? (lightMode ? "#92400e" : "#fcd34d") : (lightMode ? "#166534" : "#86efac"),
           }}>
             {riskInfo.level === "high" ? "⚠" : riskInfo.level === "mod" ? "⚡" : "✓"} {wData.riskNote}{riskInfo.msg ? ` — ${riskInfo.msg}` : ""}
           </div>
