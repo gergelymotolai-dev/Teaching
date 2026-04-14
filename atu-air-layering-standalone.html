@@ -185,6 +185,13 @@ function AirLayeringSimulator() {
   const showGirdle = effDay >= 1;
   const showWrap = effDay >= 3 && wrap !== "none";
 
+  // Theme-aware colors so SVG graphics and muted text stay legible in light mode
+  const rootColor = lightMode ? "#15803d" : "#d4edda";
+  const svgLabel = lightMode ? "#4b5563" : "#9ca3af";
+  const svgStroke = lightMode ? "#6b7280" : "#9ca3af";
+  const mutedText = lightMode ? "#4b5563" : "#9ca3af";
+  const dimText = lightMode ? "#9ca3af" : "#3a4a3a";
+
   // Flow particle positions (animated)
   const waterParticles = useMemo(() => {
     // 6 particles moving upward through xylem
@@ -231,7 +238,7 @@ function AirLayeringSimulator() {
             const dy = mossY + 6 + ((tick * 0.3 + i * 7) % 20);
             return <circle key={i} cx={dx} cy={dy} r={1.2} fill="#93c5fd" opacity={0.3 + Math.sin(tick * 0.1 + i) * 0.15} />;
           })}
-          <text x={svgCx} y={wy + wh + 14} textAnchor="middle" fill="#9ca3af" fontSize={8} fontFamily="sans-serif">Black Plastic + Sphagnum Moss</text>
+          <text x={svgCx} y={wy + wh + 14} textAnchor="middle" fill={svgLabel} fontSize={8} fontFamily="sans-serif">Black Plastic + Sphagnum Moss</text>
         </g>);
 
       case "clear_plastic":
@@ -256,7 +263,7 @@ function AirLayeringSimulator() {
             const dy = mossY + 4 + ((tick * 0.25 + i * 9) % 18);
             return <circle key={i} cx={dx} cy={dy} r={1} fill="#93c5fd" opacity={0.2 + Math.sin(tick * 0.08 + i) * 0.1} />;
           })}
-          <text x={svgCx} y={wy + wh + 14} textAnchor="middle" fill="#9ca3af" fontSize={8} fontFamily="sans-serif">Clear Plastic + Sphagnum Moss</text>
+          <text x={svgCx} y={wy + wh + 14} textAnchor="middle" fill={svgLabel} fontSize={8} fontFamily="sans-serif">Clear Plastic + Sphagnum Moss</text>
         </g>);
 
       case "foil":
@@ -275,7 +282,7 @@ function AirLayeringSimulator() {
           {effDay > 35 && (
             <path d={`M${wx + ww - 15},${wy + wh - 18} l4,-6 l2,3 l3,-4`} stroke="#ef4444" strokeWidth={0.8} fill="none" opacity={0.4} />
           )}
-          <text x={svgCx} y={wy + wh + 14} textAnchor="middle" fill="#9ca3af" fontSize={8} fontFamily="sans-serif">Aluminum Foil + Sphagnum Moss</text>
+          <text x={svgCx} y={wy + wh + 14} textAnchor="middle" fill={svgLabel} fontSize={8} fontFamily="sans-serif">Aluminum Foil + Sphagnum Moss</text>
         </g>);
 
       case "burlap":
@@ -309,7 +316,7 @@ function AirLayeringSimulator() {
             <line key={i} x1={wx + 25 + i * 40} y1={wy - 5} x2={wx + 28 + i * 40} y2={wy + 15}
               stroke="#fde68a" strokeWidth={0.6} opacity={0.12} />
           ))}
-          <text x={svgCx} y={wy + wh + 14} textAnchor="middle" fill="#9ca3af" fontSize={8} fontFamily="sans-serif">Burlap + Sphagnum Moss</text>
+          <text x={svgCx} y={wy + wh + 14} textAnchor="middle" fill={svgLabel} fontSize={8} fontFamily="sans-serif">Burlap + Sphagnum Moss</text>
         </g>);
 
       default: return null;
@@ -410,20 +417,20 @@ function AirLayeringSimulator() {
           return (
             <g key={`r${i}`} filter="url(#gl)">
               <path d={`M${stemL - 2},${sy} Q${stemL - len * 0.5 - 4},${sy + len * 0.3} ${stemL - len * Math.cos(ang)},${sy + len * Math.sin(ang)}`}
-                stroke="#d4edda" strokeWidth={1.2 + bio.mature * 1.2} fill="none" opacity={rootOpacity} />
+                stroke={rootColor} strokeWidth={1.2 + bio.mature * 1.2} fill="none" opacity={rootOpacity} />
               <path d={`M${stemR + 2},${sy} Q${stemR + len * 0.5 + 4},${sy + len * 0.3} ${stemR + len * Math.cos(ang)},${sy + len * Math.sin(ang)}`}
-                stroke="#d4edda" strokeWidth={1.2 + bio.mature * 1.2} fill="none" opacity={rootOpacity} />
+                stroke={rootColor} strokeWidth={1.2 + bio.mature * 1.2} fill="none" opacity={rootOpacity} />
               {bio.mature > 0.3 && <>
                 <line x1={stemL - len * Math.cos(ang)} y1={sy + len * Math.sin(ang)}
                   x2={stemL - len * Math.cos(ang) - branchLen * 0.7} y2={sy + len * Math.sin(ang) + branchLen}
-                  stroke="#d4edda" strokeWidth={0.8} opacity={bio.mature * 0.6 * bio.rootMult} />
+                  stroke={rootColor} strokeWidth={0.8} opacity={bio.mature * 0.6 * bio.rootMult} />
                 <line x1={stemR + len * Math.cos(ang)} y1={sy + len * Math.sin(ang)}
                   x2={stemR + len * Math.cos(ang) + branchLen * 0.7} y2={sy + len * Math.sin(ang) + branchLen}
-                  stroke="#d4edda" strokeWidth={0.8} opacity={bio.mature * 0.6 * bio.rootMult} />
+                  stroke={rootColor} strokeWidth={0.8} opacity={bio.mature * 0.6 * bio.rootMult} />
               </>}
               {bio.mature > 0.7 && <>
-                <circle cx={stemL - len * Math.cos(ang)} cy={sy + len * Math.sin(ang)} r={1.5} fill="#d4edda" opacity={0.5 * bio.rootMult} />
-                <circle cx={stemR + len * Math.cos(ang)} cy={sy + len * Math.sin(ang)} r={1.5} fill="#d4edda" opacity={0.5 * bio.rootMult} />
+                <circle cx={stemL - len * Math.cos(ang)} cy={sy + len * Math.sin(ang)} r={1.5} fill={rootColor} opacity={0.5 * bio.rootMult} />
+                <circle cx={stemR + len * Math.cos(ang)} cy={sy + len * Math.sin(ang)} r={1.5} fill={rootColor} opacity={0.5 * bio.rootMult} />
               </>}
             </g>
           );
@@ -432,11 +439,11 @@ function AirLayeringSimulator() {
 
       {/* Labels */}
       <g fontSize={9} fontFamily="sans-serif">
-        <line x1={stemL - 6} y1={55} x2={stemL + barkW / 2} y2={55} stroke="#9ca3af" strokeWidth={0.5} />
+        <line x1={stemL - 6} y1={55} x2={stemL + barkW / 2} y2={55} stroke={svgStroke} strokeWidth={0.5} />
         <text x={stemL - 8} y={58} textAnchor="end" fill="#d97706">Phloem</text>
-        <line x1={stemL - 6} y1={75} x2={stemL + barkW + 1} y2={75} stroke="#9ca3af" strokeWidth={0.5} />
+        <line x1={stemL - 6} y1={75} x2={stemL + barkW + 1} y2={75} stroke={svgStroke} strokeWidth={0.5} />
         <text x={stemL - 8} y={78} textAnchor="end" fill="#22c55e">Cambium</text>
-        <line x1={stemR + 6} y1={95} x2={svgCx + 4} y2={95} stroke="#9ca3af" strokeWidth={0.5} />
+        <line x1={stemR + 6} y1={95} x2={svgCx + 4} y2={95} stroke={svgStroke} strokeWidth={0.5} />
         <text x={stemR + 8} y={98} textAnchor="start" fill="#60a5fa">Xylem</text>
       </g>
 
@@ -508,8 +515,8 @@ function AirLayeringSimulator() {
           const r = outerR + 6 + bio.roots * 20 + bio.mature * 16;
           return (
             <g key={i}>
-              <line x1={ccx + (outerR + 2) * Math.cos(a)} y1={ccy + (outerR + 2) * Math.sin(a)} x2={ccx + r * Math.cos(a)} y2={ccy + r * Math.sin(a)} stroke="#d4edda" strokeWidth={1 + bio.mature} opacity={0.3 + bio.rootMult * 0.4} />
-              <circle cx={ccx + r * Math.cos(a)} cy={ccy + r * Math.sin(a)} r={2 + bio.mature * 2} fill="#d4edda" opacity={0.4 + bio.rootMult * 0.3} filter="url(#gl2)" />
+              <line x1={ccx + (outerR + 2) * Math.cos(a)} y1={ccy + (outerR + 2) * Math.sin(a)} x2={ccx + r * Math.cos(a)} y2={ccy + r * Math.sin(a)} stroke={rootColor} strokeWidth={1 + bio.mature} opacity={0.3 + bio.rootMult * 0.4} />
+              <circle cx={ccx + r * Math.cos(a)} cy={ccy + r * Math.sin(a)} r={2 + bio.mature * 2} fill={rootColor} opacity={0.4 + bio.rootMult * 0.3} filter="url(#gl2)" />
             </g>
           );
         })}
@@ -615,7 +622,7 @@ function AirLayeringSimulator() {
                   background: i <= stage.index ? "#C8A951" : "transparent",
                 }} />
               </div>
-              <div style={{ fontSize: 8, color: i === stage.index ? "#9ca3af" : "#3a4a3a", textAlign: "center", marginTop: 3 }}>{s.name}</div>
+              <div style={{ fontSize: 8, color: i === stage.index ? mutedText : dimText, textAlign: "center", marginTop: 3 }}>{s.name}</div>
             </div>
           ))}
         </div>
@@ -660,7 +667,7 @@ function AirLayeringSimulator() {
                     }} />
                     <span style={{
                       fontSize: 8, marginTop: 1,
-                      color: isPast ? "#6b7280" : "#3a4a3a",
+                      color: isPast ? "#6b7280" : dimText,
                       whiteSpace: "nowrap",
                     }}>
                       {weekNum}w
@@ -709,13 +716,13 @@ function AirLayeringSimulator() {
         </div>
 
         {/* Legend */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center", marginBottom: 12, fontSize: 11, color: "#9ca3af" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center", marginBottom: 12, fontSize: 11, color: mutedText }}>
           {[
             { c: "#60a5fa", l: "Water flow ↑" },
             { c: "#fbbf24", l: "Sugar/Auxin ↓" },
             { c: "#22c55e", l: "Cambium" },
             { c: "#facc15", l: "Callus" },
-            { c: "#d4edda", l: "Adv. Roots" },
+            { c: rootColor, l: "Adv. Roots" },
           ].map(({ c, l }) => (
             <span key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: c, display: "inline-block" }} />{l}
@@ -730,9 +737,9 @@ function AirLayeringSimulator() {
             <span style={{ fontSize: 15, fontWeight: 700, color: stage.color }}>{stage.name}</span>
             <span style={{ fontSize: 11, color: "#6b7280", marginLeft: "auto" }}>Days {stage.dayRange[0]}–{stage.dayRange[1]}</span>
           </div>
-          <p style={{ fontSize: 14, color: "#d1d5db", lineHeight: 1.65, marginBottom: 10 }}>{stage.description}</p>
+          <p style={{ fontSize: 14, color: lightMode ? "#1f2937" : "#d1d5db", lineHeight: 1.65, marginBottom: 10 }}>{stage.description}</p>
           <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Cellular Events</div>
-          <p style={{ fontSize: 13, color: "#9ca3af", lineHeight: 1.6 }}>{stage.cellular}</p>
+          <p style={{ fontSize: 13, color: mutedText, lineHeight: 1.6 }}>{stage.cellular}</p>
           {/* Dynamic outcome based on current wrap/moisture conditions */}
           {wrap !== "none" && effDay > 14 && bio.rootMult < 0.9 && (
             <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, fontSize: 12, lineHeight: 1.5,
@@ -757,7 +764,7 @@ function AirLayeringSimulator() {
           <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Treatment Effects</div>
           <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto 1fr", gap: "6px 16px", fontSize: 13 }}>
             <span style={{ color: "#6b7280" }}>Hormone:</span><span>{hData.label}</span>
-            <span style={{ color: "#6b7280" }}>Speed:</span><span style={{ color: hData.speed > 1 ? "#C8A951" : "#9ca3af" }}>{hData.speed}×</span>
+            <span style={{ color: "#6b7280" }}>Speed:</span><span style={{ color: hData.speed > 1 ? "#C8A951" : mutedText }}>{hData.speed}×</span>
             <span style={{ color: "#6b7280" }}>Callus:</span><span>{hData.quality}</span>
             <span style={{ color: "#6b7280" }}>Root Density:</span><span>{hData.density}</span>
             <span style={{ color: "#6b7280" }}>Wrap:</span><span>{wData.label}</span>
@@ -774,7 +781,7 @@ function AirLayeringSimulator() {
           </div>
         </div>
 
-        <div style={{ textAlign: "center", marginTop: 12, fontSize: 10, color: "#3a4a3a" }}>
+        <div style={{ textAlign: "center", marginTop: 12, fontSize: 10, color: dimText }}>
           Arkansas Tech University · Department of Agricultural Sciences · Russellville, AR
         </div>
       </div>
