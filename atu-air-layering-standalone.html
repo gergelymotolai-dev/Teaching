@@ -230,8 +230,8 @@ function AirLayeringSimulator() {
         return (<g>
           {moss}
           {/* Solid dark wrap with slight sheen */}
-          <rect x={wx} y={wy} width={ww} height={wh} rx={12} fill="#1a1a2e" opacity={0.5} />
-          <rect x={wx} y={wy} width={ww} height={wh} rx={12} fill="none" stroke="#334155" strokeWidth={2.5} opacity={0.8} />
+          <rect x={wx} y={wy} width={ww} height={wh} rx={12} fill="#1a1a2e" opacity={lightMode ? 0.25 : 0.5} />
+          <rect x={wx} y={wy} width={ww} height={wh} rx={12} fill="none" stroke={lightMode ? "#1f2937" : "#334155"} strokeWidth={2.5} opacity={0.8} />
           {/* Plastic tie marks at edges */}
           <line x1={wx + 8} y1={wy + 4} x2={wx + 8} y2={wy + wh - 4} stroke="#475569" strokeWidth={1} opacity={0.4} strokeDasharray="2 6" />
           <line x1={wx + ww - 8} y1={wy + 4} x2={wx + ww - 8} y2={wy + wh - 4} stroke="#475569" strokeWidth={1} opacity={0.4} strokeDasharray="2 6" />
