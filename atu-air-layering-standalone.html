@@ -191,6 +191,9 @@ function AirLayeringSimulator() {
   const svgStroke = lightMode ? "#6b7280" : "#9ca3af";
   const mutedText = lightMode ? "#4b5563" : "#9ca3af";
   const dimText = lightMode ? "#9ca3af" : "#3a4a3a";
+  const labelText = lightMode ? "#374151" : "#6b7280";
+  const sugarColor = lightMode ? "#b45309" : "#fbbf24";
+  const waterLabel = lightMode ? "#1d4ed8" : "#93c5fd";
 
   // Flow particle positions (animated)
   const waterParticles = useMemo(() => {
@@ -365,14 +368,14 @@ function AirLayeringSimulator() {
           // Show accumulated particles at girdle edge
           return (
             <g key={`sp${i}`} filter="url(#wglow)">
-              <circle cx={side} cy={gY - 2 - (i % 3) * 3} r={2} fill="#fbbf24" opacity={0.6 + Math.sin(tick * 0.1 + i) * 0.2} />
+              <circle cx={side} cy={gY - 2 - (i % 3) * 3} r={2} fill={sugarColor} opacity={0.6 + Math.sin(tick * 0.1 + i) * 0.2} />
             </g>
           );
         }
         return (
           <g key={`sp${i}`} filter="url(#wglow)">
-            <circle cx={side} cy={y} r={2} fill="#fbbf24" opacity={0.6} />
-            <line x1={side} y1={y - 6} x2={side} y2={y - 1} stroke="#fbbf24" strokeWidth={0.8} opacity={0.3} />
+            <circle cx={side} cy={y} r={2} fill={sugarColor} opacity={0.6} />
+            <line x1={side} y1={y - 6} x2={side} y2={y - 1} stroke={sugarColor} strokeWidth={0.8} opacity={0.3} />
           </g>
         );
       })}
@@ -394,7 +397,7 @@ function AirLayeringSimulator() {
       {showGirdle && effDay >= 2 && <>
         <ellipse cx={stemL + barkW / 2} cy={gY} rx={5 + bio.callus * 8} ry={4 + bio.callus * 5} fill="#d97706" opacity={0.4 + bio.callus * 0.3} filter="url(#gl)" />
         <ellipse cx={stemR - barkW / 2} cy={gY} rx={5 + bio.callus * 8} ry={4 + bio.callus * 5} fill="#d97706" opacity={0.4 + bio.callus * 0.3} filter="url(#gl)" />
-        <text x={svgCx} y={gY - 12} textAnchor="middle" fill="#fbbf24" fontSize={9} fontFamily="sans-serif" fontWeight="600" opacity={0.8}>AUXIN / SUGAR ACCUMULATION</text>
+        <text x={svgCx} y={gY - 12} textAnchor="middle" fill={sugarColor} fontSize={9} fontFamily="sans-serif" fontWeight="600" opacity={0.8}>AUXIN / SUGAR ACCUMULATION</text>
       </>}
 
       {/* Callus tissue */}
@@ -450,9 +453,9 @@ function AirLayeringSimulator() {
       {/* Flow legend at bottom */}
       <g fontSize={8} fontFamily="sans-serif">
         <circle cx={svgCx - 70} cy={H - 10} r={2.5} fill="#60a5fa" opacity={0.7} />
-        <text x={svgCx - 64} y={H - 7} fill="#93c5fd" opacity={0.7}>Water ↑</text>
-        <circle cx={svgCx + 20} cy={H - 10} r={2} fill="#fbbf24" opacity={0.7} />
-        <text x={svgCx + 26} y={H - 7} fill="#fbbf24" opacity={0.7}>Sugars/Auxin ↓</text>
+        <text x={svgCx - 64} y={H - 7} fill={waterLabel} opacity={0.85}>Water ↑</text>
+        <circle cx={svgCx + 20} cy={H - 10} r={2} fill={sugarColor} opacity={0.7} />
+        <text x={svgCx + 26} y={H - 7} fill={sugarColor} opacity={0.7}>Sugars/Auxin ↓</text>
       </g>
     </svg>
   );
@@ -498,11 +501,11 @@ function AirLayeringSimulator() {
         {!girdled && [0,1,2].map(i => {
           const a = ((tick * 1.8 + i * 120) % 360) * Math.PI / 180;
           const r = (outerR + phlR) / 2;
-          return <circle key={`xs${i}`} cx={ccx + r * Math.cos(a)} cy={ccy + r * Math.sin(a)} r={2} fill="#fbbf24" opacity={0.5} filter="url(#wg2)" />;
+          return <circle key={`xs${i}`} cx={ccx + r * Math.cos(a)} cy={ccy + r * Math.sin(a)} r={2} fill={sugarColor} opacity={0.5} filter="url(#wg2)" />;
         })}
 
         <circle cx={ccx} cy={ccy} r={pithR} fill="#0f1f0f" stroke="#2d4a2d" strokeWidth={1} />
-        <text x={ccx} y={ccy + 4} textAnchor="middle" fill="#6b7280" fontSize={9} fontFamily="sans-serif">Pith</text>
+        <text x={ccx} y={ccy + 4} textAnchor="middle" fill={labelText} fontSize={9} fontFamily="sans-serif">Pith</text>
 
         {bio.callus > 0 && Array.from({ length: 8 }).map((_, i) => {
           const a = (i * 45) * Math.PI / 180;
@@ -587,7 +590,7 @@ function AirLayeringSimulator() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, flexWrap: "wrap", gap: 8 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#C8A951", letterSpacing: -0.5 }}>Air Layering Simulator</h1>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 12, color: "#6b7280" }}>AGPS 3044 · Plant Propagation · ATU</span>
+            <span style={{ fontSize: 12, color: labelText }}>AGPS 3044 · Plant Propagation · ATU</span>
             <button className="tbtn" onClick={() => setLightMode(!lightMode)} aria-label="Toggle theme" title={lightMode ? "Switch to dark mode" : "Switch to light mode"}>
               {lightMode ? "🌙 Dark" : "☀ Light"}
             </button>
@@ -605,7 +608,7 @@ function AirLayeringSimulator() {
             { l: "Risk", v: riskInfo.level === "high" ? "HIGH" : riskInfo.level === "mod" ? "MODERATE" : "Low", c: riskInfo.level === "high" ? "#ef4444" : riskInfo.level === "mod" ? "#eab308" : "#C8A951" },
           ].map(({ l, v, c }) => (
             <div key={l} className="sc" style={{ padding: "10px 12px" }}>
-              <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{l}</div>
+              <div style={{ fontSize: 10, color: labelText, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{l}</div>
               <div style={{ fontSize: 13, fontWeight: 600, color: c || "#e5e7eb" }}>{v}</div>
             </div>
           ))}
@@ -634,14 +637,14 @@ function AirLayeringSimulator() {
 
         {/* Controls */}
         <div className="sc" style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 12 }}>
-          <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1 }}>Controls</div>
+          <div style={{ fontSize: 10, color: labelText, textTransform: "uppercase", letterSpacing: 1 }}>Controls</div>
 
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
               <button className={`sb ${playing ? "on" : ""}`} onClick={() => setPlaying(!playing)} style={{ width: 70, flexShrink: 0 }}>
                 {playing ? "Pause" : "▶ Play"}
               </button>
-              <span style={{ fontSize: 12, color: "#6b7280", whiteSpace: "nowrap" }}>Day</span>
+              <span style={{ fontSize: 12, color: labelText, whiteSpace: "nowrap" }}>Day</span>
               <div className="slc">
                 <input type="range" min={0} max={MAX} value={day}
                   onChange={e => { setDay(Number(e.target.value)); setPlaying(false); }} />
@@ -667,7 +670,7 @@ function AirLayeringSimulator() {
                     }} />
                     <span style={{
                       fontSize: 8, marginTop: 1,
-                      color: isPast ? "#6b7280" : dimText,
+                      color: isPast ? labelText : dimText,
                       whiteSpace: "nowrap",
                     }}>
                       {weekNum}w
@@ -685,13 +688,13 @@ function AirLayeringSimulator() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 12, color: "#6b7280", width: 70, flexShrink: 0 }}>View</span>
+            <span style={{ fontSize: 12, color: labelText, width: 70, flexShrink: 0 }}>View</span>
             <button className={`sb ${view === "long" ? "on" : ""}`} onClick={() => setView("long")}>Longitudinal</button>
             <button className={`sb ${view === "cross" ? "on" : ""}`} onClick={() => setView("cross")}>Cross Section</button>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 12, color: "#6b7280", width: 70, flexShrink: 0 }}>Hormone</span>
+            <span style={{ fontSize: 12, color: labelText, width: 70, flexShrink: 0 }}>Hormone</span>
             {Object.keys(HORMONES).map(k => (
               <button key={k} className={`sb ${hormone === k ? "on" : ""}`} onClick={() => setHormone(k)}>
                 {k === "none" ? "None" : k === "standard" ? "IBA 3K" : "IBA 8K"}
@@ -700,12 +703,12 @@ function AirLayeringSimulator() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 12, color: "#6b7280", width: 70, flexShrink: 0 }}>Wrap</span>
+            <span style={{ fontSize: 12, color: labelText, width: 70, flexShrink: 0 }}>Wrap</span>
             <select className="ssel" value={wrap} onChange={e => setWrap(e.target.value)}>
               {Object.entries(WRAPS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
-              <span style={{ fontSize: 12, color: "#6b7280" }}>Moisture</span>
+              <span style={{ fontSize: 12, color: labelText }}>Moisture</span>
               <button className="stog" onClick={() => setMoistureOn(!moistureOn)}
                 style={{ background: moistureOn ? "#00573F" : "#374151" }}>
                 <div className="k" style={{ left: moistureOn ? 22 : 2 }} />
@@ -719,7 +722,7 @@ function AirLayeringSimulator() {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center", marginBottom: 12, fontSize: 11, color: mutedText }}>
           {[
             { c: "#60a5fa", l: "Water flow ↑" },
-            { c: "#fbbf24", l: "Sugar/Auxin ↓" },
+            { c: sugarColor, l: "Sugar/Auxin ↓" },
             { c: "#22c55e", l: "Cambium" },
             { c: "#facc15", l: "Callus" },
             { c: rootColor, l: "Adv. Roots" },
@@ -735,10 +738,10 @@ function AirLayeringSimulator() {
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <div style={{ width: 10, height: 10, borderRadius: "50%", background: stage.color, flexShrink: 0, animation: playing ? "p2 1.5s infinite" : "none" }} />
             <span style={{ fontSize: 15, fontWeight: 700, color: stage.color }}>{stage.name}</span>
-            <span style={{ fontSize: 11, color: "#6b7280", marginLeft: "auto" }}>Days {stage.dayRange[0]}–{stage.dayRange[1]}</span>
+            <span style={{ fontSize: 11, color: labelText, marginLeft: "auto" }}>Days {stage.dayRange[0]}–{stage.dayRange[1]}</span>
           </div>
           <p style={{ fontSize: 14, color: lightMode ? "#1f2937" : "#d1d5db", lineHeight: 1.65, marginBottom: 10 }}>{stage.description}</p>
-          <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Cellular Events</div>
+          <div style={{ fontSize: 10, color: labelText, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Cellular Events</div>
           <p style={{ fontSize: 13, color: mutedText, lineHeight: 1.6 }}>{stage.cellular}</p>
           {/* Dynamic outcome based on current wrap/moisture conditions */}
           {wrap !== "none" && effDay > 14 && bio.rootMult < 0.9 && (
@@ -761,15 +764,15 @@ function AirLayeringSimulator() {
 
         {/* Treatment */}
         <div className="sc" style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Treatment Effects</div>
+          <div style={{ fontSize: 10, color: labelText, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Treatment Effects</div>
           <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto 1fr", gap: "6px 16px", fontSize: 13 }}>
-            <span style={{ color: "#6b7280" }}>Hormone:</span><span>{hData.label}</span>
-            <span style={{ color: "#6b7280" }}>Speed:</span><span style={{ color: hData.speed > 1 ? "#C8A951" : mutedText }}>{hData.speed}×</span>
-            <span style={{ color: "#6b7280" }}>Callus:</span><span>{hData.quality}</span>
-            <span style={{ color: "#6b7280" }}>Root Density:</span><span>{hData.density}</span>
-            <span style={{ color: "#6b7280" }}>Wrap:</span><span>{wData.label}</span>
-            <span style={{ color: "#6b7280" }}>Light Block:</span><span style={{ color: wrap === "none" || wData.lightBlock ? "#C8A951" : "#ef4444" }}>{wrap === "none" ? "N/A (ideal)" : wData.lightBlock ? "Yes — dark" : "No — light exposed"}</span>
-            <span style={{ color: "#6b7280" }}>Root Quality:</span><span style={{ color: simRootQuality >= 0.8 ? "#C8A951" : simRootQuality >= 0.6 ? "#eab308" : "#ef4444" }}>{Math.round(bio.rootMult * 100)}% effective</span>
+            <span style={{ color: labelText }}>Hormone:</span><span>{hData.label}</span>
+            <span style={{ color: labelText }}>Speed:</span><span style={{ color: hData.speed > 1 ? "#C8A951" : mutedText }}>{hData.speed}×</span>
+            <span style={{ color: labelText }}>Callus:</span><span>{hData.quality}</span>
+            <span style={{ color: labelText }}>Root Density:</span><span>{hData.density}</span>
+            <span style={{ color: labelText }}>Wrap:</span><span>{wData.label}</span>
+            <span style={{ color: labelText }}>Light Block:</span><span style={{ color: wrap === "none" || wData.lightBlock ? "#C8A951" : "#ef4444" }}>{wrap === "none" ? "N/A (ideal)" : wData.lightBlock ? "Yes — dark" : "No — light exposed"}</span>
+            <span style={{ color: labelText }}>Root Quality:</span><span style={{ color: simRootQuality >= 0.8 ? "#C8A951" : simRootQuality >= 0.6 ? "#eab308" : "#ef4444" }}>{Math.round(bio.rootMult * 100)}% effective</span>
           </div>
           {/* Wrap-specific risk note */}
           <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, fontSize: 12,
