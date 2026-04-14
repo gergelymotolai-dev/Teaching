@@ -609,7 +609,7 @@ function AirLayeringSimulator() {
           ].map(({ l, v, c }) => (
             <div key={l} className="sc" style={{ padding: "10px 12px" }}>
               <div style={{ fontSize: 10, color: labelText, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{l}</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: c || "#e5e7eb" }}>{v}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: c || (lightMode ? "#1f2937" : "#e5e7eb") }}>{v}</div>
             </div>
           ))}
         </div>
