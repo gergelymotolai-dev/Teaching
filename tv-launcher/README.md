@@ -17,6 +17,19 @@ it only animates `transform`/`opacity`, so it stays smooth on TV hardware.
 
 Order and hidden apps are saved on the TV.
 
+## Wallpaper
+
+The background rotates through nature photos from
+[Wikimedia Commons' featured pictures](https://commons.wikimedia.org/wiki/Commons:Featured_pictures)
+(landscapes, mountains, forests, waterfalls, beaches and lakes). It needs no
+account or API key, and the photographer and license are shown bottom-right.
+
+- A new photo fades in every 3 minutes; the photo list refreshes daily and is
+  cached, so the launcher starts instantly.
+- Change `categories`, `rotateMinutes` or `refreshListHours` at the top of
+  [`wallpaper.js`](wallpaper.js). Any Commons category name works.
+- With no internet, the plain dark background is used.
+
 ## App list
 
 If the TV lets the app read its installed apps (`listLaunchPoints`), they show

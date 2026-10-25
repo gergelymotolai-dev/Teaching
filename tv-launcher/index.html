@@ -7,6 +7,12 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div id="wallpaper" aria-hidden="true">
+    <div class="wp" id="wp-a"></div>
+    <div class="wp" id="wp-b"></div>
+    <div class="scrim"></div>
+  </div>
+
   <header>
     <div>
       <div id="clock">--:--</div>
@@ -23,9 +29,11 @@
     <span><i class="k red"></i>Move</span>
     <span><i class="k yellow"></i>Hide / unhide</span>
     <span><i class="k blue"></i>Show hidden</span>
+    <span id="credit"></span>
   </footer>
 
   <script src="apps.js"></script>
   <script src="main.js"></script>
+  <script src="wallpaper.js"></script>
 </body>
 </html>

@@ -29,6 +29,35 @@ body {
   padding: 72px 120px 56px;
 }
 
+/* Wallpaper: two stacked layers crossfade via opacity only. */
+#wallpaper { position: fixed; inset: 0; z-index: 0; }
+.wp {
+  position: absolute;
+  inset: 0;
+  background: center / cover no-repeat;
+  opacity: 0;
+  transition: opacity 1.5s ease-in-out;
+}
+.wp.on { opacity: 1; }
+
+/* Darkens the corners where the clock, tiles and footer sit, so text stays
+   readable on bright photos. */
+.scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,.15) 35%, rgba(0,0,0,.25) 60%, rgba(0,0,0,.75) 100%);
+  opacity: 0;
+  transition: opacity 1.5s;
+}
+.has-wallpaper .scrim { opacity: 1; }
+
+header, main, footer { position: relative; z-index: 1; }
+.has-wallpaper #clock, .has-wallpaper #date, .has-wallpaper footer {
+  text-shadow: 0 2px 12px rgba(0,0,0,.6);
+}
+.has-wallpaper #date, .has-wallpaper footer { color: #d7dae3; }
+
 header {
   display: flex;
   justify-content: space-between;
@@ -116,9 +145,20 @@ main {
 
 footer {
   display: flex;
+  align-items: center;
   gap: 48px;
   font-size: 24px;
   color: var(--muted);
+}
+
+#credit {
+  margin-left: auto;
+  max-width: 720px;
+  font-size: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: .8;
 }
 
 .k {
