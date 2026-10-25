@@ -8,27 +8,45 @@ it only animates `transform`/`opacity`, so it stays smooth on TV hardware.
 
 | Remote button | Action |
 |---|---|
-| Arrows / Magic Remote pointer | Move focus |
+| Left / Right, or Magic Remote pointer | Move along the app row |
 | OK | Open app |
 | 🔴 Red | Start moving the focused tile; arrows place it, OK drops it |
 | 🟡 Yellow | Hide or unhide the focused app |
 | 🔵 Blue | Show hidden apps (so you can unhide them) |
 | Back | Cancel the current mode, or exit |
 
-Order and hidden apps are saved on the TV.
+Order and hidden apps are saved on the TV. The colour-button hints fade after a
+few seconds and come back when you press one.
 
 ## Wallpaper
 
-The background rotates through nature photos from
-[Wikimedia Commons' featured pictures](https://commons.wikimedia.org/wiki/Commons:Featured_pictures)
-(landscapes, mountains, forests, waterfalls, beaches and lakes). It needs no
-account or API key, and the photographer and license are shown bottom-right.
+The background crossfades to a new photo every 3 minutes. Photos come from three
+free sources that need no account or API key:
 
-- A new photo fades in every 3 minutes; the photo list refreshes daily and is
-  cached, so the launcher starts instantly.
-- Change `categories`, `rotateMinutes` or `refreshListHours` at the top of
-  [`wallpaper.js`](wallpaper.js). Any Commons category name works.
-- With no internet, the plain dark background is used.
+- **Bing image of the day**: the last 8 days. Today's image is shown first.
+- **Wikimedia Commons Picture of the Day**: recent picks.
+- **Wikimedia Commons featured nature photos**: landscapes, mountains,
+  forests, waterfalls, beaches and lakes.
+
+The photo's title and credit show bottom-right. If one source fails, the others
+still work, and with no internet the plain dark background is used. Switch
+sources on or off, or change the timing, at the top of
+[`wallpaper.js`](wallpaper.js).
+
+## Weather
+
+Current temperature, conditions, and today's high/low come from
+[Open-Meteo](https://open-meteo.com) (free, no key). The location is guessed
+from your internet connection. If it guesses wrong, set `city` at the top of
+[`weather.js`](weather.js), e.g. `city: "Chicago"`. Units follow the TV's
+language (°F for US English) unless you set `units`.
+
+## Sleep and screen saver
+
+The launcher never asks the TV to stay awake, so the TV's own screen saver,
+sleep timer and auto power-off work exactly as before. While the launcher is in
+the background or the TV is asleep, photo rotation and weather updates pause.
+They catch up when you come back.
 
 ## App list
 

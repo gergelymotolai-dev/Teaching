@@ -14,26 +14,38 @@
   </div>
 
   <header>
-    <div>
+    <div class="time">
       <div id="clock">--:--</div>
       <div id="date"></div>
     </div>
-    <div id="mode" hidden></div>
+    <div id="weather" hidden>
+      <div class="now">
+        <span id="w-icon"></span>
+        <span id="w-temp"></span>
+      </div>
+      <div id="w-desc"></div>
+      <div id="w-range"></div>
+    </div>
   </header>
 
-  <main>
-    <div id="grid" role="grid"></div>
-  </main>
+  <div id="mode" hidden></div>
+
+  <section id="row">
+    <div id="track" role="listbox"></div>
+  </section>
 
   <footer>
-    <span><i class="k red"></i>Move</span>
-    <span><i class="k yellow"></i>Hide / unhide</span>
-    <span><i class="k blue"></i>Show hidden</span>
+    <div id="hints">
+      <span><i class="k red"></i>Move</span>
+      <span><i class="k yellow"></i>Hide / unhide</span>
+      <span><i class="k blue"></i>Show hidden</span>
+    </div>
     <span id="credit"></span>
   </footer>
 
   <script src="apps.js"></script>
   <script src="main.js"></script>
+  <script src="weather.js"></script>
   <script src="wallpaper.js"></script>
 </body>
 </html>

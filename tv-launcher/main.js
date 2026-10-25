@@ -3,16 +3,19 @@
 
   var KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, OK: 13, BACK: 461,
               RED: 403, YELLOW: 405, BLUE: 406, ESC: 27 };
-  var COLS = 6;
+  var TILE_STEP = 340;  // --tile-w + --gap in style.css
+  var EDGE = 120;       // --edge in style.css
   var STORE = "minilauncher.v1";
 
-  var grid = document.getElementById("grid");
+  var track = document.getElementById("track");
   var modeEl = document.getElementById("mode");
+  var hintsEl = document.getElementById("hints");
 
   var apps = [];        // full ordered list of { id, title, color, icon }
   var visible = [];     // apps currently drawn
   var hidden = {};      // id -> true
   var focus = 0;
+  var first = 0;        // index of the leftmost tile in view
   var moving = false;
   var showHidden = false;
 
@@ -53,7 +56,7 @@
           .filter(function (lp) { return lp.id !== "com.motolai.minilauncher"; })
           .map(function (lp) {
             return { id: lp.id, title: lp.title,
-                     color: lp.bgColor || "#1a1d24",
+                     color: lp.bgColor || "#2a2d35",
                      icon: lp.largeIcon || lp.icon };
           });
         if (!list.length) throw new Error("empty");
@@ -103,10 +106,10 @@
       img.alt = "";
       el.appendChild(img);
     } else {
-      var g = document.createElement("div");
-      g.className = "glyph";
-      g.textContent = app.title.charAt(0);
-      el.appendChild(g);
+      var logo = document.createElement("div");
+      logo.className = "logo";
+      logo.textContent = app.title;
+      el.appendChild(logo);
     }
     var name = document.createElement("div");
     name.className = "name";
@@ -123,20 +126,29 @@
       el.dataset.index = i;
       frag.appendChild(el);
     });
-    grid.textContent = "";
-    grid.appendChild(frag);
+    track.textContent = "";
+    track.appendChild(frag);
     focus = Math.max(0, Math.min(focus, visible.length - 1));
     paintFocus();
   }
 
+  // Slide the row only when focus would leave the screen.
+  function scrollRow() {
+    var inView = Math.max(1, Math.floor((window.innerWidth - EDGE - 40) / TILE_STEP));
+    if (focus < first) first = focus;
+    else if (focus >= first + inView) first = focus - inView + 1;
+    first = Math.max(0, Math.min(first, Math.max(0, visible.length - inView)));
+    track.style.transform = "translateX(" + (-first * TILE_STEP) + "px)";
+  }
+
   function paintFocus() {
-    var prev = grid.querySelector(".focus");
+    var prev = track.querySelector(".focus");
     if (prev) prev.classList.remove("focus", "moving");
-    var el = grid.children[focus];
+    var el = track.children[focus];
     if (!el) return;
     el.classList.add("focus");
-    el.scrollIntoView({ block: "nearest" });
     if (moving) el.classList.add("moving");
+    scrollRow();
   }
 
   function setMode() {
@@ -185,19 +197,27 @@
     render();
   }
 
+  // Button hints show briefly at launch and whenever a colour key is used.
+  var hintTimer;
+  function flashHints() {
+    hintsEl.classList.remove("faded");
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(function () { hintsEl.classList.add("faded"); }, 8000);
+  }
+
   document.addEventListener("keydown", function (e) {
     switch (e.keyCode) {
       case KEY.LEFT:  step(-1); break;
       case KEY.RIGHT: step(1); break;
-      case KEY.UP:    step(-COLS); break;
-      case KEY.DOWN:  step(COLS); break;
+      case KEY.UP:
+      case KEY.DOWN:  break;
       case KEY.OK:
         if (moving) toggleMove();
         else if (visible[focus]) launch(visible[focus].id);
         break;
-      case KEY.RED:    toggleMove(); break;
-      case KEY.YELLOW: if (!moving) toggleHidden(); break;
-      case KEY.BLUE:   if (!moving) toggleShowHidden(); break;
+      case KEY.RED:    toggleMove(); flashHints(); break;
+      case KEY.YELLOW: if (!moving) toggleHidden(); flashHints(); break;
+      case KEY.BLUE:   if (!moving) toggleShowHidden(); flashHints(); break;
       case KEY.BACK:
       case KEY.ESC:
         if (moving) toggleMove();
@@ -210,13 +230,13 @@
   });
 
   // Magic Remote pointer: hover focuses, click launches.
-  grid.addEventListener("mouseover", function (e) {
+  track.addEventListener("mouseover", function (e) {
     var el = e.target.closest(".tile");
     if (!el || moving) return;
     focus = +el.dataset.index;
     paintFocus();
   });
-  grid.addEventListener("click", function (e) {
+  track.addEventListener("click", function (e) {
     var el = e.target.closest(".tile");
     if (el && !moving) launch(visible[+el.dataset.index].id);
   });
@@ -225,16 +245,25 @@
 
   var clockEl = document.getElementById("clock");
   var dateEl = document.getElementById("date");
+  var clockTimer;
   function tick() {
     var d = new Date();
-    clockEl.textContent = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    clockEl.textContent = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+      .replace(/\s?[AP]M$/i, "");
     dateEl.textContent = d.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
-    setTimeout(tick, (60 - d.getSeconds()) * 1000);
+    clearTimeout(clockTimer);
+    clockTimer = setTimeout(tick, (60 - d.getSeconds()) * 1000);
   }
+
+  // Timers can drift while the TV sleeps or the app is in the background.
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) tick();
+  });
 
   // ---- Boot -----------------------------------------------------------------
 
   tick();
+  flashHints();
   var prefs = loadPrefs();
   // Draw the fallback list immediately, then swap in installed apps if available.
   apps = applyPrefs(DEFAULT_APPS, prefs);

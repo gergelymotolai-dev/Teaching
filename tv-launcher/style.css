@@ -1,13 +1,17 @@
-/* Sized for a 1920x1080 webOS viewport. No blur/backdrop-filter or large
-   shadows: they are the main cause of jank on TV GPUs. Focus only animates
-   transform/opacity so it stays on the compositor. */
+/* Sized for a 1920x1080 webOS viewport. No blur/backdrop-filter or animated
+   shadows: they are the main cause of jank on TV GPUs. Focus and scrolling
+   only animate transform/opacity so they stay on the compositor. */
 :root {
   --bg: #0b0c0f;
-  --fg: #f2f3f5;
-  --muted: #8b90a0;
-  --tile: #1a1d24;
+  --fg: #f5f6f8;
+  --muted: #c9ccd6;
+  --tile: #2a2d35;
   --accent: #7c8cff;
-  --radius: 22px;
+  --tile-w: 300px;   /* keep in sync with TILE_STEP in main.js */
+  --tile-h: 170px;
+  --gap: 40px;
+  --edge: 120px;
+  --radius: 20px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -22,15 +26,11 @@ html, body {
   cursor: default;
 }
 
-body {
-  background: radial-gradient(1200px 700px at 15% 0%, #171a24 0%, var(--bg) 70%);
-  display: flex;
-  flex-direction: column;
-  padding: 72px 120px 56px;
-}
+body { background: radial-gradient(1200px 700px at 15% 0%, #1b2030 0%, var(--bg) 70%); }
 
-/* Wallpaper: two stacked layers crossfade via opacity only. */
-#wallpaper { position: fixed; inset: 0; z-index: 0; }
+/* ---- Wallpaper: two stacked layers crossfade via opacity only ---------- */
+
+#wallpaper { position: fixed; inset: 0; }
 .wp {
   position: absolute;
   inset: 0;
@@ -40,133 +40,159 @@ body {
 }
 .wp.on { opacity: 1; }
 
-/* Darkens the corners where the clock, tiles and footer sit, so text stays
-   readable on bright photos. */
+/* Darkens the top and bottom, where text and apps sit. */
 .scrim {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,.15) 35%, rgba(0,0,0,.25) 60%, rgba(0,0,0,.75) 100%);
+  background: linear-gradient(180deg,
+    rgba(0,0,0,.5) 0%, rgba(0,0,0,0) 32%, rgba(0,0,0,0) 48%, rgba(0,0,0,.72) 100%);
   opacity: 0;
   transition: opacity 1.5s;
 }
 .has-wallpaper .scrim { opacity: 1; }
 
-header, main, footer { position: relative; z-index: 1; }
-.has-wallpaper #clock, .has-wallpaper #date, .has-wallpaper footer {
-  text-shadow: 0 2px 12px rgba(0,0,0,.6);
-}
-.has-wallpaper #date, .has-wallpaper footer { color: #d7dae3; }
+header, #row, footer, #mode { position: absolute; z-index: 1; }
+
+/* ---- Time and weather ---------------------------------------------------- */
 
 header {
+  top: 72px;
+  left: var(--edge);
+  right: var(--edge);
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: 64px;
+  align-items: flex-start;
+  text-shadow: 0 2px 16px rgba(0,0,0,.45);
 }
 
-#clock { font-size: 112px; font-weight: 300; letter-spacing: -3px; line-height: 1; }
-#date { font-size: 32px; color: var(--muted); margin-top: 12px; }
+#clock { font-size: 140px; font-weight: 200; letter-spacing: -4px; line-height: 1; }
+#date { font-size: 36px; color: var(--muted); margin-top: 14px; }
+
+#weather { text-align: right; }
+#weather .now { display: flex; align-items: center; justify-content: flex-end; gap: 20px; }
+#w-icon svg { width: 88px; height: 88px; display: block; }
+#w-temp { font-size: 96px; font-weight: 200; line-height: 1; }
+#w-desc { font-size: 32px; margin-top: 12px; }
+#w-range { font-size: 26px; color: var(--muted); margin-top: 6px; }
 
 #mode {
-  font-size: 28px;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 26px;
   padding: 12px 26px;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--fg);
   color: #0b0c0f;
   font-weight: 600;
 }
 
-/* Padding leaves room for the focus scale; the grid scrolls when long. */
-main {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  padding: 20px;
-  margin: -20px -20px 16px;
-  scroll-padding: 20px;
+/* ---- App row --------------------------------------------------------------- */
+
+#row {
+  left: 0;
+  right: 0;
+  bottom: 170px;
+  height: calc(var(--tile-h) + 70px);
+  padding-left: var(--edge);
 }
 
-#grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 36px;
+#track {
+  display: flex;
+  gap: var(--gap);
+  transition: transform 220ms cubic-bezier(.2, .8, .2, 1);
+  will-change: transform;
 }
 
 .tile {
   position: relative;
-  height: 172px;
+  flex: none;
+  width: var(--tile-w);
+  height: var(--tile-h);
   border-radius: var(--radius);
   background: var(--tile);
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 22px 24px;
-  overflow: hidden;
-  transition: transform 120ms ease-out;
+  align-items: center;
+  justify-content: center;
+  transition: transform 160ms ease-out;
   will-change: transform;
 }
 
-.tile .glyph {
-  position: absolute;
-  top: 18px;
-  left: 24px;
-  font-size: 56px;
+.tile img { max-width: 52%; max-height: 52%; }
+
+.tile .logo {
+  font-size: 34px;
   font-weight: 700;
-  opacity: .9;
+  letter-spacing: -.5px;
+  text-align: center;
+  padding: 0 20px;
 }
 
-.tile img {
+/* Name shows under the focused tile only, like Apple TV. */
+.tile .name {
   position: absolute;
-  inset: 0;
-  margin: auto;
-  max-width: 60%;
-  max-height: 60%;
+  top: calc(100% + 18px);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 160ms;
+  text-shadow: 0 2px 10px rgba(0,0,0,.6);
+  white-space: nowrap;
 }
 
-.tile .name { position: relative; font-size: 26px; font-weight: 500; }
-
-/* Focus ring is a pseudo-element so toggling it never triggers layout. */
+/* Lift shadow + edge highlight live on a pseudo-element; only its opacity
+   changes, so focusing never repaints a shadow. */
 .tile::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: var(--radius);
-  box-shadow: inset 0 0 0 5px var(--fg);
+  box-shadow: 0 24px 40px rgba(0,0,0,.5), inset 0 0 0 3px rgba(255,255,255,.9);
   opacity: 0;
-  transition: opacity 120ms ease-out;
+  transition: opacity 160ms ease-out;
 }
 
-.tile.focus { transform: scale(1.08); z-index: 1; }
-.tile.focus::after { opacity: 1; }
-.tile.moving { transform: scale(1.08) translateY(-10px); }
-.tile.moving::after { box-shadow: inset 0 0 0 5px var(--accent); }
+.tile.focus { transform: scale(1.14) translateY(-8px); z-index: 1; }
+.tile.focus::after, .tile.focus .name { opacity: 1; }
+.tile.moving { transform: scale(1.14) translateY(-22px); }
+.tile.moving::after { box-shadow: 0 30px 44px rgba(0,0,0,.55), inset 0 0 0 4px var(--accent); }
 .tile.hidden-app { opacity: .35; }
 
+/* ---- Footer ---------------------------------------------------------------- */
+
 footer {
+  left: var(--edge);
+  right: var(--edge);
+  bottom: 56px;
   display: flex;
   align-items: center;
-  gap: 48px;
-  font-size: 24px;
+  font-size: 22px;
   color: var(--muted);
+  text-shadow: 0 2px 10px rgba(0,0,0,.6);
 }
+
+#hints { display: flex; gap: 40px; transition: opacity 1s; }
+#hints.faded { opacity: 0; }
 
 #credit {
   margin-left: auto;
-  max-width: 720px;
-  font-size: 20px;
+  max-width: 900px;
+  font-size: 18px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  opacity: .8;
+  opacity: .75;
 }
 
 .k {
   display: inline-block;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 6px;
-  margin-right: 12px;
+  margin-right: 10px;
   vertical-align: -3px;
 }
 .k.red { background: #e5484d; }
