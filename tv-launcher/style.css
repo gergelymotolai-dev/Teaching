@@ -51,7 +51,34 @@ body { background: radial-gradient(1200px 700px at 15% 0%, #1b2030 0%, var(--bg)
 }
 .has-wallpaper .scrim { opacity: 1; }
 
-header, #row, footer, #mode { position: absolute; z-index: 1; }
+header, #row, footer, #mode, #offline { position: absolute; z-index: 1; }
+
+/* Night dimming: a black layer over the photo, faded in by opacity. */
+#wallpaper::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  transition: opacity 3s;
+}
+.night #wallpaper::after { opacity: .35; }
+
+/* Ambient mode: only the photo and clock remain. */
+header, #row, footer, #weather { transition: opacity 1.2s ease; }
+.ambient #row, .ambient footer, .ambient #weather { opacity: 0; }
+.ambient .scrim { opacity: .5; }
+
+#offline {
+  top: 150px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 24px;
+  padding: 10px 24px;
+  border-radius: 999px;
+  background: rgba(229, 72, 77, .92);
+  color: #fff;
+}
 
 /* ---- Time and weather ---------------------------------------------------- */
 
@@ -74,6 +101,11 @@ header {
 #w-temp { font-size: 96px; font-weight: 200; line-height: 1; }
 #w-desc { font-size: 32px; margin-top: 12px; }
 #w-range { font-size: 26px; color: var(--muted); margin-top: 6px; }
+
+#w-days { display: flex; justify-content: flex-end; gap: 28px; margin-top: 22px; }
+.day { text-align: center; font-size: 22px; color: var(--muted); }
+.day svg { width: 40px; height: 40px; display: block; margin: 6px auto; color: var(--fg); }
+.day b { color: var(--fg); font-weight: 500; }
 
 #mode {
   top: 80px;
@@ -198,3 +230,48 @@ footer {
 .k.red { background: #e5484d; }
 .k.yellow { background: #f5d90a; }
 .k.blue { background: #3e63dd; }
+.k.green { background: #30a46c; }
+
+/* ---- Settings panel -------------------------------------------------------- */
+
+#settings {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 760px;
+  padding: 72px 56px 48px;
+  background: #12141a;
+  display: flex;
+  flex-direction: column;
+}
+#settings[hidden] { display: none; }
+.s-title { font-size: 48px; font-weight: 300; margin-bottom: 24px; }
+#settings-list { flex: 1; overflow: hidden; }
+.s-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 28px;
+  border-radius: 16px;
+  font-size: 28px;
+}
+.s-row.focus { background: var(--fg); color: #0b0c0f; }
+.s-value { color: var(--muted); }
+.s-row.focus .s-value { color: #3a3f4b; }
+.s-value::before { content: "\2039  "; opacity: .5; }
+.s-value::after { content: "  \203A"; opacity: .5; }
+.s-row input {
+  width: 100%;
+  margin-top: 12px;
+  font: inherit;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 2px solid #3a3f4b;
+  background: #0b0c0f;
+  color: var(--fg);
+}
+.s-hint { width: 100%; font-size: 20px; margin-top: 8px; opacity: .7; }
+.s-foot { font-size: 20px; color: var(--muted); margin-top: 24px; }

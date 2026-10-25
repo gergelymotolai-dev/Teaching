@@ -2,16 +2,15 @@
 //  - Bing's image of the day (the last 8 days)
 //  - Wikimedia Commons' Picture of the Day (recent days)
 //  - Wikimedia Commons' featured nature photos
-// Any source that fails is skipped. With no network the launcher keeps its
+// Sources and timing are chosen in Settings (Green button). Any source that
+// fails is skipped. With no network the launcher keeps its
 // plain gradient.
 (function () {
   "use strict";
 
   var CONFIG = {
-    bing: true,
-    pictureOfTheDay: true,
-    // Any Commons category works; three random ones are used per refresh.
-    // Set to [] to show only the images of the day.
+    // "Nature photos": any Commons category works; three random ones are
+    // used per refresh.
     categories: [
       "Featured pictures of landscapes",
       "Featured pictures of mountains",
@@ -20,7 +19,6 @@
       "Featured pictures of beaches",
       "Featured pictures of lakes"
     ],
-    rotateMinutes: 3,
     refreshListHours: 6   // picks up each new image of the day
   };
 
@@ -111,20 +109,34 @@
     catch (e) { /* not persisted; refetched next launch */ }
   }
 
+  var generation = 0;
   function refreshList() {
-    var jobs = shuffle(CONFIG.categories.slice()).slice(0, 3).map(function (c) {
+    var mine = ++generation;
+    var cats = Settings.get("nature") ? CONFIG.categories : [];
+    var jobs = shuffle(cats.slice()).slice(0, 3).map(function (c) {
       return function () { return fetchCategory(c); };
     });
-    if (CONFIG.pictureOfTheDay) jobs.unshift(fetchPictureOfTheDay);
-    if (CONFIG.bing) jobs.unshift(fetchBing);
+    if (Settings.get("potd")) jobs.unshift(fetchPictureOfTheDay);
+    if (Settings.get("bing")) jobs.unshift(fetchBing);
     return Promise.all(jobs.map(function (job) {
       return job().catch(function () { return []; });
     })).then(function (groups) {
+      if (mine !== generation) return;   // a newer refresh superseded this one
       var seen = {};
       var items = [].concat.apply([], groups).filter(function (it) {
         return seen[it.url] ? false : (seen[it.url] = true);
       });
-      if (!items.length) return;
+      if (!items.length) {
+        // Every source off (or unreachable): back to the plain background.
+        if (!jobs.length) {
+          list = [];
+          saveCache(list);
+          layers.forEach(function (l) { l.classList.remove("on"); });
+          credit.textContent = "";
+          document.body.classList.remove("has-wallpaper");
+        }
+        return;
+      }
       // Newest image of the day first, everything else mixed after it.
       var lead = items[0].daily ? [items.shift()] : [];
       list = lead.concat(shuffle(items));
@@ -176,9 +188,23 @@
 
   // Rotation pauses while the launcher is hidden or the TV is asleep, so it
   // uses no network then; it resumes on the next interval.
-  setInterval(next, CONFIG.rotateMinutes * 60e3);
+  var rotateTimer;
+  function startRotation() {
+    clearInterval(rotateTimer);
+    rotateTimer = setInterval(next, Settings.get("photoMinutes") * 60e3);
+  }
+  startRotation();
   setInterval(function () { if (!document.hidden) refreshIfStale(); }, 10 * 60e3);
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) refreshIfStale();
+  });
+
+  Settings.on(function (key) {
+    if (key === "photoMinutes") startRotation();
+    if (key === "bing" || key === "potd" || key === "nature") {
+      // Rebuild the list from the chosen sources and show one right away.
+      listAt = Date.now();
+      refreshList().then(next);
+    }
   });
 })();

@@ -2,7 +2,7 @@
   "use strict";
 
   var KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, OK: 13, BACK: 461,
-              RED: 403, YELLOW: 405, BLUE: 406, ESC: 27 };
+              RED: 403, GREEN: 404, YELLOW: 405, BLUE: 406, ESC: 27 };
   var TILE_STEP = 340;  // --tile-w + --gap in style.css
   var EDGE = 120;       // --edge in style.css
   var STORE = "minilauncher.v1";
@@ -18,6 +18,7 @@
   var first = 0;        // index of the leftmost tile in view
   var moving = false;
   var showHidden = false;
+  var lastId = null;    // app opened most recently; focused on return
 
   // ---- Luna service bridge (no webOSTV.js dependency) ----------------------
 
@@ -41,6 +42,8 @@
   }
 
   function launch(id) {
+    lastId = id;
+    savePrefs();
     return luna("luna://com.webos.applicationManager/launch", { id: id })
       .catch(function () {
         return luna("luna://com.webos.service.applicationmanager/launch", { id: id });
@@ -76,13 +79,15 @@
     try {
       localStorage.setItem(STORE, JSON.stringify({
         order: apps.map(function (a) { return a.id; }),
-        hidden: hidden
+        hidden: hidden,
+        last: lastId
       }));
     } catch (e) { /* storage unavailable; settings just won't persist */ }
   }
 
   function applyPrefs(list, prefs) {
     hidden = prefs.hidden || {};
+    lastId = prefs.last || null;
     var order = prefs.order || [];
     var rank = {};
     order.forEach(function (id, i) { rank[id] = i; });
@@ -118,6 +123,7 @@
     return el;
   }
 
+  var focusLast = true;  // on the first render, start on the last-used app
   function render() {
     visible = apps.filter(function (a) { return showHidden || !hidden[a.id]; });
     var frag = document.createDocumentFragment();
@@ -128,6 +134,10 @@
     });
     track.textContent = "";
     track.appendChild(frag);
+    if (focusLast) {
+      for (var i = 0; i < visible.length; i++) if (visible[i].id === lastId) focus = i;
+      focusLast = false;
+    }
     focus = Math.max(0, Math.min(focus, visible.length - 1));
     paintFocus();
   }
@@ -206,7 +216,17 @@
   }
 
   document.addEventListener("keydown", function (e) {
-    switch (e.keyCode) {
+    if (wakeFromAmbient()) { e.preventDefault(); return; }
+    if (Settings.isOpen()) { Settings.handleKey(e); return; }
+    var k = e.keyCode;
+    if (digit(k) >= 0) {
+      // Acted on at key-up, so holding a number stays free for the TV's
+      // Quick Access shortcut.
+      if (!e.repeat) digitDown = { key: k, at: Date.now() };
+      e.preventDefault();
+      return;
+    }
+    switch (k) {
       case KEY.LEFT:  step(-1); break;
       case KEY.RIGHT: step(1); break;
       case KEY.UP:
@@ -218,6 +238,7 @@
       case KEY.RED:    toggleMove(); flashHints(); break;
       case KEY.YELLOW: if (!moving) toggleHidden(); flashHints(); break;
       case KEY.BLUE:   if (!moving) toggleShowHidden(); flashHints(); break;
+      case KEY.GREEN:  if (!moving) Settings.open(); break;
       case KEY.BACK:
       case KEY.ESC:
         if (moving) toggleMove();
@@ -229,7 +250,22 @@
     e.preventDefault();
   });
 
-  // Magic Remote pointer: hover focuses, click launches.
+  // 1-9 on the remote (or numpad) open that app in the row directly, on a
+  // short press only.
+  var digitDown = null;
+  function digit(k) {
+    return k >= 49 && k <= 57 ? k - 49 : k >= 97 && k <= 105 ? k - 97 : -1;
+  }
+  document.addEventListener("keyup", function (e) {
+    var d = digitDown;
+    digitDown = null;
+    if (!d || d.key !== e.keyCode || Date.now() - d.at > 600) return;
+    if (moving || Settings.isOpen()) return;
+    var n = digit(e.keyCode);
+    if (visible[n]) { focus = n; paintFocus(); launch(visible[n].id); }
+  });
+
+    // Magic Remote pointer: hover focuses, click launches.
   track.addEventListener("mouseover", function (e) {
     var el = e.target.closest(".tile");
     if (!el || moving) return;
@@ -248,8 +284,13 @@
   var clockTimer;
   function tick() {
     var d = new Date();
-    clockEl.textContent = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-      .replace(/\s?[AP]M$/i, "");
+    var fmt = { hour: "numeric", minute: "2-digit" };
+    var clock = Settings.get("clock");
+    if (clock === "12") fmt.hour12 = true;
+    if (clock === "24") { fmt.hour12 = false; fmt.hour = "2-digit"; }
+    clockEl.textContent = d.toLocaleTimeString([], fmt).replace(/\s?[AP]M$/i, "");
+    var h = d.getHours();
+    document.body.classList.toggle("night", Settings.get("nightDim") && (h >= 21 || h < 6));
     dateEl.textContent = d.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
     clearTimeout(clockTimer);
     clockTimer = setTimeout(tick, (60 - d.getSeconds()) * 1000);
@@ -260,16 +301,69 @@
     if (!document.hidden) tick();
   });
 
+  // ---- Ambient mode ---------------------------------------------------------
+  // After a few idle minutes only the photo and clock stay on screen. This is
+  // separate from the TV's own screen saver and sleep timer, which still run.
+
+  var idleTimer;
+  function resetIdle() {
+    clearTimeout(idleTimer);
+    var mins = Settings.get("ambientMinutes");
+    if (mins > 0) {
+      idleTimer = setTimeout(function () {
+        if (!moving && !Settings.isOpen()) document.body.classList.add("ambient");
+      }, mins * 60e3);
+    }
+  }
+  // Returns true if the key press only woke the screen.
+  function wakeFromAmbient() {
+    resetIdle();
+    if (!document.body.classList.contains("ambient")) return false;
+    document.body.classList.remove("ambient");
+    return true;
+  }
+  document.addEventListener("mousemove", function () { wakeFromAmbient(); });
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) wakeFromAmbient();
+  });
+
+  // ---- Network status -------------------------------------------------------
+
+  var offlineEl = document.getElementById("offline");
+  function netStatus() { offlineEl.hidden = navigator.onLine !== false; }
+  window.addEventListener("online", netStatus);
+  window.addEventListener("offline", netStatus);
+
+  // ---- Settings changes -----------------------------------------------------
+
+  Settings.on(function (key) {
+    if (key === "clock" || key === "nightDim") tick();
+    if (key === "ambientMinutes") resetIdle();
+    if (key === "reset") {
+      hidden = {};
+      apps.sort(function (a, b) {
+        return defaultOrder.indexOf(a.id) - defaultOrder.indexOf(b.id);
+      });
+      savePrefs();
+      render();
+    }
+  });
+
   // ---- Boot -----------------------------------------------------------------
 
   tick();
   flashHints();
+  netStatus();
+  resetIdle();
   var prefs = loadPrefs();
   // Draw the fallback list immediately, then swap in installed apps if available.
+  var defaultOrder = DEFAULT_APPS.map(function (a) { return a.id; });
   apps = applyPrefs(DEFAULT_APPS, prefs);
   render();
   loadInstalled().then(function (list) {
     if (!list) return;
+    defaultOrder = list.map(function (a) { return a.id; });
+    focusLast = true;
     apps = applyPrefs(list, prefs);
     render();
   });

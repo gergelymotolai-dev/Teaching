@@ -1,14 +1,10 @@
 // Current weather from Open-Meteo: free, no API key, allows cross-origin
-// requests. Location comes from CONFIG.city, or is guessed from the TV's
-// internet connection when that is empty.
+// requests. Location and units come from Settings (Green button); an empty
+// location is guessed from the TV's internet connection.
 (function () {
   "use strict";
 
-  var CONFIG = {
-    city: "Eudora, KS", // "City, ST" (US state) or "City, Country"; "" = automatic
-    units: "",         // "fahrenheit", "celsius", or empty = from TV language
-    refreshMinutes: 15
-  };
+  var REFRESH_MINUTES = 15;
 
   var STORE = "minilauncher.weather.v1";
 
@@ -31,9 +27,16 @@
   var tempEl = document.getElementById("w-temp");
   var descEl = document.getElementById("w-desc");
   var rangeEl = document.getElementById("w-range");
+  var daysEl = document.getElementById("w-days");
 
-  var units = CONFIG.units ||
-    (/^en-(US|LR|MM)$/i.test(navigator.language || "") ? "fahrenheit" : "celsius");
+  var city, units;
+  function readSettings() {
+    city = Settings.get("city");
+    var u = Settings.get("units");
+    units = u !== "auto" ? u :
+      (/^en-(US|LR|MM)$/i.test(navigator.language || "") ? "fahrenheit" : "celsius");
+  }
+  readSettings();
 
   // 24x24 line icons, drawn in currentColor.
   var SUN = '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/>';
@@ -88,14 +91,14 @@
   }
 
   function locate() {
-    var key = CONFIG.city || "auto";
+    var key = city || "auto";
     if (cache.place && cache.place.key === key &&
         Date.now() - cache.place.at < 7 * 864e5) {
       return Promise.resolve(cache.place);
     }
     var found;
-    if (CONFIG.city) {
-      var parts = CONFIG.city.split(",");
+    if (city) {
+      var parts = city.split(",");
       var region = (parts[1] || "").trim().toLowerCase();
       region = US_STATES[region] || region;
       found = getJSON("https://geocoding-api.open-meteo.com/v1/search?count=10&name=" +
@@ -110,7 +113,7 @@
               (x.country || "").toLowerCase() === region ||
               (x.country_code || "").toLowerCase() === region;
           })[0];
-          if (!r) throw new Error("city not found: " + CONFIG.city);
+          if (!r) throw new Error("city not found: " + city);
           return { lat: r.latitude, lon: r.longitude, name: r.name };
         });
     } else {
@@ -132,14 +135,24 @@
     });
   }
 
+  function svg(name) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' + ICONS[name] + "</svg>";
+  }
+
   function paint(w) {
     var d = describe(w.code, w.isDay);
-    iconEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
-      'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' + ICONS[d[1]] + "</svg>";
+    iconEl.innerHTML = svg(d[1]);
     tempEl.textContent = Math.round(w.temp) + "°";
     descEl.textContent = d[0];
     rangeEl.textContent = "H " + Math.round(w.hi) + "°  L " + Math.round(w.lo) + "°" +
       (w.place ? "  ·  " + w.place : "");
+    // Next four days: weekday, icon, high/low.
+    daysEl.innerHTML = (w.days || []).map(function (day) {
+      var name = new Date(day.date + "T12:00").toLocaleDateString([], { weekday: "short" });
+      return '<div class="day">' + name + svg(describe(day.code, true)[1]) +
+        "<b>" + Math.round(day.hi) + "\u00b0</b> " + Math.round(day.lo) + "\u00b0</div>";
+    }).join("");
     box.hidden = false;
   }
 
@@ -148,14 +161,19 @@
       return getJSON("https://api.open-meteo.com/v1/forecast?latitude=" + p.lat +
         "&longitude=" + p.lon +
         "&current=temperature_2m,weather_code,is_day" +
-        "&daily=temperature_2m_max,temperature_2m_min&forecast_days=1" +
+        "&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=5" +
         "&timezone=auto&temperature_unit=" + units)
         .then(function (d) {
           cache.weather = {
             at: Date.now(), units: units, place: p.name,
             temp: d.current.temperature_2m, code: d.current.weather_code,
             isDay: d.current.is_day === 1,
-            hi: d.daily.temperature_2m_max[0], lo: d.daily.temperature_2m_min[0]
+            hi: d.daily.temperature_2m_max[0], lo: d.daily.temperature_2m_min[0],
+            days: d.daily.time.slice(1).map(function (date, i) {
+              return { date: date, code: d.daily.weather_code[i + 1],
+                       hi: d.daily.temperature_2m_max[i + 1],
+                       lo: d.daily.temperature_2m_min[i + 1] };
+            })
           };
           saveCache();
           paint(cache.weather);
@@ -165,7 +183,7 @@
 
   function stale() {
     var w = cache.weather;
-    return !w || w.units !== units || Date.now() - w.at > CONFIG.refreshMinutes * 60e3;
+    return !w || w.units !== units || Date.now() - w.at > REFRESH_MINUTES * 60e3;
   }
 
   // Show the last reading instantly (if under 3 hours old), then update.
@@ -179,5 +197,12 @@
   setInterval(function () { if (!document.hidden && stale()) refresh(); }, 60e3);
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden && stale()) refresh();
+  });
+
+  Settings.on(function (key) {
+    if (key !== "city" && key !== "units") return;
+    readSettings();
+    cache.weather = null;   // force a fresh reading for the new place/units
+    refresh();
   });
 })();
