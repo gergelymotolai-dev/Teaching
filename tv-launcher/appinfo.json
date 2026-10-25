@@ -1,0 +1,14 @@
+{
+  "id": "com.motolai.minilauncher",
+  "version": "1.0.0",
+  "vendor": "Gergely Motolai",
+  "type": "web",
+  "main": "index.html",
+  "title": "Mini Launcher",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "#0b0c0f",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "transparent": false
+}

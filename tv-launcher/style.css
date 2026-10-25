@@ -1,0 +1,134 @@
+/* Sized for a 1920x1080 webOS viewport. No blur/backdrop-filter or large
+   shadows: they are the main cause of jank on TV GPUs. Focus only animates
+   transform/opacity so it stays on the compositor. */
+:root {
+  --bg: #0b0c0f;
+  --fg: #f2f3f5;
+  --muted: #8b90a0;
+  --tile: #1a1d24;
+  --accent: #7c8cff;
+  --radius: 22px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "LG Smart UI", "Museo Sans", system-ui, sans-serif;
+  cursor: default;
+}
+
+body {
+  background: radial-gradient(1200px 700px at 15% 0%, #171a24 0%, var(--bg) 70%);
+  display: flex;
+  flex-direction: column;
+  padding: 72px 120px 56px;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 64px;
+}
+
+#clock { font-size: 112px; font-weight: 300; letter-spacing: -3px; line-height: 1; }
+#date { font-size: 32px; color: var(--muted); margin-top: 12px; }
+
+#mode {
+  font-size: 28px;
+  padding: 12px 26px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #0b0c0f;
+  font-weight: 600;
+}
+
+/* Padding leaves room for the focus scale; the grid scrolls when long. */
+main {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 20px;
+  margin: -20px -20px 16px;
+  scroll-padding: 20px;
+}
+
+#grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 36px;
+}
+
+.tile {
+  position: relative;
+  height: 172px;
+  border-radius: var(--radius);
+  background: var(--tile);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 22px 24px;
+  overflow: hidden;
+  transition: transform 120ms ease-out;
+  will-change: transform;
+}
+
+.tile .glyph {
+  position: absolute;
+  top: 18px;
+  left: 24px;
+  font-size: 56px;
+  font-weight: 700;
+  opacity: .9;
+}
+
+.tile img {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  max-width: 60%;
+  max-height: 60%;
+}
+
+.tile .name { position: relative; font-size: 26px; font-weight: 500; }
+
+/* Focus ring is a pseudo-element so toggling it never triggers layout. */
+.tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 5px var(--fg);
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+.tile.focus { transform: scale(1.08); z-index: 1; }
+.tile.focus::after { opacity: 1; }
+.tile.moving { transform: scale(1.08) translateY(-10px); }
+.tile.moving::after { box-shadow: inset 0 0 0 5px var(--accent); }
+.tile.hidden-app { opacity: .35; }
+
+footer {
+  display: flex;
+  gap: 48px;
+  font-size: 24px;
+  color: var(--muted);
+}
+
+.k {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  margin-right: 12px;
+  vertical-align: -3px;
+}
+.k.red { background: #e5484d; }
+.k.yellow { background: #f5d90a; }
+.k.blue { background: #3e63dd; }
