@@ -38,7 +38,8 @@ sources on or off, or change the timing, at the top of
 Current temperature, conditions, and today's high/low come from
 [Open-Meteo](https://open-meteo.com) (free, no key). The location is guessed
 from your internet connection. If it guesses wrong, set `city` at the top of
-[`weather.js`](weather.js), e.g. `city: "Chicago"`. Units follow the TV's
+[`weather.js`](weather.js). It's set to `"Eudora, KS"`; use `""` to go back to
+automatic. Units follow the TV's
 language (°F for US English) unless you set `units`.
 
 ## Sleep and screen saver

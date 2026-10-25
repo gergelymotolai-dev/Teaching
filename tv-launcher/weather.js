@@ -5,12 +5,27 @@
   "use strict";
 
   var CONFIG = {
-    city: "",          // e.g. "Chicago" or "Toronto, CA"; empty = automatic
+    city: "Eudora, KS", // "City, ST" (US state) or "City, Country"; "" = automatic
     units: "",         // "fahrenheit", "celsius", or empty = from TV language
     refreshMinutes: 15
   };
 
   var STORE = "minilauncher.weather.v1";
+
+  var US_STATES = {
+    al: "alabama", ak: "alaska", az: "arizona", ar: "arkansas", ca: "california",
+    co: "colorado", ct: "connecticut", de: "delaware", fl: "florida", ga: "georgia",
+    hi: "hawaii", id: "idaho", il: "illinois", "in": "indiana", ia: "iowa",
+    ks: "kansas", ky: "kentucky", la: "louisiana", me: "maine", md: "maryland",
+    ma: "massachusetts", mi: "michigan", mn: "minnesota", ms: "mississippi",
+    mo: "missouri", mt: "montana", ne: "nebraska", nv: "nevada",
+    nh: "new hampshire", nj: "new jersey", nm: "new mexico", ny: "new york",
+    nc: "north carolina", nd: "north dakota", oh: "ohio", ok: "oklahoma",
+    or: "oregon", pa: "pennsylvania", ri: "rhode island", sc: "south carolina",
+    sd: "south dakota", tn: "tennessee", tx: "texas", ut: "utah", vt: "vermont",
+    va: "virginia", wa: "washington", wv: "west virginia", wi: "wisconsin",
+    wy: "wyoming", dc: "district of columbia"
+  };
   var box = document.getElementById("weather");
   var iconEl = document.getElementById("w-icon");
   var tempEl = document.getElementById("w-temp");
@@ -80,10 +95,22 @@
     }
     var found;
     if (CONFIG.city) {
-      found = getJSON("https://geocoding-api.open-meteo.com/v1/search?count=1&name=" +
-                      encodeURIComponent(CONFIG.city.split(",")[0]))
+      var parts = CONFIG.city.split(",");
+      var region = (parts[1] || "").trim().toLowerCase();
+      region = US_STATES[region] || region;
+      found = getJSON("https://geocoding-api.open-meteo.com/v1/search?count=10&name=" +
+                      encodeURIComponent(parts[0].trim()))
         .then(function (d) {
-          var r = d.results[0];
+          var results = d.results || [];
+          // "Eudora, KS" must not land on Eudora, Arkansas: match the state or
+          // country when one is given, otherwise take the top result.
+          var r = results.filter(function (x) {
+            return !region ||
+              (x.admin1 || "").toLowerCase() === region ||
+              (x.country || "").toLowerCase() === region ||
+              (x.country_code || "").toLowerCase() === region;
+          })[0];
+          if (!r) throw new Error("city not found: " + CONFIG.city);
           return { lat: r.latitude, lon: r.longitude, name: r.name };
         });
     } else {
