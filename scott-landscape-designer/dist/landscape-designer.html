@@ -808,45 +808,45 @@ const CORE = {"base": ["<rect x=\"72.0\" y=\"1203.2\" width=\"883.2\" height=\"8
  */
 const PLANTS = [
   // ---- deciduous trees
-  { id: 'acru', t: 'dtree', cn: 'Red maple', bn: 'Acer rubrum', w: 35, h: 50, sun: 'F/P', z: '3–9', c: '#6F9C45', note: 'Fast shade tree with red fall color.' },
-  { id: 'acsa', t: 'dtree', cn: 'Sugar maple', bn: 'Acer saccharum', w: 40, h: 60, sun: 'F/P', z: '4–8', c: '#5E8F3E', note: 'Big shade tree; orange fall color.' },
-  { id: 'quph', t: 'dtree', cn: 'Willow oak', bn: 'Quercus phellos', w: 40, h: 60, sun: 'F', z: '5–9', c: '#6A9A4A', note: 'Native oak with fine leaves; long-lived street tree.' },
-  { id: 'qush', t: 'dtree', cn: 'Shumard oak', bn: 'Quercus shumardii', w: 40, h: 50, sun: 'F', z: '5–9', c: '#5C8C3B', note: 'Native; red fall color; acorns feed wildlife.' },
-  { id: 'beni', t: 'dtree', cn: 'River birch', bn: 'Betula nigra', w: 35, h: 45, sun: 'F/P', z: '4–9', c: '#7FA752', note: 'Peeling bark; handles wet spots.' },
-  { id: 'gibi', t: 'dtree', cn: 'Ginkgo', bn: 'Ginkgo biloba', w: 30, h: 50, sun: 'F', z: '3–8', c: '#86AE4F', note: 'Gold fall color. Plant male trees only.' },
-  { id: 'ceca', t: 'dtree', cn: 'Eastern redbud', bn: 'Cercis canadensis', w: 25, h: 25, sun: 'F/P', z: '4–9', c: '#7FA34C', fl: '#C75B9B', note: 'Small native tree; pink flowers in early spring.' },
-  { id: 'cofl', t: 'dtree', cn: 'Flowering dogwood', bn: 'Cornus florida', w: 20, h: 20, sun: 'P', z: '5–9', c: '#6E9A48', fl: '#F4F1E6', note: 'Native understory tree; white spring flowers, red berries for birds.' },
-  { id: 'lain', t: 'dtree', cn: 'Crape myrtle', bn: 'Lagerstroemia indica', w: 15, h: 20, sun: 'F', z: '7–9', c: '#6D9947', fl: '#D45C8C', note: 'Summer flowers; small enough for tight spots.' },
-  { id: 'acpa', t: 'dtree', cn: 'Japanese maple', bn: 'Acer palmatum', w: 15, h: 15, sun: 'P', z: '5–8', c: '#9A3E35', note: 'Small accent tree; red leaves. Likes afternoon shade.' },
-  { id: 'amar', t: 'dtree', cn: 'Serviceberry', bn: 'Amelanchier arborea', w: 15, h: 20, sun: 'F/P', z: '4–9', c: '#78A04E', fl: '#FBFAF4', note: 'White spring flowers; berries for birds and people.' },
-  { id: 'mado', t: 'dtree', cn: 'Apple', bn: "Malus domestica 'Honeycrisp'", w: 15, h: 15, sun: 'F', z: '4–8', c: '#6E9E44', fl: '#F3D6DF', note: 'Fruit tree. Plant two varieties for pollination.' },
-  { id: 'prpe', t: 'dtree', cn: 'Peach', bn: "Prunus persica 'Redhaven'", w: 15, h: 15, sun: 'F', z: '5–8', c: '#78A44C', fl: '#EFA3BC', note: 'Self-fruitful fruit tree; needs full sun.' },
+  { id: 'acru', t: 'dtree', cn: 'Red maple', bn: 'Acer rubrum', w: 35, h: 50, sun: 'F/P', z: '3–9', f: 'maple', c: '#5E8C3A', ac: '#B5452E', note: 'Fast shade tree with red fall color.' },
+  { id: 'acsa', t: 'dtree', cn: 'Sugar maple', bn: 'Acer saccharum', w: 40, h: 60, sun: 'F/P', z: '4–8', f: 'maple', c: '#3F7230', ac: '#D98B2B', note: 'Big shade tree; orange fall color.' },
+  { id: 'quph', t: 'dtree', cn: 'Willow oak', bn: 'Quercus phellos', w: 40, h: 60, sun: 'F', z: '5–9', f: 'oak', fine: true, c: '#7A9445', note: 'Native oak with fine leaves; long-lived street tree.' },
+  { id: 'qush', t: 'dtree', cn: 'Shumard oak', bn: 'Quercus shumardii', w: 40, h: 50, sun: 'F', z: '5–9', f: 'oak', c: '#3F6A2E', note: 'Native; red fall color; acorns feed wildlife.' },
+  { id: 'beni', t: 'dtree', cn: 'River birch', bn: 'Betula nigra', w: 35, h: 45, sun: 'F/P', z: '4–9', f: 'birch', c: '#96BA5E', note: 'Peeling bark; handles wet spots.' },
+  { id: 'gibi', t: 'dtree', cn: 'Ginkgo', bn: 'Ginkgo biloba', w: 30, h: 50, sun: 'F', z: '3–8', f: 'ginkgo', c: '#AFC24A', note: 'Gold fall color. Plant male trees only.' },
+  { id: 'ceca', t: 'dtree', cn: 'Eastern redbud', bn: 'Cercis canadensis', w: 25, h: 25, sun: 'F/P', z: '4–9', f: 'redbud', c: '#6E9A3E', fl: '#C75B9B', note: 'Small native tree; pink flowers in early spring.' },
+  { id: 'cofl', t: 'dtree', cn: 'Flowering dogwood', bn: 'Cornus florida', w: 20, h: 20, sun: 'P', z: '5–9', f: 'dogwood', c: '#5A873C', fl: '#F4F1E6', note: 'Native understory tree; white spring flowers, red berries for birds.' },
+  { id: 'lain', t: 'dtree', cn: 'Crape myrtle', bn: 'Lagerstroemia indica', w: 15, h: 20, sun: 'F', z: '7–9', f: 'crape', c: '#6D9947', fl: '#D45C8C', note: 'Summer flowers; small enough for tight spots.' },
+  { id: 'acpa', t: 'dtree', cn: 'Japanese maple', bn: 'Acer palmatum', w: 15, h: 15, sun: 'P', z: '5–8', f: 'jmaple', c: '#9A3E35', note: 'Small accent tree; red leaves. Likes afternoon shade.' },
+  { id: 'amar', t: 'dtree', cn: 'Serviceberry', bn: 'Amelanchier arborea', w: 15, h: 20, sun: 'F/P', z: '4–9', f: 'multistem', c: '#7CA250', fl: '#FBFAF4', note: 'White spring flowers; berries for birds and people.' },
+  { id: 'mado', t: 'dtree', cn: 'Apple', bn: "Malus domestica 'Honeycrisp'", w: 15, h: 15, sun: 'F', z: '4–8', f: 'fruit', c: '#5E9440', fr: '#C8322B', fl: '#F3D6DF', note: 'Fruit tree. Plant two varieties for pollination.' },
+  { id: 'prpe', t: 'dtree', cn: 'Peach', bn: "Prunus persica 'Redhaven'", w: 15, h: 15, sun: 'F', z: '5–8', f: 'fruit', c: '#7AA54A', fr: '#F0A04B', fl: '#EFA3BC', note: 'Self-fruitful fruit tree; needs full sun.' },
   // ---- evergreen trees
-  { id: 'piec', t: 'etree', cn: 'Shortleaf pine', bn: 'Pinus echinata', w: 30, h: 80, sun: 'F', z: '6–9', c: '#3F6E3C', note: 'Arkansas state tree. Needs room.' },
-  { id: 'pita', t: 'etree', cn: 'Loblolly pine', bn: 'Pinus taeda', w: 30, h: 80, sun: 'F', z: '6–9', c: '#456F3A', note: 'Fast-growing native pine.' },
-  { id: 'juvi', t: 'etree', cn: 'Eastern red cedar', bn: 'Juniperus virginiana', w: 12, h: 40, sun: 'F', z: '2–9', c: '#3D5F3A', note: 'Native; dense windbreak and bird shelter.' },
-  { id: 'thgg', t: 'etree', cn: "Arborvitae 'Green Giant'", bn: "Thuja 'Green Giant'", w: 12, h: 40, sun: 'F/P', z: '5–8', c: '#3E6B3F', note: 'Fast privacy screen. Space 8–10 ft apart.' },
-  { id: 'culy', t: 'etree', cn: 'Leyland cypress', bn: '× Cuprocyparis leylandii', w: 15, h: 60, sun: 'F', z: '6–10', c: '#4A7341', note: 'Very fast screen; needs space and air flow.' },
-  { id: 'cede', t: 'etree', cn: 'Deodar cedar', bn: 'Cedrus deodara', w: 30, h: 50, sun: 'F', z: '7–9', c: '#5D7E61', note: 'Soft blue-green specimen conifer.' },
-  { id: 'magg', t: 'etree', cn: "Magnolia 'Little Gem'", bn: "Magnolia grandiflora 'Little Gem'", w: 12, h: 25, sun: 'F/P', z: '7–10', c: '#2F5A33', fl: '#FBF8EE', note: 'Compact evergreen magnolia; fragrant white flowers.' },
+  { id: 'piec', t: 'etree', cn: 'Shortleaf pine', bn: 'Pinus echinata', w: 30, h: 80, sun: 'F', z: '6–9', f: 'pine', c: '#4A7A45', note: 'Arkansas state tree. Needs room.' },
+  { id: 'pita', t: 'etree', cn: 'Loblolly pine', bn: 'Pinus taeda', w: 30, h: 80, sun: 'F', z: '6–9', f: 'pine', c: '#5B8240', note: 'Fast-growing native pine.' },
+  { id: 'juvi', t: 'etree', cn: 'Eastern red cedar', bn: 'Juniperus virginiana', w: 12, h: 40, sun: 'F', z: '2–9', f: 'column', c: '#2F5236', note: 'Native; dense windbreak and bird shelter.' },
+  { id: 'thgg', t: 'etree', cn: "Arborvitae 'Green Giant'", bn: "Thuja 'Green Giant'", w: 12, h: 40, sun: 'F/P', z: '5–8', f: 'column', c: '#3B6A3A', note: 'Fast privacy screen. Space 8–10 ft apart.' },
+  { id: 'culy', t: 'etree', cn: 'Leyland cypress', bn: '× Cuprocyparis leylandii', w: 15, h: 60, sun: 'F', z: '6–10', f: 'column', c: '#4B7A47', note: 'Very fast screen; needs space and air flow.' },
+  { id: 'cede', t: 'etree', cn: 'Deodar cedar', bn: 'Cedrus deodara', w: 30, h: 50, sun: 'F', z: '7–9', f: 'deodar', c: '#6C8C82', note: 'Soft blue-green specimen conifer.' },
+  { id: 'magg', t: 'etree', cn: "Magnolia 'Little Gem'", bn: "Magnolia grandiflora 'Little Gem'", w: 12, h: 25, sun: 'F/P', z: '7–10', f: 'magnolia', c: '#2A4F2E', fl: '#FBF8EE', note: 'Compact evergreen magnolia; fragrant white flowers.' },
   // ---- broadleaf evergreen shrubs
-  { id: 'ilvn', t: 'bshrub', cn: 'Dwarf yaupon holly', bn: "Ilex vomitoria 'Nana'", w: 4, h: 3, sun: 'F/P/S', z: '7–10', c: '#3F6B39', note: 'Tough native; low foundation hedge.' },
-  { id: 'bumi', t: 'bshrub', cn: 'Japanese boxwood', bn: 'Buxus microphylla', w: 4, h: 4, sun: 'F/P', z: '6–9', c: '#4C7A3A', note: 'Classic clipped hedge.' },
-  { id: 'ilns', t: 'bshrub', cn: "Holly 'Nellie R. Stevens'", bn: "Ilex 'Nellie R. Stevens'", w: 15, h: 25, sun: 'F/P', z: '6–9', c: '#2E5530', fl: '#C0392B', note: 'Large privacy hedge; red berries for birds.' },
-  { id: 'rhen', t: 'bshrub', cn: 'Encore azalea', bn: "Rhododendron 'Encore'", w: 4, h: 4, sun: 'P', z: '7–10', c: '#3F6B3B', fl: '#E05A86', note: 'Blooms spring and fall. Morning sun only.' },
-  { id: 'prlo', t: 'bshrub', cn: "Cherry laurel 'Otto Luyken'", bn: "Prunus laurocerasus 'Otto Luyken'", w: 6, h: 4, sun: 'P/S', z: '6–8', c: '#305C34', note: 'Good in shade by the house.' },
-  { id: 'gaja', t: 'bshrub', cn: 'Gardenia', bn: 'Gardenia jasminoides', w: 4, h: 4, sun: 'P', z: '7–10', c: '#355F33', fl: '#FFFFFF', note: 'Fragrant white flowers near the patio.' },
-  { id: 'loch', t: 'bshrub', cn: "Loropetalum 'Purple Diamond'", bn: "Loropetalum chinense 'Purple Diamond'", w: 5, h: 5, sun: 'F/P', z: '7–10', c: '#6A3446', fl: '#D85A9A', note: 'Purple leaves and pink flowers.' },
-  { id: 'abgr', t: 'bshrub', cn: 'Glossy abelia', bn: 'Abelia × grandiflora', w: 5, h: 5, sun: 'F/P', z: '6–9', c: '#4E7A3D', fl: '#F3E6EE', note: 'Long summer bloom; butterflies.' },
+  { id: 'ilvn', t: 'bshrub', cn: 'Dwarf yaupon holly', bn: "Ilex vomitoria 'Nana'", w: 4, h: 3, sun: 'F/P/S', z: '7–10', f: 'fine', c: '#3F6B39', note: 'Tough native; low foundation hedge.' },
+  { id: 'bumi', t: 'bshrub', cn: 'Japanese boxwood', bn: 'Buxus microphylla', w: 4, h: 4, sun: 'F/P', z: '6–9', f: 'fine', c: '#4C7A3A', note: 'Classic clipped hedge.' },
+  { id: 'ilns', t: 'bshrub', cn: "Holly 'Nellie R. Stevens'", bn: "Ilex 'Nellie R. Stevens'", w: 15, h: 25, sun: 'F/P', z: '6–9', f: 'spiky', c: '#2E5530', fl: '#C0392B', note: 'Large privacy hedge; red berries for birds.' },
+  { id: 'rhen', t: 'bshrub', cn: 'Encore azalea', bn: "Rhododendron 'Encore'", w: 4, h: 4, sun: 'P', z: '7–10', f: 'rose', c: '#3F6B3B', fl: '#E05A86', note: 'Blooms spring and fall. Morning sun only.' },
+  { id: 'prlo', t: 'bshrub', cn: "Cherry laurel 'Otto Luyken'", bn: "Prunus laurocerasus 'Otto Luyken'", w: 6, h: 4, sun: 'P/S', z: '6–8', f: 'shrub', c: '#305C34', note: 'Good in shade by the house.' },
+  { id: 'gaja', t: 'bshrub', cn: 'Gardenia', bn: 'Gardenia jasminoides', w: 4, h: 4, sun: 'P', z: '7–10', f: 'rose', c: '#355F33', fl: '#FFFFFF', note: 'Fragrant white flowers near the patio.' },
+  { id: 'loch', t: 'bshrub', cn: "Loropetalum 'Purple Diamond'", bn: "Loropetalum chinense 'Purple Diamond'", w: 5, h: 5, sun: 'F/P', z: '7–10', f: 'shrub', c: '#6A3446', fl: '#D85A9A', note: 'Purple leaves and pink flowers.' },
+  { id: 'abgr', t: 'bshrub', cn: 'Glossy abelia', bn: 'Abelia × grandiflora', w: 5, h: 5, sun: 'F/P', z: '6–9', f: 'fine', c: '#4E7A3D', fl: '#F3E6EE', note: 'Long summer bloom; butterflies.' },
   // ---- deciduous shrubs
-  { id: 'hyqu', t: 'dshrub', cn: 'Oakleaf hydrangea', bn: 'Hydrangea quercifolia', w: 6, h: 6, sun: 'P/S', z: '5–9', c: '#5C8A3E', fl: '#F6F2E4', note: 'Native; white flowers, red fall leaves.' },
-  { id: 'hyma', t: 'dshrub', cn: 'Bigleaf hydrangea', bn: 'Hydrangea macrophylla', w: 5, h: 5, sun: 'P', z: '6–9', c: '#5F9042', fl: '#7E8FD6', note: 'Blue flowers in acid soil. Morning sun.' },
-  { id: 'roko', t: 'dshrub', cn: 'Knock Out rose', bn: "Rosa 'Knock Out'", w: 4, h: 4, sun: 'F', z: '5–9', c: '#4F7E3A', fl: '#D62F4E', note: 'Easy rose; blooms spring to frost.' },
-  { id: 'itvi', t: 'dshrub', cn: 'Virginia sweetspire', bn: "Itea virginica 'Henry's Garnet'", w: 5, h: 4, sun: 'F/P/S', z: '5–9', c: '#5E8C40', fl: '#FAF7EC', note: 'Native; handles wet soil; red fall color.' },
-  { id: 'caam', t: 'dshrub', cn: 'American beautyberry', bn: 'Callicarpa americana', w: 5, h: 5, sun: 'F/P', z: '6–10', c: '#6E9A48', fl: '#9B4FB0', note: 'Native; purple berries that birds love.' },
-  { id: 'budo', t: 'dshrub', cn: 'Butterfly bush', bn: 'Buddleja davidii', w: 6, h: 6, sun: 'F', z: '5–9', c: '#7D9A6A', fl: '#8E63B8', note: 'Draws butterflies and hummingbirds.' },
-  { id: 'spja', t: 'dshrub', cn: "Spirea 'Goldflame'", bn: "Spiraea japonica 'Goldflame'", w: 3, h: 3, sun: 'F', z: '4–9', c: '#B4B44B', fl: '#E58AAE', note: 'Small; gold leaves and pink flowers.' },
-  { id: 'vaas', t: 'dshrub', cn: 'Rabbiteye blueberry', bn: 'Vaccinium virgatum', w: 5, h: 6, sun: 'F', z: '7–9', c: '#5B8A47', fl: '#3E5BA8', note: 'Edible berries. Plant two varieties.' },
+  { id: 'hyqu', t: 'dshrub', cn: 'Oakleaf hydrangea', bn: 'Hydrangea quercifolia', w: 6, h: 6, sun: 'P/S', z: '5–9', f: 'mophead', c: '#5C8A3E', fl: '#F6F2E4', note: 'Native; white flowers, red fall leaves.' },
+  { id: 'hyma', t: 'dshrub', cn: 'Bigleaf hydrangea', bn: 'Hydrangea macrophylla', w: 5, h: 5, sun: 'P', z: '6–9', f: 'mophead', c: '#5F9042', fl: '#7E8FD6', note: 'Blue flowers in acid soil. Morning sun.' },
+  { id: 'roko', t: 'dshrub', cn: 'Knock Out rose', bn: "Rosa 'Knock Out'", w: 4, h: 4, sun: 'F', z: '5–9', f: 'rose', c: '#4F7E3A', fl: '#D62F4E', note: 'Easy rose; blooms spring to frost.' },
+  { id: 'itvi', t: 'dshrub', cn: 'Virginia sweetspire', bn: "Itea virginica 'Henry's Garnet'", w: 5, h: 4, sun: 'F/P/S', z: '5–9', f: 'shrub', c: '#5E8C40', fl: '#FAF7EC', note: 'Native; handles wet soil; red fall color.' },
+  { id: 'caam', t: 'dshrub', cn: 'American beautyberry', bn: 'Callicarpa americana', w: 5, h: 5, sun: 'F/P', z: '6–10', f: 'berry', c: '#6E9A48', fl: '#9B4FB0', note: 'Native; purple berries that birds love.' },
+  { id: 'budo', t: 'dshrub', cn: 'Butterfly bush', bn: 'Buddleja davidii', w: 6, h: 6, sun: 'F', z: '5–9', f: 'shrub', c: '#7D9A6A', fl: '#8E63B8', note: 'Draws butterflies and hummingbirds.' },
+  { id: 'spja', t: 'dshrub', cn: "Spirea 'Goldflame'", bn: "Spiraea japonica 'Goldflame'", w: 3, h: 3, sun: 'F', z: '4–9', f: 'fine', c: '#B4B44B', fl: '#E58AAE', note: 'Small; gold leaves and pink flowers.' },
+  { id: 'vaas', t: 'dshrub', cn: 'Rabbiteye blueberry', bn: 'Vaccinium virgatum', w: 5, h: 6, sun: 'F', z: '7–9', f: 'berry', c: '#5B8A47', fl: '#3E5BA8', note: 'Edible berries. Plant two varieties.' },
   // ---- perennials (beds)
   { id: 'ruhi', t: 'perennial', cn: 'Black-eyed Susan', bn: "Rudbeckia fulgida 'Goldsturm'", w: 2, h: 2, sun: 'F', z: '4–9', c: '#55803A', fl: '#F2B705', spc: 1.5, note: 'Native; summer gold flowers; seed for finches.' },
   { id: 'ecpu', t: 'perennial', cn: 'Purple coneflower', bn: 'Echinacea purpurea', w: 2, h: 3, sun: 'F', z: '3–9', c: '#56803B', fl: '#C1569A', spc: 1.5, note: 'Native; butterflies and goldfinches.' },
@@ -1170,44 +1170,280 @@ function blooms(r, fl, rng, count, size, spread) {
   }
   return `<g fill-opacity="0.92">${s}</g>`;
 }
-const RDRAW = {
-  dtree(it, o, rng) {
-    const sp = spOf(it) || PLANT_BY_ID.acru, c = sp.c, r = it.r;
-    const D = lobed(r, clamp(Math.round(9 + r * 0.4), 9, 18), rng, 0.12);
-    let s = shadowOf(D, r, o) + `<path d="${D}" fill="${c}" stroke="${shade(c, -0.45)}" stroke-width="${n(o.u * 0.9)}"/>`;
-    s += foliage(r, c, rng, clamp(Math.round(6 + r * 0.8), 6, 22), 0.17);
-    const a0 = rng() * 72;
-    let br = '';
-    for (let k = 0; k < 5; k++) { const a = (a0 + k * 72) * Math.PI / 180; br += `M0,0L${n(r * 0.62 * Math.cos(a))},${n(r * 0.62 * Math.sin(a))}`; }
-    s += `<path d="${br}" stroke="${shade(c, -0.55)}" stroke-opacity="0.35" stroke-width="${n(Math.max(o.u * 0.9, r * 0.02))}" fill="none"/>`;
-    s += `<path d="${D}" fill="url(#ld-dome)"/>` + blooms(r, sp.fl, rng, Math.round(8 + r * 1.6), Math.max(0.18, r * 0.035));
-    return s + `<circle r="${n(Math.max(0.22, r * 0.035))}" fill="#4A3526"/>`;
+/* ------------------------------------------------------------------ species canopy forms
+ * Each plant in plants.js names a form (f). A form draws the plan view of that kind of
+ * plant so species read differently on the plan: maple vs oak vs ginkgo vs pine. */
+const at = (x, y, rot, s) => `translate(${n(x)} ${n(y)})${rot ? ` rotate(${n(rot)})` : ''}${s ? ` scale(${n(s)})` : ''}`;
+/* outline with sharp lobes, like a maple leaf edge */
+function pointy(r, k, rng, depth) {
+  let d = '';
+  for (let i = 0; i < k; i++) {
+    const a = 2 * Math.PI * i / k, h = Math.PI / k, rr = r * (1 - 0.07 * rng());
+    const pts = [[r * (1 - depth), a - h], [rr * 0.95, a - h * 0.45], [rr, a], [rr * 0.95, a + h * 0.45]];
+    pts.forEach(([q, b], j) => { d += `${i || j ? 'L' : 'M'}${n(q * Math.cos(b))},${n(q * Math.sin(b))}`; });
+  }
+  return d + 'Z';
+}
+const LEAF = {
+  fan: 'M0,0L0.55,-0.85A1,1 0 0 0 -0.55,-0.85Z',
+  heart: 'M0,0.35C-1,-0.25 -0.35,-1 0,-0.45C0.35,-1 1,-0.25 0,0.35Z',
+  star: 'M0,-1L0.22,-0.3L0.95,-0.31L0.36,0.12L0.59,0.81L0,0.38L-0.59,0.81L-0.36,0.12L-0.95,-0.31L-0.22,-0.3Z',
+  oval: 'M0,-1C0.5,-0.6 0.5,0.6 0,1C-0.5,0.6 -0.5,-0.6 0,-1Z',
+  palm: 'M0,-1L0.2,-0.45L0.75,-0.6L0.45,-0.1L0.95,0.2L0.35,0.25L0.3,0.8L0,0.4L-0.3,0.8L-0.35,0.25L-0.95,0.2L-0.45,-0.1L-0.75,-0.6L-0.2,-0.45Z',
+};
+/* scatter leaf shapes inside radius R; facing outward like real foliage */
+function leaves(shape, R, count, size, rng, c, spread, op) {
+  let s = '';
+  for (let i = 0; i < count; i++) {
+    const a = rng() * 2 * Math.PI, d = Math.sqrt(rng()) * R * (spread || 0.85);
+    const light = Math.cos(a) * 0.6 - Math.sin(a) * 0.3 + (rng() - 0.5) * 0.8;
+    s += `<path d="${LEAF[shape]}" transform="${at(d * Math.cos(a), d * Math.sin(a), a * 180 / Math.PI + 90 + (rng() - 0.5) * 50, size * (0.75 + rng() * 0.5))}" fill="${shade(c, light > 0 ? 0.12 + light * 0.12 : -0.15 + light * 0.1)}"/>`;
+  }
+  return `<g fill-opacity="${op || 0.85}">${s}</g>`;
+}
+function limbs(r, k, rng, c, len, w) {
+  let d = '';
+  const a0 = rng() * 360;
+  for (let i = 0; i < k; i++) {
+    const a = (a0 + i * 360 / k + (rng() - 0.5) * 20) * Math.PI / 180, L = r * (len || 0.7) * (0.85 + rng() * 0.3), bend = (rng() - 0.5) * 0.5;
+    d += `M0,0Q${n(L * 0.5 * Math.cos(a + bend))},${n(L * 0.5 * Math.sin(a + bend))} ${n(L * Math.cos(a))},${n(L * Math.sin(a))}`;
+  }
+  return `<path d="${d}" stroke="${c}" stroke-width="${n(w || Math.max(0.12, r * 0.025))}" stroke-linecap="round" fill="none"/>`;
+}
+const trunks = (r, k, c) => {
+  let s = '';
+  for (let i = 0; i < k; i++) { const a = 2 * Math.PI * i / k + 0.4; s += `<circle cx="${n(k > 1 ? r * 0.12 * Math.cos(a) : 0)}" cy="${n(k > 1 ? r * 0.12 * Math.sin(a) : 0)}" r="${n(Math.max(0.18, r * 0.03))}" fill="${c || '#4A3526'}"/>`; }
+  return s;
+};
+const outlineFill = (D, c, o, extra) => `<path d="${D}" fill="${c}" stroke="${shade(c, -0.5)}" stroke-width="${n(o.u * 0.9)}"${extra || ''}/>`;
+const dome = (D) => `<path d="${D}" fill="url(#ld-dome)"/>`;
+function flowers4(r, fl, rng, count, size) {   // dogwood-style four-bract flowers
+  let s = '';
+  for (let i = 0; i < count; i++) {
+    const a = rng() * 6.283, d = Math.sqrt(rng()) * r * 0.85, rot = rng() * 90;
+    s += `<g transform="${at(d * Math.cos(a), d * Math.sin(a), rot, size)}"><ellipse cy="-0.55" rx="0.32" ry="0.5"/><ellipse cy="0.55" rx="0.32" ry="0.5"/><ellipse cx="-0.55" rx="0.5" ry="0.32"/><ellipse cx="0.55" rx="0.5" ry="0.32"/></g>`;
+  }
+  return `<g fill="${fl}" stroke="${shade(fl, -0.25)}" stroke-width="0.06">${s}</g>`;
+}
+const FORMS = {
+  /* maples: dense round crown, sharp lobed edge, palmate leaves */
+  maple(r, sp, o, rng) {
+    const c = sp.c, D = pointy(r, clamp(Math.round(10 + r * 0.6), 10, 26), rng, 0.13);
+    let s = shadowOf(D, r, o) + outlineFill(D, c, o);
+    s += leaves('palm', r, clamp(Math.round(18 + r * 2.2), 18, 70), Math.max(0.5, r * 0.11), rng, c, 0.85, 0.75);
+    if (sp.ac) s += leaves('palm', r, Math.round(4 + r * 0.4), Math.max(0.5, r * 0.1), rng, sp.ac, 0.9, 0.8);
+    s += limbs(r, 5, rng, shade(c, -0.55), 0.55, Math.max(0.1, r * 0.018)).replace('fill="none"', 'fill="none" stroke-opacity="0.35"');
+    return s + dome(D) + trunks(r, 1);
   },
-  etree(it, o, rng) {
-    const sp = spOf(it) || PLANT_BY_ID.juvi, c = sp.c, r = it.r, k = clamp(Math.round(r * 2.4), 16, 44);
-    let D = '';
-    for (let i = 0; i < k * 2; i++) {
-      const a = Math.PI * i / k, rr = (i % 2 ? 0.8 : 1) * r * (1 - 0.06 * rng());
-      D += `${i ? 'L' : 'M'}${n(rr * Math.cos(a))},${n(rr * Math.sin(a))}`;
+  /* oaks: broad, coarse irregular crown with big leaf masses and deep shadows */
+  oak(r, sp, o, rng) {
+    const c = sp.c, D = lobed(r, clamp(Math.round(6 + r * 0.15), 6, 10), rng, 0.24);
+    let s = shadowOf(D, r, o, 0.38) + outlineFill(D, c, o);
+    for (let i = 0, k = clamp(Math.round(5 + r * 0.3), 5, 12); i < k; i++) {
+      const a = rng() * 6.283, d = Math.sqrt(rng()) * r * 0.55, cr = r * (0.26 + rng() * 0.14);
+      const light = Math.cos(a) * 0.6 - Math.sin(a) * 0.3 > 0;
+      s += `<path d="${lobed(cr, 7, rng, 0.3)}" transform="${at(d * Math.cos(a), d * Math.sin(a))}" fill="${shade(c, light ? 0.18 : -0.28)}" fill-opacity="0.7"/>`;
     }
+    if (sp.fine) s += leaves('oval', r, clamp(Math.round(40 + r * 3), 40, 120), Math.max(0.35, r * 0.035), rng, c, 0.88, 0.8);
+    else s += leaves('oval', r, clamp(Math.round(10 + r), 10, 40), Math.max(0.5, r * 0.07), rng, c, 0.85, 0.55);
+    return s + dome(D) + trunks(r, 1, '#3E2C1F');
+  },
+  /* ginkgo: open, irregular crown; fan-leaf clusters on visible limbs, gaps between */
+  ginkgo(r, sp, o, rng) {
+    const c = sp.c, D = lobed(r, 9, rng, 0.3);
+    let s = shadowOf(D, r, o, 0.3) + `<path d="${D}" fill="${shade(c, -0.1)}" fill-opacity="0.22" stroke="${shade(c, -0.4)}" stroke-opacity="0.6" stroke-width="${n(o.u * 0.7)}"/>`;
+    const k = 6, a0 = rng() * 60;
+    let lim = '', cl = '';
+    for (let i = 0; i < k; i++) {
+      const a = (a0 + i * 60 + (rng() - 0.5) * 25) * Math.PI / 180, L = r * (0.7 + rng() * 0.25);
+      lim += `M0,0L${n(L * Math.cos(a))},${n(L * Math.sin(a))}`;
+      for (let j = 1; j <= 3; j++) {
+        const t = j / 3.2, x = L * t * Math.cos(a), y = L * t * Math.sin(a), cr = r * (0.12 + 0.04 * j);
+        let fan = '';
+        fan += `<circle cx="${n(x)}" cy="${n(y)}" r="${n(cr * 0.75)}" fill="${shade(c, -0.25)}" fill-opacity="0.55"/>`;
+        for (let m = 0, cnt = 9 + j * 3; m < cnt; m++) {
+          const b = rng() * 6.283, dd = Math.sqrt(rng()) * cr;
+          fan += `<path d="${LEAF.fan}" transform="${at(x + dd * Math.cos(b), y + dd * Math.sin(b), b * 180 / Math.PI + 90, Math.max(0.5, r * 0.1))}" fill="${shade(c, (rng() - 0.35) * 0.4)}" stroke="${shade(c, -0.45)}" stroke-width="0.03"/>`;
+        }
+        cl += fan;
+      }
+    }
+    return s + `<path d="${lim}" stroke="#5A4632" stroke-width="${n(Math.max(0.12, r * 0.022))}" stroke-linecap="round" fill="none"/><g fill-opacity="0.92">${cl}</g>` + trunks(r, 1);
+  },
+  /* river birch: airy, light and fine-textured; clump of 3 trunks */
+  birch(r, sp, o, rng) {
+    const c = sp.c, D = pointy(r, clamp(Math.round(18 + r), 18, 44), rng, 0.06);
+    let s = shadowOf(D, r, o, 0.2) + outlineFill(D, c, o, ' fill-opacity="0.7"');
+    s += leaves('oval', r, clamp(Math.round(40 + r * 3), 40, 130), Math.max(0.3, r * 0.04), rng, c, 0.92, 0.85);
+    s += limbs(r, 7, rng, '#E9E4D8', 0.6, Math.max(0.08, r * 0.012));
+    return s + dome(D) + trunks(r, 3, '#D9D2C2');
+  },
+  /* redbud: wide, flat crown of heart-shaped leaves; pink spring flowers */
+  redbud(r, sp, o, rng) {
+    const c = sp.c, D = lobed(r, 13, rng, 0.08);
+    let s = shadowOf(D, r, o, 0.28) + outlineFill(D, c, o);
+    s += leaves('heart', r, clamp(Math.round(22 + r * 2.4), 22, 80), Math.max(0.5, r * 0.09), rng, c, 0.88, 0.85);
+    return s + dome(D) + blooms(r, sp.fl, rng, Math.round(18 + r * 2.5), Math.max(0.16, r * 0.025), 0.9) + trunks(r, 2);
+  },
+  /* dogwood: tiered layers with white four-bract flowers */
+  dogwood(r, sp, o, rng) {
+    const c = sp.c, D = lobed(r, 11, rng, 0.1);
+    let s = shadowOf(D, r, o, 0.28) + outlineFill(D, c, o);
+    [0.72, 0.45].forEach((f, i) => { s += `<path d="${lobed(r * f, 9, rng, 0.12)}" fill="${shade(c, 0.1 + i * 0.08)}" stroke="${shade(c, -0.35)}" stroke-width="${n(o.u * 0.6)}"/>`; });
+    s += leaves('oval', r, Math.round(14 + r * 1.2), Math.max(0.45, r * 0.07), rng, c, 0.9, 0.5);
+    return s + dome(D) + flowers4(r, sp.fl || '#F4F1E6', rng, Math.round(10 + r * 1.4), Math.max(0.35, r * 0.06)) + trunks(r, 1);
+  },
+  /* crape myrtle: multi-trunk vase with cone-shaped flower clusters */
+  crape(r, sp, o, rng) {
+    const c = sp.c, D = lobed(r, 10, rng, 0.14);
+    let s = shadowOf(D, r, o, 0.28) + outlineFill(D, c, o);
+    s += leaves('oval', r, Math.round(16 + r * 1.6), Math.max(0.4, r * 0.06), rng, c, 0.85, 0.7) + dome(D);
+    let fl = '';
+    for (let i = 0, k = Math.round(9 + r * 1.2); i < k; i++) {
+      const a = rng() * 6.283, d = (0.3 + 0.6 * Math.sqrt(rng())) * r * 0.85;
+      fl += `<ellipse transform="${at(d * Math.cos(a), d * Math.sin(a), a * 180 / Math.PI)}" rx="${n(r * 0.11)}" ry="${n(r * 0.055)}" fill="${shade(sp.fl, (rng() - 0.5) * 0.2)}"/>`;
+    }
+    return s + fl + limbs(r, 5, rng, '#8C6E58', 0.25, Math.max(0.1, r * 0.02)) + trunks(r, 5, '#7A5F4B');
+  },
+  /* Japanese maple: layered, finely cut star leaves in red */
+  jmaple(r, sp, o, rng) {
+    const c = sp.c, D = pointy(r, clamp(Math.round(14 + r), 14, 30), rng, 0.1);
+    let s = shadowOf(D, r, o, 0.3) + outlineFill(D, c, o);
+    [0.7, 0.42].forEach((f) => { s += `<path d="${pointy(r * f, 12, rng, 0.12)}" fill="${shade(c, 0.12)}" fill-opacity="0.8"/>`; });
+    s += leaves('star', r, clamp(Math.round(26 + r * 3), 26, 80), Math.max(0.35, r * 0.075), rng, c, 0.9, 0.85);
+    return s + dome(D) + trunks(r, 1);
+  },
+  /* fruit trees: open-center pruning, visible scaffold limbs, fruit */
+  fruit(r, sp, o, rng) {
+    const c = sp.c, D = lobed(r, 11, rng, 0.12);
+    let s = shadowOf(D, r, o, 0.3) + outlineFill(D, c, o);
+    s += `<circle r="${n(r * 0.32)}" fill="${shade(c, 0.35)}" fill-opacity="0.75"/>` + limbs(r, 4, rng, '#5A4430', 0.62, Math.max(0.15, r * 0.03));
+    s += leaves('oval', r, Math.round(18 + r * 1.8), Math.max(0.45, r * 0.07), rng, c, 0.9, 0.75);
+    let fr = '';
+    for (let i = 0, k = Math.round(10 + r * 1.4); i < k; i++) {
+      const a = rng() * 6.283, d = (0.38 + 0.55 * Math.sqrt(rng())) * r;
+      fr += `<circle cx="${n(d * Math.cos(a))}" cy="${n(d * Math.sin(a))}" r="${n(Math.max(0.22, r * 0.045))}"/>`;
+    }
+    return s + dome(D) + `<g fill="${sp.fr || '#C8322B'}" stroke="${shade(sp.fr || '#C8322B', -0.4)}" stroke-width="0.05">${fr}</g>` + trunks(r, 1);
+  },
+  /* serviceberry: multi-stem, open, small white flowers */
+  multistem(r, sp, o, rng) {
+    const c = sp.c, D = lobed(r, 12, rng, 0.16);
+    let s = shadowOf(D, r, o, 0.25) + outlineFill(D, c, o, ' fill-opacity="0.85"');
+    s += leaves('oval', r, Math.round(20 + r * 2), Math.max(0.4, r * 0.06), rng, c, 0.9, 0.75) + limbs(r, 6, rng, '#6E5A48', 0.55, Math.max(0.08, r * 0.015));
+    return s + dome(D) + blooms(r, sp.fl, rng, Math.round(16 + r * 2), Math.max(0.14, r * 0.03), 0.9) + trunks(r, 4, '#6E5A48');
+  },
+  /* pines: open crown of needle tufts on radiating limbs */
+  pine(r, sp, o, rng) {
+    const c = sp.c, D = lobed(r, 12, rng, 0.18);
+    let s = shadowOf(D, r, o, 0.3) + `<path d="${D}" fill="${c}" fill-opacity="0.35"/>` + limbs(r, 7, rng, '#5A4430', 0.8, Math.max(0.12, r * 0.02));
+    for (let i = 0, k = clamp(Math.round(10 + r * 0.9), 10, 40); i < k; i++) {
+      const a = rng() * 6.283, d = Math.sqrt(rng()) * r * 0.78, tr = r * (0.14 + rng() * 0.08), m = 16;
+      let nd = '';
+      for (let j = 0; j < m; j++) { const b = 2 * Math.PI * j / m + rng() * 0.2, L = tr * (0.75 + rng() * 0.25); nd += `M0,0L${n(L * Math.cos(b))},${n(L * Math.sin(b))}`; }
+      const tone = shade(c, (Math.cos(a) * 0.5 - Math.sin(a) * 0.3) * 0.3 + (rng() - 0.5) * 0.15);
+      s += `<g transform="${at(d * Math.cos(a), d * Math.sin(a))}"><circle r="${n(tr * 0.55)}" fill="${shade(tone, -0.2)}"/><path d="${nd}" stroke="${tone}" stroke-width="${n(Math.max(0.05, tr * 0.06))}" stroke-linecap="round"/></g>`;
+    }
+    return s + trunks(r, 1, '#4E3A28');
+  },
+  /* columnar evergreens (cedar, arborvitae, cypress): tight, dense scale foliage */
+  column(r, sp, o, rng) {
+    const c = sp.c, k = clamp(Math.round(r * 5), 24, 64);
+    let D = '';
+    for (let i = 0; i < k * 2; i++) { const a = Math.PI * i / k, rr = (i % 2 ? 0.9 : 1) * r * (1 - 0.04 * rng()); D += `${i ? 'L' : 'M'}${n(rr * Math.cos(a))},${n(rr * Math.sin(a))}`; }
     D += 'Z';
-    let s = shadowOf(D, r, o, 0.38) + `<path d="${D}" fill="${c}" stroke="${shade(c, -0.45)}" stroke-width="${n(o.u * 0.8)}" stroke-linejoin="round"/>`;
-    let nd = '';
-    for (let i = 0; i < k; i++) { const a = 2 * Math.PI * i / k + rng() * 0.1; nd += `M${n(r * 0.12 * Math.cos(a))},${n(r * 0.12 * Math.sin(a))}L${n(r * 0.86 * Math.cos(a))},${n(r * 0.86 * Math.sin(a))}`; }
-    s += `<path d="${nd}" stroke="${shade(c, 0.28)}" stroke-opacity="0.55" stroke-width="${n(Math.max(o.u * 0.7, r * 0.018))}" fill="none"/>`;
-    s += `<circle r="${n(r * 0.45)}" fill="${shade(c, -0.2)}" fill-opacity="0.35"/>`;
-    s += `<path d="${D}" fill="url(#ld-dome)"/>` + blooms(r, sp.fl, rng, Math.round(4 + r * 0.6), Math.max(0.3, r * 0.06), 0.7);
-    return s + `<circle r="${n(Math.max(0.2, r * 0.03))}" fill="#3A2A1D"/>`;
+    let s = shadowOf(D, r, o, 0.42) + outlineFill(D, c, o);
+    [0.78, 0.56, 0.34].forEach((f, i) => { s += `<path d="${lobed(r * f, clamp(Math.round(r * 3 * f), 8, 30), rng, 0.15)}" fill="${shade(c, 0.07 * (i + 1))}" stroke="${shade(c, -0.4)}" stroke-width="${n(o.u * 0.5)}"/>`; });
+    s += leaves('oval', r, Math.round(20 + r * 3), Math.max(0.2, r * 0.07), rng, shade(c, 0.1), 0.9, 0.55);
+    return s + dome(D) + `<circle r="${n(Math.max(0.15, r * 0.06))}" fill="#2A1E14"/>`;
   },
-  bshrub(it, o, rng) { return RDRAW._shrub(it, o, rng, PLANT_BY_ID.ilvn, 0.5); },
-  dshrub(it, o, rng) { return RDRAW._shrub(it, o, rng, PLANT_BY_ID.hyqu, 1); },
-  _shrub(it, o, rng, def, bloomMul) {
-    const sp = spOf(it) || def, c = sp.c, r = it.r;
-    const D = lobed(r, clamp(Math.round(7 + r), 7, 14), rng, 0.14);
-    let s = shadowOf(D, r, o, 0.3) + `<path d="${D}" fill="${c}" stroke="${shade(c, -0.5)}" stroke-width="${n(o.u * 0.9)}"/>`;
-    s += foliage(r, c, rng, clamp(Math.round(4 + r * 1.2), 4, 12), 0.22) + `<path d="${D}" fill="url(#ld-dome)"/>`;
-    return s + blooms(r, sp.fl, rng, Math.round((4 + r * 3) * bloomMul), Math.max(0.12, r * 0.07));
+  /* deodar cedar: soft, drooping tiers of blue-green branches */
+  deodar(r, sp, o, rng) {
+    const c = sp.c, k = 10, D = lobed(r, 20, rng, 0.12);
+    let s = shadowOf(D, r, o, 0.3) + `<path d="${D}" fill="${shade(c, -0.15)}" fill-opacity="0.55"/>`;
+    for (let i = 0; i < k; i++) {
+      const a = 2 * Math.PI * i / k + rng() * 0.3, L = r * (0.85 + rng() * 0.15), bend = 0.35;
+      const tip = [L * Math.cos(a + bend * 0.5), L * Math.sin(a + bend * 0.5)], mid = [L * 0.55 * Math.cos(a), L * 0.55 * Math.sin(a)];
+      let tufts = '';
+      for (let j = 2; j <= 8; j++) { const t = j / 8, x = mid[0] * t * 1.6, y = mid[1] * t * 1.6, tr = r * 0.12 * (1.2 - t * 0.5); tufts += `<ellipse transform="${at(x, y, a * 180 / Math.PI + 90)}" rx="${n(tr)}" ry="${n(tr * 0.45)}"/>`; }
+      s += `<path d="M0,0Q${n(mid[0])},${n(mid[1])} ${n(tip[0])},${n(tip[1])}" stroke="#5E5040" stroke-width="${n(Math.max(0.1, r * 0.015))}" fill="none"/><g fill="${shade(c, (rng() - 0.3) * 0.25)}" fill-opacity="0.85">${tufts}</g>`;
+    }
+    return s + dome(D) + trunks(r, 1, '#4E3A28');
   },
+  /* southern magnolia: big glossy leaves arranged in whorls, large white flowers */
+  magnolia(r, sp, o, rng) {
+    const c = sp.c, D = lobed(r, 12, rng, 0.12);
+    let s = shadowOf(D, r, o, 0.4) + outlineFill(D, c, o);
+    for (let ring = 0; ring < 3; ring++) {
+      const R = r * (0.82 - ring * 0.27), k = Math.round(10 - ring * 2);
+      for (let i = 0; i < k; i++) {
+        const a = 2 * Math.PI * (i + ring * 0.5) / k + rng() * 0.2;
+        s += `<g transform="${at(R * Math.cos(a), R * Math.sin(a), a * 180 / Math.PI + 90, r * 0.2)}"><path d="${LEAF.oval}" fill="${shade(c, 0.05 + ring * 0.07)}" stroke="${shade(c, -0.4)}" stroke-width="0.04"/><path d="M0,-0.9V0.9" stroke="${shade(c, 0.45)}" stroke-width="0.05"/></g>`;
+      }
+    }
+    s += dome(D);
+    for (let i = 0, k = Math.round(3 + r * 0.4); i < k; i++) {
+      const a = rng() * 6.283, d = Math.sqrt(rng()) * r * 0.75, fr = Math.max(0.5, r * 0.11);
+      s += `<g transform="${at(d * Math.cos(a), d * Math.sin(a), rng() * 60)}">${[0, 60, 120, 180, 240, 300].map((q) => `<ellipse transform="rotate(${q}) translate(0 ${n(-fr * 0.5)})" rx="${n(fr * 0.3)}" ry="${n(fr * 0.5)}" fill="#FBF8EE" stroke="#D8D0BC" stroke-width="0.04"/>`).join('')}<circle r="${n(fr * 0.18)}" fill="#E6C77A"/></g>`;
+    }
+    return s;
+  },
+  /* shrubs */
+  shrub(r, sp, o, rng) {
+    const c = sp.c, D = lobed(r, clamp(Math.round(7 + r), 7, 14), rng, 0.14);
+    return shadowOf(D, r, o, 0.3) + outlineFill(D, c, o) + foliage(r, c, rng, clamp(Math.round(4 + r * 1.2), 4, 12), 0.22) + dome(D) + blooms(r, sp.fl, rng, Math.round(4 + r * 3), Math.max(0.12, r * 0.07));
+  },
+  fine(r, sp, o, rng) {   // boxwood, yaupon: tight, small-leaved, clipped look
+    const c = sp.c, D = lobed(r, clamp(Math.round(12 + r * 2), 12, 30), rng, 0.05);
+    let s = shadowOf(D, r, o, 0.35) + outlineFill(D, c, o), dots = '';
+    for (let i = 0, k = Math.round(30 + r * r * 6); i < Math.min(k, 260); i++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r * 0.92; dots += `<circle cx="${n(d * Math.cos(a))}" cy="${n(d * Math.sin(a))}" r="${n(Math.max(0.05, r * 0.035))}" fill="${shade(c, Math.cos(a) * 0.15 + (rng() - 0.5) * 0.25)}"/>`; }
+    return s + dots + dome(D) + blooms(r, sp.fl, rng, Math.round(3 + r * 2), Math.max(0.1, r * 0.05));
+  },
+  spiky(r, sp, o, rng) {  // hollies: spiny, glossy, red berries
+    const c = sp.c, D = pointy(r, clamp(Math.round(10 + r * 1.5), 10, 30), rng, 0.16);
+    let s = shadowOf(D, r, o, 0.35) + outlineFill(D, c, o) + leaves('star', r, Math.round(10 + r * 3), Math.max(0.25, r * 0.12), rng, c, 0.8, 0.6) + dome(D);
+    if (sp.fl) for (let i = 0, k = Math.round(5 + r * 2.5); i < k; i++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r * 0.8, br = Math.max(0.09, r * 0.035); s += `<circle cx="${n(d * Math.cos(a))}" cy="${n(d * Math.sin(a))}" r="${n(br)}" fill="${sp.fl}"/><circle cx="${n(d * Math.cos(a) + br * 1.6)}" cy="${n(d * Math.sin(a) + br * 0.5)}" r="${n(br)}" fill="${sp.fl}"/>`; }
+    return s;
+  },
+  mophead(r, sp, o, rng) { // hydrangeas: big leaves, large round flower heads
+    const c = sp.c, D = lobed(r, 9, rng, 0.14);
+    let s = shadowOf(D, r, o, 0.3) + outlineFill(D, c, o) + leaves('oval', r, Math.round(8 + r * 2), Math.max(0.35, r * 0.18), rng, c, 0.85, 0.7) + dome(D);
+    for (let i = 0, k = clamp(Math.round(2 + r * 0.9), 2, 9); i < k; i++) {
+      const a = rng() * 6.283, d = Math.sqrt(rng()) * r * 0.6, hr = r * (0.18 + rng() * 0.06);
+      let pet = '';
+      for (let j = 0; j < 9; j++) { const b = rng() * 6.283, e = Math.sqrt(rng()) * hr * 0.7; pet += `<circle cx="${n(e * Math.cos(b))}" cy="${n(e * Math.sin(b))}" r="${n(hr * 0.3)}" fill="${shade(sp.fl, (rng() - 0.5) * 0.2)}"/>`; }
+      s += `<g transform="${at(d * Math.cos(a), d * Math.sin(a))}"><circle r="${n(hr)}" fill="${shade(sp.fl, -0.12)}"/>${pet}</g>`;
+    }
+    return s;
+  },
+  rose(r, sp, o, rng) {   // roses and azaleas: compact mound covered in open blooms
+    const c = sp.c, D = lobed(r, 10, rng, 0.12);
+    let s = shadowOf(D, r, o, 0.3) + outlineFill(D, c, o) + leaves('oval', r, Math.round(10 + r * 3), Math.max(0.2, r * 0.1), rng, c, 0.85, 0.7) + dome(D);
+    for (let i = 0, k = Math.round(5 + r * 3); i < k; i++) {
+      const a = rng() * 6.283, d = Math.sqrt(rng()) * r * 0.8, br = Math.max(0.15, r * 0.09);
+      s += `<g transform="${at(d * Math.cos(a), d * Math.sin(a))}"><circle r="${n(br)}" fill="${sp.fl}"/><circle r="${n(br * 0.5)}" fill="${shade(sp.fl, -0.25)}"/></g>`;
+    }
+    return s;
+  },
+  berry(r, sp, o, rng) {  // beautyberry, blueberry: loose leaves with berry clusters
+    const c = sp.c, D = lobed(r, 11, rng, 0.18);
+    let s = shadowOf(D, r, o, 0.28) + outlineFill(D, c, o, ' fill-opacity="0.9"') + leaves('oval', r, Math.round(12 + r * 3), Math.max(0.25, r * 0.12), rng, c, 0.9, 0.75) + dome(D);
+    for (let i = 0, k = Math.round(4 + r * 1.5); i < k; i++) {
+      const a = rng() * 6.283, d = Math.sqrt(rng()) * r * 0.75, br = Math.max(0.07, r * 0.03);
+      for (let j = 0; j < 5; j++) s += `<circle cx="${n(d * Math.cos(a) + (rng() - 0.5) * br * 4)}" cy="${n(d * Math.sin(a) + (rng() - 0.5) * br * 4)}" r="${n(br)}" fill="${shade(sp.fl, (rng() - 0.5) * 0.2)}"/>`;
+    }
+    return s;
+  },
+};
+function plantForm(it, o, rng, def, defForm) {
+  const sp = spOf(it) || PLANT_BY_ID[def];
+  return (FORMS[sp.f] || FORMS[defForm])(it.r, sp, o, rng);
+}
+const RDRAW = {
+  dtree(it, o, rng) { return plantForm(it, o, rng, 'acru', 'maple'); },
+  etree(it, o, rng) { return plantForm(it, o, rng, 'juvi', 'column'); },
+  bshrub(it, o, rng) { return plantForm(it, o, rng, 'ilvn', 'fine'); },
+  dshrub(it, o, rng) { return plantForm(it, o, rng, 'hyqu', 'shrub'); },
   birdbath(it, o) {
     const r = it.r;
     return shadowOf(`M${-r},0a${r},${r} 0 1,0 ${2 * r},0a${r},${r} 0 1,0 ${-2 * r},0`, r * 2, o, 0.35) +
