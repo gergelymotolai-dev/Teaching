@@ -150,7 +150,7 @@ let sel = [];                      // selected ids
 let tool = 'select';
 const curSp = Object.assign({}, SP_DEFAULT);
 let libSp = SP_DEFAULT.dtree;      // species shown in the library info card
-const view = { cx: 41, cy: 58, k: 6, site: false, util: false, grid: false, diagram: true, design: true, tags: false, base: true, style: 'render', snap: true, lib: true, floor: false, img: true };
+const view = { cx: 41, cy: 58, k: 6, flow: true, site: false, util: false, grid: false, diagram: true, design: true, tags: false, base: true, style: 'render', snap: true, lib: true, floor: false, img: true };
 let hist = [], hIdx = -1, commitTimer = null, pendingLabel = 'Edit';
 let checkRun = false;
 let draft = null, hover = null, measure = null, marquee = null, snapMark = null;
@@ -162,7 +162,8 @@ const lastFence = { style: 'privacy', height: 6 };
 const byId = (id) => state.items.find((i) => i.id === id);
 const selItems = () => sel.map(byId).filter(Boolean);
 const single = () => (sel.length === 1 ? byId(sel[0]) || null : null);
-const drawOpts = (extra) => Object.assign({ u: 0.125, render: view.style === 'render', color: view.style !== 'bw', tags: view.tags, seeTrees: view.seeTrees }, extra || {});
+const waterItems = () => state.items.filter((i) => i.type === 'pondShape' || i.type === 'stream');
+const drawOpts = (extra) => Object.assign({ u: 0.125, render: view.style === 'render', color: view.style !== 'bw', tags: view.tags, seeTrees: view.seeTrees, water: waterItems(), flow: view.flow !== false }, extra || {});
 
 /* ------------------------------------------------------------------ history */
 const snapshot = () => JSON.stringify(state);
@@ -207,7 +208,7 @@ function autosave(s) {
   }
 }
 function saveView() {
-  try { localStorage.setItem(VIEW_KEY, JSON.stringify({ site: view.site, grid: view.grid, diagram: view.diagram, design: view.design, tags: view.tags, base: view.base, style: view.style, snap: view.snap, lib: view.lib, floor: view.floor, img: view.img, util: view.util, seeTrees: view.seeTrees, libTab })); } catch (e) { /* ignore */ }
+  try { localStorage.setItem(VIEW_KEY, JSON.stringify({ site: view.site, grid: view.grid, diagram: view.diagram, design: view.design, tags: view.tags, base: view.base, style: view.style, snap: view.snap, lib: view.lib, floor: view.floor, img: view.img, util: view.util, seeTrees: view.seeTrees, flow: view.flow, libTab })); } catch (e) { /* ignore */ }
 }
 
 /* ------------------------------------------------------------------ validation */
@@ -640,6 +641,7 @@ function renderPlan() {
 /* fast path while dragging: redraw only the items that changed */
 function renderItems(ids) {
   const o = drawOpts({ hit: true });
+  if (ids.some((id) => { const it = byId(id); return it && (it.type === 'pondShape' || it.type === 'stream'); })) ids = [...new Set(ids.concat(o.water.map((w) => w.id)))];   // a stream and its pond redraw together
   for (const id of ids) {
     const it = byId(id), el = svg.querySelector(`[data-id="${CSS.escape(id)}"]`);
     if (it && el) el.outerHTML = drawItem(it, o);
@@ -1866,7 +1868,7 @@ function renderSide(light) {
 }
 
 /* ------------------------------------------------------------------ layers, style, meta, client list */
-const TOGGLES = { tSee: 'seeTrees', tSite: 'site', tUtil: 'util', tGrid: 'grid', tDiagram: 'diagram', tDesign: 'design', tTypes: 'tags', tBase: 'base', tFloor: 'floor', tImg: 'img' };
+const TOGGLES = { tFlow: 'flow', tSee: 'seeTrees', tSite: 'site', tUtil: 'util', tGrid: 'grid', tDiagram: 'diagram', tDesign: 'design', tTypes: 'tags', tBase: 'base', tFloor: 'floor', tImg: 'img' };
 for (const [id, key] of Object.entries(TOGGLES)) {
   $(id).addEventListener('change', (e) => {
     view[key] = e.target.checked;
@@ -2096,7 +2098,7 @@ function sheetFrame() {
   return { s: k, ox: 48 + (AW - F.w * k) / 2 - F.x * k, oy: 84 + (AH - F.h * k) / 2 - F.y * k, scale, fits: fitsAt(scale), auto };
 }
 function sheetSVG() {
-  const fr = sheetFrame(), o = drawOpts({ u: 0.125 * PX / fr.s });
+  const fr = sheetFrame(), o = drawOpts({ u: 0.125 * PX / fr.s, flow: false });
   const SW = 1056, SH = 1632;
   const fontCss = ($('fontFaces') || {}).textContent || '';
   let s = `<svg xmlns="${NS}" width="${SW}" height="${SH}" viewBox="0 0 ${SW} ${SH}"><style>${fontCss}</style>${DEFS}<rect width="${SW}" height="${SH}" fill="#fff"/>`;
@@ -2866,7 +2868,7 @@ function markLibButtons() { document.querySelectorAll('[data-openlib]').forEach(
   try {
     const v = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null');
     if (v && ['plants', 'build', 'living'].includes(v.libTab)) libTab = v.libTab;
-    if (v) for (const k of ['site', 'grid', 'diagram', 'design', 'tags', 'base', 'snap', 'lib', 'floor', 'img', 'util', 'seeTrees']) if (typeof v[k] === 'boolean') view[k] = v[k];
+    if (v) for (const k of ['site', 'grid', 'diagram', 'design', 'tags', 'base', 'snap', 'lib', 'floor', 'img', 'util', 'seeTrees', 'flow']) if (typeof v[k] === 'boolean') view[k] = v[k];
     if (v && ['render', 'color', 'bw'].includes(v.style)) view.style = v.style;
   } catch (e) { /* ignore */ }
   if (innerWidth <= 1000) view.lib = false;
