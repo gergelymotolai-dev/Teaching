@@ -133,6 +133,7 @@ function undo() { flush(); if (hIdx <= 0) { toast('Nothing to undo'); return; } 
 function redo() { flush(); if (hIdx >= hist.length - 1) { toast('Nothing to redo'); return; } jumpTo(hIdx + 1); toast('Redo ' + hist[hIdx].label); }
 function restore(s) {
   state = JSON.parse(s);
+  registerCustom(state.customPlants);
   sel = sel.filter((id) => byId(id));
   autosave(s);
   syncMeta(); renderAll();
@@ -183,6 +184,9 @@ function cleanState(raw) {
     }
     if (!Array.isArray(raw.wants)) st.wants = [];
   }
+  st.customPlants = cleanCustomPlants(raw.customPlants);
+  const localCustom = Object.fromEntries(st.customPlants.map((c) => [c.id, c]));
+  const findSp = (id) => (PLANT_BY_ID[id] && !PLANT_BY_ID[id].custom ? PLANT_BY_ID[id] : localCustom[id]);
   const seen = new Set();
   raw.items.forEach((r, i) => {
     const where = `Item ${i + 1}`;
@@ -214,10 +218,15 @@ function cleanState(raw) {
     if (r.type === 'fence') { it.style = FENCE_STYLES[r.style] ? r.style : 'privacy'; it.height = numOr(r.height, 2, 12, FENCE_HEIGHT[it.style]); }
     const cats = spCats(r.type);
     if (cats.length) {
-      const sp = PLANT_BY_ID[r.sp];
+      const sp = findSp(r.sp);
       if (sp && cats.includes(sp.t)) it.sp = sp.id;
       else if (r.type !== 'bedShape') it.sp = t.d.sp;
+      if (isBedType(r.type) && Array.isArray(r.mix)) {
+        const mix = r.mix.slice(0, 12).map((m) => m && findSp(m.sp) && cats.includes(findSp(m.sp).t) ? { sp: m.sp, w: numOr(m.w, 1, 100, 1) } : null).filter(Boolean);
+        if (mix.length > 1) { it.mix = mix; it.sp = mix[0].sp; }
+      }
     }
+    if (['perennial', 'annual', 'groundcover'].includes(r.type) && ['oval', 'rect', 'round'].includes(r.form)) it.form = r.form;
     if (r.locked) it.locked = true;
     if (r.hidden) it.hidden = true;
     st.items.push(it);
@@ -256,6 +265,13 @@ css.textContent = `
 .dlg .keys div{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding:3px 0}
 .props-h{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:500;font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.05em}
 .props-h .chip{width:28px;height:24px}.props-h .chip svg{width:26px;height:22px}
+.mixrow{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.mixrow .chip{width:26px;height:24px;border-radius:2px;background:#F4F3EE}.mixrow .chip svg{width:24px;height:22px}
+.mixrow select{flex:1;min-width:0;height:28px;padding:3px 6px;border:1px solid var(--line-2);border-radius:2px;background:var(--well);color:var(--text)}
+.mixrow input{width:52px;height:28px;padding:3px 5px;border:1px solid var(--line-2);border-radius:2px;background:var(--well);color:var(--text)}
+.yours{font-family:var(--display);font-size:9.5px;font-weight:600;letter-spacing:.08em;color:#1A1A1A;background:var(--gold);border-radius:2px;padding:0 4px;margin-left:4px;vertical-align:1px}
+.dlg .sunpick{display:flex;gap:14px;flex-wrap:wrap}.dlg .sunpick label{display:flex;gap:5px;align-items:center;font-size:14px;text-transform:none;letter-spacing:0;color:var(--text);font-weight:400}
+.dlg input[type=color]{height:30px;padding:2px;width:100%}
 .want{display:flex;align-items:flex-start;gap:4px}
 .want .check{flex:1;min-width:0}
 .want .wb{display:flex;opacity:0;transition:opacity .12s}
@@ -688,7 +704,8 @@ function plantThumb(sp) {
 }
 function speciesInfo(sp) {
   return `<b>${esc(sp.cn)}</b> <span style="font-family:var(--display);font-size:11px;border:1px solid #6B6F64;border-radius:2px;padding:0 4px;margin-left:4px">${PLANT_CODE[sp.id]}</span><br><i>${esc(sp.bn)}</i>
-    <dl>${sp.t === 'turf' ? '' : `<dt>Mature size</dt><dd>${sp.w} ft wide × ${sp.h} ft tall</dd>`}<dt>Light</dt><dd>${sp.sun.split('/').map((s) => SUN_NAMES[s]).join(', ')}</dd><dt>Hardiness</dt><dd>${sp.z === 'annual' ? 'Annual' : 'USDA zones ' + sp.z}</dd>${sp.spc ? `<dt>Spacing</dt><dd>${sp.spc} ft apart</dd>` : ''}</dl><p>${esc(sp.note)}</p>`;
+    <dl>${sp.t === 'turf' ? '' : `<dt>Mature size</dt><dd>${sp.w} ft wide × ${sp.h} ft tall</dd>`}<dt>Light</dt><dd>${sp.sun.split('/').map((s) => SUN_NAMES[s]).join(', ')}</dd><dt>Hardiness</dt><dd>${!sp.z ? '—' : sp.z === 'annual' ? 'Annual' : 'USDA zones ' + sp.z}</dd>${sp.spc ? `<dt>Spacing</dt><dd>${sp.spc} ft apart</dd>` : ''}</dl><p>${esc(sp.note || '')}</p>` +
+    (sp.custom ? `<div class="btnrow" style="margin-top:6px"><button type="button" class="btn" data-cp-edit="${sp.id}">Edit</button><button type="button" class="btn danger" data-cp-del="${sp.id}">Delete</button></div>` : '');
 }
 function renderLibControls() {
   $('libCat').innerHTML = `<option value="all">All plants (${PLANTS.length})</option>` + CATS.map(([k, name]) => `<option value="${k}">${name} (${PLANTS.filter((p) => p.t === k).length})</option>`).join('');
@@ -707,7 +724,7 @@ function renderLib() {
     const rows = list.filter((p) => p.t === cat);
     if (!rows.length) continue;
     h += `<div class="libcat">${name}</div>`;
-    h += rows.map((p) => `<button type="button" class="plant" data-sp="${p.id}" aria-pressed="${libSp === p.id}"><span class="thumb">${plantThumb(p)}</span><span class="pn"><b>${esc(p.cn)}</b><i>${esc(p.bn)}</i><span>${p.t === 'turf' ? 'Lawn grass' : `${p.w}′ W × ${p.h}′ H`} ${sunDots(p.sun)} <span>Z ${p.z}</span></span></span></button>`).join('');
+    h += rows.map((p) => `<button type="button" class="plant" data-sp="${p.id}" aria-pressed="${libSp === p.id}"><span class="thumb">${plantThumb(p)}</span><span class="pn"><b>${esc(p.cn)}${p.custom ? ' <span class="yours">YOURS</span>' : ''}</b><i>${esc(p.bn)}</i><span>${p.t === 'turf' ? 'Lawn grass' : `${p.w}′ W × ${p.h}′ H`} ${sunDots(p.sun)} ${p.z ? `<span>Z ${esc(p.z)}</span>` : ''}</span></span></button>`).join('');
   }
   $('libList').innerHTML = h || '<p class="muted" style="padding:12px">No plants match. Try another search or light setting.</p>';
   const sp = PLANT_BY_ID[libSp];
@@ -721,6 +738,14 @@ $('libList').addEventListener('click', (e) => {
   libSp = sp.id;
   const one = single();
   // with one matching item selected, the library swaps its species; otherwise it starts planting
+  if (one && !one.locked && isBedType(one.type) && spCats(one.type).includes(sp.t) && tool === 'select') {
+    const mix = mixOf(one);
+    if (mix.some((m) => m.sp === sp.id)) { toast(`${sp.cn} is already in this bed`); return; }
+    mix.push({ sp: sp.id, w: mix.length ? Math.round(100 / (mix.length + 1)) : 100 });
+    balance(mix, mix.length - 1); setMix(one, mix); renderItems([one.id]); renderProps(); renderLib(); commit('Add ' + sp.cn + ' to bed');
+    toast(`Added ${sp.cn} to the bed`);
+    return;
+  }
   if (one && !one.locked && spCats(one.type).includes(sp.t) && tool === 'select') {
     one.sp = sp.id;
     if (T[one.type].kind === 'circle') one.r = Math.max(0.5, sp.w / 2);
@@ -735,6 +760,12 @@ $('libList').addEventListener('click', (e) => {
 });
 $('libList').addEventListener('mouseover', (e) => { const b = e.target.closest('[data-sp]'); if (b) $('libInfo').innerHTML = speciesInfo(PLANT_BY_ID[b.dataset.sp]); });
 $('libList').addEventListener('mouseleave', () => { const sp = PLANT_BY_ID[libSp]; $('libInfo').innerHTML = sp ? speciesInfo(sp) : ''; });
+$('libAddPlant').addEventListener('click', () => showPlantForm());
+$('libInfo').addEventListener('click', (e) => {
+  const ed = e.target.closest('[data-cp-edit]'), del = e.target.closest('[data-cp-del]');
+  if (ed) showPlantForm(ed.dataset.cpEdit);
+  if (del) deleteCustomPlant(del.dataset.cpDel);
+});
 $('libSearch').addEventListener('input', (e) => { libQ = e.target.value; renderLib(); });
 $('libCat').addEventListener('change', (e) => { libCat = e.target.value; renderLib(); });
 $('libSun').addEventListener('click', (e) => { const b = e.target.closest('[data-sun]'); if (b) { libSun = b.dataset.sun; renderLib(); } });
@@ -791,7 +822,17 @@ function renderProps() {
   const it = items[0], t = T[it.type], sp = spOf(it), dis = it.locked ? ' disabled' : '';
   let h = `<p class="props-h"><span class="chip">${iconSVG(it.type, view.style, it.sp)}</span>${esc(t.name)}</p>`;
   const cats = spCats(it.type);
-  if (cats.length) {
+  if (isBedType(it.type)) {
+    const mix = bedMix(it);
+    const opts = (sel0) => cats.map((c) => `<optgroup label="${CATS.find((x) => x[0] === c)[1]}">${PLANTS.filter((q) => q.t === c).map((q) => `<option value="${q.id}" ${sel0 === q.id ? 'selected' : ''}>${esc(q.cn)}${q.custom ? ' (yours)' : ''}</option>`).join('')}</optgroup>`).join('');
+    h += `<div class="fieldlabel" style="margin-bottom:4px">Plants in this bed</div>`;
+    h += mix.map((m, i) => `<div class="mixrow"><span class="chip">${plantThumb(m.sp)}</span><select data-mix="${i}" aria-label="Plant ${i + 1}"${dis}>${opts(m.sp.id)}</select>${mix.length > 1 ? `<input type="number" data-mixw="${i}" value="${Math.round(m.w * 100)}" min="1" max="100" aria-label="Share of the bed in percent"${dis}><span class="muted">%</span>` : ''}<button type="button" class="iconbtn" data-mixdel="${i}" aria-label="Remove ${esc(m.sp.cn)} from the bed"${dis || (mix.length === 1 && it.type !== 'bedShape') ? ' disabled style="visibility:hidden"' : ''}><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>`).join('');
+    if (!mix.length) h += '<p class="muted" style="margin-bottom:6px">Mulch only. Add plants, or place trees and shrubs on top of it.</p>';
+    h += `<div class="btnrow" style="margin-bottom:6px"><button type="button" class="btn" data-act="mixadd"${dis}>+ Add a plant to this bed</button></div>`;
+    h += `<p class="muted" style="margin-bottom:10px">${mix.length > 1 ? 'Plants are set out in natural drifts by their share. ' : ''}Tip: with the bed selected, click plants in the library to add them.</p>`;
+    if (mix.length === 1) h += speciesCard(mix[0].sp);
+    if (it.type !== 'bedShape') h += fld('Bed shape', `<select data-f="form" aria-label="Bed shape"${dis}>${[['oval', 'Oval'], ['rect', 'Rectangle (square corners)'], ['round', 'Rounded rectangle']].map(([k, l]) => `<option value="${k}" ${bedForm(it) === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`);
+  } else if (cats.length) {
     if (sp) h += speciesCard(sp);
     const opts = (it.type === 'bedShape' ? '<option value="">Mulch only (no plants)</option>' : '') +
       cats.map((c) => `<optgroup label="${CATS.find((x) => x[0] === c)[1]}">${PLANTS.filter((p) => p.t === c).map((p) => `<option value="${p.id}" ${it.sp === p.id ? 'selected' : ''}>${esc(p.cn)}</option>`).join('')}</optgroup>`).join('');
@@ -802,6 +843,7 @@ function renderProps() {
     h += `<div class="row3">${fld('Width ft', numIn('w', it.w, 1, 200, 0.5, 'Width in feet'))}${fld('Length ft', numIn('h', it.h, 1, 200, 0.5, 'Length in feet'))}${fld('Rotate °', numIn('rot', it.rot || 0, -360, 360, 5, 'Rotation in degrees'))}</div>`;
     h += `<div class="row2">${fld('X ft', numIn('x', it.x, -50, 150, 0.5, 'X position'))}${fld('Y ft', numIn('y', it.y, -50, 150, 0.5, 'Y position'))}</div>`;
   }
+  if (FREEFORM[it.type]) h += `<div class="btnrow" style="margin-bottom:10px"><button type="button" class="btn" data-act="freeform"${dis}>Make freeform (drag corners to any shape)</button></div>`;
   if (t.kind === 'shape') h += `<label class="check" style="margin-bottom:8px"><input type="checkbox" data-f="smooth" ${it.smooth ? 'checked' : ''}${dis}> Smooth curved edge</label><p class="muted" style="margin-bottom:8px">${Math.round(areaOf(it))} sq ft · ${polyLen(shapePoly(it.pts, it.smooth), true).toFixed(0)} ft of edging. Drag the white dots to reshape; drag a blue dot to add a point; Alt-click a point to remove it.</p>`;
   if (it.type === 'bubble') h += fld('Zone', `<select data-f="zone" aria-label="Zone"${dis}>${Object.entries(ZONES).map(([k, z]) => `<option value="${k}" ${it.zone === k ? 'selected' : ''}>${z.name}</option>`).join('')}</select>`);
   if (it.type === 'patio' || it.type === 'paveShape') h += fld('Surface', `<select data-f="finish" aria-label="Surface"${dis}>${Object.entries(FINISHES).map(([k, z]) => `<option value="${k}" ${(it.finish || t.d.finish) === k ? 'selected' : ''}>${z}</option>`).join('')}</select>`);
@@ -847,6 +889,12 @@ $('props').addEventListener('input', (e) => {
   commitSoon(f === 'label' || f === 'text' ? 'Edit label' : 'Edit ' + ({ spread: 'size', w: 'size', h: 'size', rot: 'rotation', x: 'position', y: 'position' }[f] || f));
 });
 $('props').addEventListener('change', (e) => {
+  const it0 = single();
+  if (it0 && !it0.locked && (e.target.dataset.mix !== undefined || e.target.dataset.mixw !== undefined)) {
+    const mix = mixOf(it0), i = +(e.target.dataset.mix ?? e.target.dataset.mixw);
+    if (e.target.dataset.mix !== undefined) mix[i].sp = e.target.value; else { mix[i].w = clamp(parseFloat(e.target.value) || 1, 1, 100); balance(mix, i); }
+    setMix(it0, mix); renderItems([it0.id]); renderProps(); commit('Change bed plants'); return;
+  }
   const f = e.target.dataset.f, it = single();
   if (!f || !it) return;
   const v = e.target.value;
@@ -860,16 +908,19 @@ $('props').addEventListener('change', (e) => {
   if (f === 'smooth') { it.smooth = e.target.checked; renderItems([it.id]); renderProps(); commit(it.smooth ? 'Smooth edge' : 'Straight edge'); return; }
   if (f === 'zone') { it.zone = ZONES[v] ? v : 'private'; renderItems([it.id]); commit('Change zone'); return; }
   if (f === 'finish') { it.finish = v; renderItems([it.id]); commit('Change surface'); return; }
+  if (f === 'form') { it.form = v; renderItems([it.id]); commit('Change bed shape'); return; }
   if (f === 'fstyle') { it.style = FENCE_STYLES[v] ? v : 'privacy'; it.height = FENCE_HEIGHT[it.style]; Object.assign(lastFence, { style: it.style, height: it.height }); renderItems([it.id]); renderProps(); commit('Change fence style'); return; }
   if (f === 'fheight') { it.height = +v || 6; lastFence.height = it.height; renderItems([it.id]); commit('Change fence height'); return; }
   flush();
 });
 $('props').addEventListener('click', (e) => {
+  const md = e.target.closest('[data-mixdel]'), it0 = single();
+  if (md && it0 && !it0.locked) { const mix = mixOf(it0); mix.splice(+md.dataset.mixdel, 1); balance(mix); setMix(it0, mix); renderItems([it0.id]); renderProps(); commit('Remove plant from bed'); return; }
   const al = e.target.closest('[data-align]');
   if (al) { align(al.dataset.align); return; }
   const a = e.target.closest('[data-act]');
   if (!a) return;
-  ({ dup: duplicate, del: removeSel, front: () => reorder(1), back: () => reorder(-1), lock: toggleLock })[a.dataset.act]();
+  ({ dup: duplicate, del: removeSel, front: () => reorder(1), back: () => reorder(-1), lock: toggleLock, mixadd: mixAdd, freeform: makeFreeform })[a.dataset.act]();
 });
 
 /* ------------------------------------------------------------------ selection and edits */
@@ -1390,12 +1441,17 @@ function takeoff() {
   for (const it of state.items) {
     if (layerOf(it) !== 'design' || it.hidden) continue;
     const t = T[it.type], sp = spOf(it), a = areaOf(it);
-    if (sp) {
+    if (isBedType(it.type)) {
+      for (const m of bedMix(it)) {
+        const row = plants[m.sp.id] = plants[m.sp.id] || { sp: m.sp, qty: 0, area: 0, approx: true };
+        row.area += a * m.w; row.qty += Math.max(1, Math.round(a * m.w / ((m.sp.spc || 1.5) ** 2 * 0.866)));
+      }
+    } else if (sp) {
       const row = plants[sp.id] = plants[sp.id] || { sp, qty: 0, area: 0, approx: false };
       if (t.kind === 'circle') row.qty += 1;
       else { row.area += a; if (sp.t !== 'turf') { row.qty += Math.max(1, Math.round(a / ((sp.spc || 1.5) ** 2 * 0.866))); row.approx = true; } }
     }
-    if ((t.bed && it.type !== 'groundcover') || (it.type === 'bedShape' && (!sp || sp.t !== 'groundcover'))) addM('mulch', 'Hardwood mulch, 3 in. deep', 'bedShape', a, 'sq ft', a * 0.25 / 27);
+    if (isBedType(it.type) && !(bedMix(it).length === 1 && bedMix(it)[0].sp.t === 'groundcover')) addM('mulch', 'Hardwood mulch, 3 in. deep', 'bedShape', a, 'sq ft', a * 0.25 / 27);
     if (it.type === 'patio' || it.type === 'paveShape') addM('pave-' + it.finish, `${FINISHES[it.finish] || 'Paving'} paving`, 'paveShape', a, 'sq ft');
     if (it.type === 'deck') addM('deck', 'Wood deck', 'deck', a, 'sq ft');
     if (it.type === 'path') addM('path-' + it.finish, `${PATH_FINISHES[it.finish] || 'Concrete'} walk`, 'path', polyLen(it.pts), 'lin ft', a);
@@ -1881,6 +1937,7 @@ function renderAll() {
 function switchTo(st, msg) {
   flush(); autosave(snapshot());
   state = st; sel = []; draft = null; measure = null; checkRun = false; baseKey = '';
+  registerCustom(state.customPlants); renderLib();
   $('issues').innerHTML = ''; $('checkBadge').textContent = '';
   hist = [{ s: snapshot(), label: 'Open' }]; hIdx = 0;
   syncMeta(); setTool('select'); renderAll(); fit(); autosave(snapshot());
@@ -1913,7 +1970,7 @@ function showNew(err) {
       <p class="muted">A screenshot of your yard from Google Maps or a copy of your property survey works well. You set its scale after it loads.</p>
       <div class="btnrow"><button type="button" class="btn gold" id="nfCreate">Create design</button><button type="button" class="btn" data-close>Cancel</button></div></div>`);
   $('dlgBody').querySelector('[data-new="scott"]').addEventListener('click', () => {
-    const st = blankState(); st.meta = Object.assign({}, state.meta);
+    const st = blankState(); st.meta = Object.assign({}, state.meta); st.customPlants = clone(state.customPlants || []);
     closeDialog(); switchTo(st, 'New Scott Residence design');
   });
   $('dlgBody').querySelector('[data-new="custom"]').addEventListener('click', () => { $('newForm').hidden = false; $('nfName').focus(); $('nfName').select(); });
@@ -1921,7 +1978,7 @@ function showNew(err) {
   $('nfCreate').addEventListener('click', () => {
     let site;
     try { site = readSiteFields(); } catch (e) { toast(e.message); return; }
-    const st = blankState(); st.meta = Object.assign({}, state.meta); st.site = site; st.wants = [];
+    const st = blankState(); st.meta = Object.assign({}, state.meta); st.site = site; st.wants = []; st.customPlants = clone(state.customPlants || []);
     if ($('nfHouse').checked) {
       const hw = +$('nfHW').value || 40, hd = +$('nfHD').value || 30, sb = +$('nfHS').value || 0, sx = +$('nfHX').value || 0;
       const box = { bottom: [sx, site.h - sb - hd, sx + hw, site.h - sb], top: [sx, sb, sx + hw, sb + hd], left: [sb, sx, sb + hd, sx + hw], right: [site.w - sb - hd, sx, site.w - sb, sx + hw], none: [sx, sb, sx + hw, sb + hd] }[site.street];
@@ -2064,6 +2121,7 @@ $('bNew').addEventListener('click', () => showNew());
   renderMenubar(); renderRail(); renderLibControls(); renderLib();
   syncMeta();
   setTool('select');
+  registerCustom(state.customPlants); renderLib();
   hist = [{ s: snapshot(), label: 'Open' }]; hIdx = 0;
   renderAll();
   requestAnimationFrame(fit);
@@ -2085,4 +2143,112 @@ function fenceLot(style) {
   state.items.push(it); sel = [it.id];
   setTool('select'); renderPlan(); renderProps(); showTab('pProps'); commit('Fence the property line');
   toast('Fence added along the property line. Pick its style under Properties.');
+}
+
+/* ------------------------------------------------------------------ mixed beds and freeform conversion */
+function mixOf(it) { return bedMix(it).map((m) => ({ sp: m.sp.id, w: Math.round(m.w * 100) })); }
+/* keep shares adding up to 100%: the share at index keep stays, the others scale to fill the rest */
+function balance(mix, keep) {
+  if (mix.length < 2) { mix.forEach((m) => { m.w = 100; }); return mix; }
+  const fixed = keep === undefined ? 0 : clamp(Math.round(mix[keep].w), 1, 100 - (mix.length - 1));
+  const others = mix.map((m, i) => i).filter((i) => i !== keep);
+  const rest = 100 - fixed, sum = others.reduce((a, i) => a + Math.max(1, mix[i].w), 0) || 1;
+  let left = rest;
+  others.forEach((i, k) => { const v = k === others.length - 1 ? left : Math.max(1, Math.round(Math.max(1, mix[i].w) * rest / sum)); mix[i].w = Math.max(1, v); left -= mix[i].w; });
+  if (keep !== undefined) mix[keep].w = fixed;
+  return mix;
+}
+function setMix(it, mix) {
+  mix = mix.filter((m) => PLANT_BY_ID[m.sp]);
+  if (mix.length > 1) { it.mix = mix; it.sp = mix[0].sp; }
+  else { delete it.mix; if (mix.length) it.sp = mix[0].sp; else if (it.type === 'bedShape') delete it.sp; }
+}
+function mixAdd() {
+  const it = single();
+  if (!it || it.locked) return;
+  const mix = mixOf(it), have = new Set(mix.map((m) => m.sp));
+  const pick = ['ecpu', 'ruhi', 'hesd', 'limu', 'caro', 'peat', 'cove', 'phpa'].find((id) => !have.has(id)) || PLANTS.find((p) => ['perennial', 'annual', 'groundcover'].includes(p.t) && !have.has(p.id)).id;
+  mix.push({ sp: pick, w: mix.length ? Math.round(100 / (mix.length + 1)) : 100 });
+  balance(mix, mix.length - 1); setMix(it, mix); renderItems([it.id]); renderProps(); commit('Add plant to bed');
+  const s2 = $('props').querySelector(`[data-mix="${mix.length - 1}"]`); if (s2) s2.focus();
+}
+const FREEFORM = { perennial: 'bedShape', annual: 'bedShape', groundcover: 'bedShape', lawn: 'lawnShape', patio: 'paveShape' };
+function makeFreeform() {
+  const it = single();
+  if (!it || it.locked || !FREEFORM[it.type]) return;
+  const out = isBedType(it.type) ? bedOutlinePts(it) : (it.type === 'lawn'
+    ? (() => { const rx = it.w / 2, ry = it.h / 2, r = Math.min(3, it.w / 4, it.h / 4); return { pts: [[-rx + r, -ry], [rx - r, -ry], [rx, -ry + r], [rx, ry - r], [rx - r, ry], [-rx + r, ry], [-rx, ry - r], [-rx, -ry + r]], smooth: false }; })()
+    : { pts: [[-it.w / 2, -it.h / 2], [it.w / 2, -it.h / 2], [it.w / 2, it.h / 2], [-it.w / 2, it.h / 2]], smooth: false });
+  const nu = { id: it.id, type: FREEFORM[it.type], pts: out.pts.map((p) => toWorldPt(it, p).map(r1)), smooth: out.smooth };
+  for (const k of ['sp', 'mix', 'label', 'finish', 'locked']) if (it[k] !== undefined) nu[k] = clone(it[k]);
+  if (nu.type === 'paveShape' && !nu.finish) nu.finish = 'stone';
+  state.items[state.items.indexOf(it)] = nu;
+  renderPlan(); renderProps(); commit('Make freeform');
+  toast('Now drag the white corner dots to reshape it. Drag a blue dot to add a corner.');
+}
+
+/* ------------------------------------------------------------------ your own plants (saved with the design) */
+const PLANT_FORMS = { dtree: 'maple', etree: 'column', bshrub: 'shrub', dshrub: 'shrub' };
+function cleanCustomPlants(list) {
+  if (!Array.isArray(list)) return [];
+  const hex = (v, d) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : d);
+  const str = (v, n2) => (typeof v === 'string' ? v.trim().slice(0, n2) : '');
+  return list.slice(0, 60).filter((c) => c && typeof c === 'object' && typeof c.id === 'string' && /^u[\w-]{1,40}$/.test(c.id) && str(c.cn, 60) && CATS.some((k) => k[0] === c.t && c.t !== 'turf')).map((c) => {
+    const sun = typeof c.sun === 'string' ? c.sun.split('/').filter((x) => SUN_NAMES[x]).join('/') : '';
+    const num = (v, a, b, d) => { const x = parseFloat(v); return Number.isFinite(x) ? clamp(x, a, b) : d; };
+    const out = { id: c.id, t: c.t, cn: str(c.cn, 60), bn: str(c.bn, 80), w: num(c.w, 0.25, 120, 3), h: num(c.h, 0.1, 200, 3), sun: sun || 'F', z: str(c.z, 20), c: hex(c.c, '#5E8C3E'), note: str(c.note, 200) };
+    const fl = hex(c.fl, ''); if (fl) out.fl = fl;
+    if (['perennial', 'annual', 'groundcover'].includes(c.t)) out.spc = num(c.spc, 0.25, 10, 1.5);
+    return out;
+  });
+}
+function registerCustom(list) {
+  for (let i = PLANTS.length - 1; i >= 0; i--) if (PLANTS[i].custom) { delete PLANT_BY_ID[PLANTS[i].id]; delete PLANT_CODE[PLANTS[i].id]; PLANTS.splice(i, 1); }
+  const used = new Set(Object.values(PLANT_CODE));
+  for (const c0 of list || []) {
+    const c = Object.assign({}, c0, { custom: true, f: c0.f || PLANT_FORMS[c0.t] });
+    PLANTS.push(c); PLANT_BY_ID[c.id] = c;
+    const words = (c.bn || c.cn).replace(/[×'"]/g, '').split(/\s+/).filter(Boolean);
+    let code = ((words[0] || 'X')[0] + ((words[1] || words[0] || 'X')[words[1] ? 0 : 1] || 'X')).toUpperCase(), k = 2;
+    while (used.has(code)) code = ((words[0] || 'X')[0] + (words[1] || words[0] || 'X').slice(0, k++)).toUpperCase() + (k > 6 ? k : '');
+    used.add(code); PLANT_CODE[c.id] = code;
+  }
+}
+function showPlantForm(editId) {
+  const cur = editId ? (state.customPlants || []).find((c) => c.id === editId) : null;
+  const c = cur || { t: libCat !== 'all' && libCat !== 'turf' ? libCat : 'perennial', cn: '', bn: '', w: 2, h: 2, sun: 'F', z: '', c: '#5E8C3E', fl: '#D9558F', spc: 1.5, note: '' };
+  const types = CATS.filter((k) => k[0] !== 'turf');
+  openDialog(`<h3>${cur ? 'Edit your plant' : 'Add your own plant'}</h3>
+    <p class="muted">Add a plant that isn't in the library. It is saved with this design, shows up in the library marked YOURS, and is listed in the plant schedule.</p>
+    <div class="row2">${fld('Common name', `<input id="cpCn" value="${esc(c.cn)}" maxlength="60" placeholder="e.g. Coral bells" autofocus>`)}${fld('Botanical name', `<input id="cpBn" value="${esc(c.bn)}" maxlength="80" placeholder="e.g. Heuchera villosa">`)}</div>
+    <div class="row2">${fld('Type', `<select id="cpT">${types.map(([k, l]) => `<option value="${k}" ${c.t === k ? 'selected' : ''}>${l.replace(/s$/, '').replace(/ses$/, 's')}</option>`).join('')}</select>`)}${fld('Hardiness zones', `<input id="cpZ" value="${esc(c.z)}" maxlength="20" placeholder="e.g. 4–9">`)}</div>
+    <div class="row3">${fld('Mature spread (ft)', `<input id="cpW" type="number" min="0.25" max="120" step="0.25" value="${c.w}">`)}${fld('Mature height (ft)', `<input id="cpH" type="number" min="0.1" max="200" step="0.25" value="${c.h}">`)}${fld('Spacing in beds (ft)', `<input id="cpSpc" type="number" min="0.25" max="10" step="0.25" value="${c.spc || 1.5}">`)}</div>
+    <div class="field"><label>Light</label><div class="sunpick">${Object.entries(SUN_NAMES).map(([k, l]) => `<label><input type="checkbox" data-cpsun="${k}" ${c.sun.includes(k) ? 'checked' : ''}> ${l}</label>`).join('')}</div></div>
+    <div class="row3">${fld('Leaf color', `<input id="cpC" type="color" value="${c.c}">`)}${fld('Flower or berry color', `<input id="cpFl" type="color" value="${c.fl || '#D9558F'}">`)}<div class="field"><label>&nbsp;</label><label class="check"><input type="checkbox" id="cpNoFl" ${cur && !c.fl ? 'checked' : ''}> No flowers</label></div></div>
+    ${fld('Note (why you chose it)', `<input id="cpNote" value="${esc(c.note)}" maxlength="200" placeholder="e.g. Shade-tolerant color under the maple">`)}
+    <div class="btnrow"><button type="button" class="btn gold" id="cpSave">${cur ? 'Save changes' : 'Add plant'}</button><button type="button" class="btn" data-close>Cancel</button></div>`);
+  $('cpSave').addEventListener('click', () => {
+    const cn = $('cpCn').value.trim();
+    if (!cn) { toast('Give the plant a common name'); $('cpCn').focus(); return; }
+    const sun = [...$('dlgBody').querySelectorAll('[data-cpsun]')].filter((x) => x.checked).map((x) => x.dataset.cpsun).join('/') || 'F';
+    const raw = { id: cur ? cur.id : 'u' + uid(), t: $('cpT').value, cn, bn: $('cpBn').value, w: $('cpW').value, h: $('cpH').value, sun, z: $('cpZ').value, c: $('cpC').value, fl: $('cpNoFl').checked ? '' : $('cpFl').value, spc: $('cpSpc').value, note: $('cpNote').value };
+    const [plant] = cleanCustomPlants([raw]);
+    if (!plant) { toast("That plant couldn't be saved"); return; }
+    state.customPlants = (state.customPlants || []).filter((x) => x.id !== plant.id).concat(plant);
+    registerCustom(state.customPlants);
+    closeDialog();
+    if (cur) { state.items.forEach((it) => { if (it.sp === plant.id && T[it.type].kind === 'circle' && T[it.type].plant) it.r = Math.max(0.5, plant.w / 2); }); }
+    libSp = plant.id; libCat = 'all'; libQ = ''; $('libSearch').value = '';
+    renderLib(); renderPlan(); renderProps(); commit(cur ? 'Edit your plant' : 'Add your own plant');
+    const lb = $('libList').querySelector(`[data-sp="${plant.id}"]`); if (lb) lb.scrollIntoView({ block: 'nearest' });
+    toast(cur ? 'Plant updated' : `${plant.cn} added to the library. Click it, then click the plan to place it.`);
+  });
+}
+function deleteCustomPlant(id) {
+  const n2 = state.items.filter((it) => it.sp === id || (it.mix || []).some((m) => m.sp === id)).length;
+  if (n2) { toast(`Remove it from the plan first: it is used ${n2} time${n2 > 1 ? 's' : ''}`); return; }
+  state.customPlants = (state.customPlants || []).filter((c) => c.id !== id);
+  registerCustom(state.customPlants);
+  if (libSp === id) libSp = SP_DEFAULT.dtree;
+  renderLib(); commit('Delete your plant'); toast('Plant deleted');
 }

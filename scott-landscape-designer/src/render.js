@@ -148,10 +148,18 @@ for (const [k, t] of Object.entries(T)) { t.id = k; if (t.plant || k === 'lawn' 
 /* species categories a type can take */
 function spCats(type) {
   if (type === 'lawn' || type === 'lawnShape') return ['turf'];
-  if (type === 'bedShape') return ['perennial', 'annual', 'groundcover'];
+  if (isBedType(type)) return ['perennial', 'annual', 'groundcover'];
   return T[type] && T[type].plant ? [type] : [];
 }
+const isBedType = (type) => type === 'bedShape' || type === 'perennial' || type === 'annual' || type === 'groundcover';
 function spOf(it) { return PLANT_BY_ID[it.sp] || null; }
+/* the plants in a bed: [{sp, w}] with weights that add up to 1; empty = mulch only */
+function bedMix(it) {
+  let list = Array.isArray(it.mix) && it.mix.length ? it.mix.map((m) => ({ sp: PLANT_BY_ID[m.sp], w: m.w > 0 ? m.w : 1 })).filter((m) => m.sp) : [];
+  if (!list.length) { const sp = spOf(it) || (it.type !== 'bedShape' ? PLANT_BY_ID[SP_DEFAULT[it.type]] : null); if (sp) list = [{ sp, w: 1 }]; }
+  const tot = list.reduce((a, m) => a + m.w, 0) || 1;
+  return list.map((m) => ({ sp: m.sp, w: m.w / tot }));
+}
 const layerOf = (it) => (T[it.type].layer === 'diagram' ? 'diagram' : 'design');
 
 /* ------------------------------------------------------------------ shared defs (patterns, filters) */
@@ -558,9 +566,9 @@ const RDRAW = {
       `<circle r="${n(r)}" fill="#C9C2B4" stroke="#7E776A" stroke-width="${n(o.u)}"/><circle r="${n(r * 0.74)}" fill="url(#ld-water)" stroke="#9A9385" stroke-width="${n(o.u * 0.6)}"/>` +
       `<path d="M${n(-r * 0.3)},${n(-r * 0.1)}q${n(r * 0.15)},${n(-r * 0.12)} ${n(r * 0.3)},0q${n(r * 0.15)},${n(-r * 0.12)} ${n(r * 0.3)},0" stroke="#fff" stroke-opacity="0.7" stroke-width="${n(r * 0.05)}" fill="none"/>`;
   },
-  perennial(it, o, rng) { return bedRender(it, o, rng, 'ellipse'); },
-  annual(it, o, rng) { return bedRender(it, o, rng, 'ellipse'); },
-  groundcover(it, o, rng) { return bedRender(it, o, rng, 'rect'); },
+  perennial(it, o, rng) { return bedRender(it, o, rng); },
+  annual(it, o, rng) { return bedRender(it, o, rng); },
+  groundcover(it, o, rng) { return bedRender(it, o, rng); },
   patio(it, o) {
     const w = it.w, h = it.h, f = it.finish || 'stone';
     const edge = f === 'pavers' || f === 'brick' ? `<rect x="${n(-w / 2 + 0.25)}" y="${n(-h / 2 + 0.25)}" width="${n(w - 0.5)}" height="${n(h - 0.5)}" fill="none" stroke="${f === 'brick' ? '#6E3021' : '#8E8676'}" stroke-width="0.5"/>` : '';
@@ -633,36 +641,81 @@ function fencePosts(pts, gap) {
   return posts.concat(pts);
 }
 /* plant clumps on a jittered hex grid inside a test function */
-function clumps(sp, inside, bb, rng, o, kind) {
-  const spc = sp.spc || 1.5, c = sp.c;
-  let s = '';
-  const dy = spc * 0.87;
-  let row = 0;
-  for (let y = bb[1] + spc / 2; y < bb[3]; y += dy, row++) {
+/* one plant clump (rendered) */
+function clump(sp, px, py, rng, o, spc) {
+  const kind = sp.t, rr = spc * (kind === 'annual' ? 0.5 : kind === 'groundcover' ? 0.55 : 0.46), c = sp.c;
+  let s = `<g transform="translate(${n(px)} ${n(py)})"><path d="${lobed(rr, kind === 'groundcover' ? 9 : 6, rng, 0.2)}" fill="${shade(c, (rng() - 0.5) * 0.18)}" stroke="${shade(c, -0.5)}" stroke-width="${n(o.u * 0.5)}"/>`;
+  if (sp.fl) {
+    const cnt = kind === 'annual' ? 6 : kind === 'groundcover' ? 3 : 4;
+    for (let i = 0; i < cnt; i++) { const a = rng() * 6.283, d = rng() * rr * 0.75; s += `<circle cx="${n(d * Math.cos(a))}" cy="${n(d * Math.sin(a))}" r="${n(rr * (kind === 'annual' ? 0.24 : 0.18))}" fill="${shade(sp.fl, (rng() - 0.5) * 0.15)}"/>`; }
+  }
+  return s + '</g>';
+}
+/* planting positions on a jittered hex grid, split between the plants in drifts (natural groups, not confetti) */
+function bedSpots(mix, insideF, bb, rng) {
+  const spc = mix.reduce((a, m) => a + (m.sp.spc || 1.5) * m.w, 0) || 1.5;
+  const inside = insideF(spc * 0.4), pts = [];
+  for (let y = bb[1] + spc / 2, row = 0; y < bb[3]; y += spc * 0.87, row++) {
     for (let x = bb[0] + spc / 2 + (row % 2) * spc / 2; x < bb[2]; x += spc) {
       const px = x + (rng() - 0.5) * spc * 0.25, py = y + (rng() - 0.5) * spc * 0.25;
-      if (!inside(px, py)) continue;
-      const rr = spc * (kind === 'annual' ? 0.5 : 0.46);
-      s += `<g transform="translate(${n(px)} ${n(py)})"><path d="${lobed(rr, 6, rng, 0.2)}" fill="${shade(c, (rng() - 0.5) * 0.18)}" stroke="${shade(c, -0.5)}" stroke-width="${n(o.u * 0.5)}"/>`;
-      if (sp.fl) {
-        const cnt = kind === 'annual' ? 6 : 4;
-        for (let i = 0; i < cnt; i++) { const a = rng() * 6.283, d = rng() * rr * 0.75; s += `<circle cx="${n(d * Math.cos(a))}" cy="${n(d * Math.sin(a))}" r="${n(rr * (kind === 'annual' ? 0.24 : 0.2))}" fill="${shade(sp.fl, (rng() - 0.5) * 0.15)}"/>`; }
-      }
-      s += '</g>';
+      if (inside(px, py)) pts.push([px, py]);
     }
   }
-  return s;
+  if (mix.length > 1) {
+    const s1 = rng() * 6, s2 = rng() * 6, s3 = rng() * 6, f = 0.9 / Math.max(3, Math.sqrt((bb[2] - bb[0]) * (bb[3] - bb[1])) / 3);
+    const val = pts.map((p, i) => [Math.sin(p[0] * f * 3 + s1) + Math.sin(p[1] * f * 2.6 + s2) + 0.6 * Math.sin((p[0] - p[1]) * f * 1.7 + s3) + p[0] * 0.02, i]).sort((a, c) => a[0] - c[0]);
+    const who = [];
+    let k = 0, acc = mix[0].w * val.length;
+    val.forEach(([, i], rank) => { while (rank >= acc && k < mix.length - 1) { k++; acc += mix[k].w * val.length; } who[i] = mix[k].sp; });
+    return { spc, pts: pts.map((p, i) => [p[0], p[1], who[i]]) };
+  }
+  return { spc, pts: pts.map((p) => [p[0], p[1], mix[0] && mix[0].sp]) };
 }
-function bedRender(it, o, rng, form) {
-  const w = it.w, h = it.h, rx = w / 2, ry = h / 2, sp = spOf(it) || PLANT_BY_ID[SP_DEFAULT[it.type]];
-  const outline = form === 'ellipse' ? `<ellipse rx="${n(rx)}" ry="${n(ry)}"` : `<rect x="${n(-rx)}" y="${n(-ry)}" width="${n(w)}" height="${n(h)}" rx="${n(Math.min(1.2, w / 4, h / 4))}"`;
-  if (it.type === 'groundcover') {
-    let s = `${outline} fill="${sp.c}" stroke="${shade(sp.c, -0.5)}" stroke-width="${n(o.u)}"/>${outline} fill="url(#ld-leafy)"/>`;
-    if (sp.fl) for (let i = 0, cnt = Math.round(w * h / 3); i < cnt; i++) s += `<circle cx="${n((rng() - 0.5) * (w - 1))}" cy="${n((rng() - 0.5) * (h - 1))}" r="0.14" fill="${sp.fl}"/>`;
+/* a planted bed of any outline d (local coords); insideF(pad) gives a point test */
+function plantedBed(d, insideF, bb, mix, o, rng, type) {
+  const carpet = mix.length === 1 && mix[0].sp.t === 'groundcover';
+  if (!o.render) {
+    const tint = o.color ? (mix.length ? T[mix[0].sp.t].tint : T.bedShape.tint) : '#fff';
+    let s = `<path d="${d}" fill="${tint}" fill-opacity="${o.color ? 0.55 : 1}" stroke="${INK}" stroke-width="${n(o.u * 1.2)}"/>`;
+    if (!mix.length) return s + `<path d="${d}" fill="url(#dd-dots)"/>`;
+    if (carpet) return s + `<path d="${d}" fill="url(#dd-hatch)"/>`;
+    const { spc, pts } = bedSpots(mix, insideF, bb, rng);
+    return s + pts.map(([x, y, sp]) => (sp.t === 'annual' ? `<circle cx="${n(x)}" cy="${n(y)}" r="${n(Math.max(0.08, o.u * 0.7))}" fill="${INK}"/>`
+      : sp.t === 'groundcover' ? `<path d="M${n(x - spc * 0.25)},${n(y)}h${n(spc * 0.5)}M${n(x)},${n(y - spc * 0.25)}v${n(spc * 0.5)}" stroke="${INK}" stroke-width="${n(o.u * 0.6)}"/>`
+      : `<circle cx="${n(x)}" cy="${n(y)}" r="${n((sp.spc || spc) * 0.32)}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 0.6)}"/>`)).join('');
+  }
+  if (carpet) {
+    const sp = mix[0].sp;
+    let s = `<path d="${d}" fill="${sp.c}" stroke="${shade(sp.c, -0.5)}" stroke-width="${n(o.u)}"/><path d="${d}" fill="url(#ld-leafy)"/>`;
+    if (sp.fl) { const ins = insideF(0.3); for (let i = 0, cnt = Math.round((bb[2] - bb[0]) * (bb[3] - bb[1]) / 3); i < cnt; i++) { const x = bb[0] + rng() * (bb[2] - bb[0]), y = bb[1] + rng() * (bb[3] - bb[1]); if (ins(x, y)) s += `<circle cx="${n(x)}" cy="${n(y)}" r="0.14" fill="${sp.fl}"/>`; } }
     return s;
   }
-  const inside = form === 'ellipse' ? (x, y) => (x / (rx - 0.45)) ** 2 + (y / (ry - 0.45)) ** 2 < 1 : () => true;
-  return `${outline} fill="url(#ld-mulch)" stroke="#2E2016" stroke-width="${n(o.u * 1.3)}"/>` + clumps(sp, inside, [-rx, -ry, rx, ry], rng, o, it.type);
+  let s = `<path d="${d}" fill="url(#ld-mulch)" stroke="#2E2016" stroke-width="${n(o.u * 1.3)}"/>`;
+  if (!mix.length) return s;
+  const { spc, pts } = bedSpots(mix, insideF, bb, rng);
+  return s + pts.map(([x, y, sp]) => clump(sp, x, y, rng, o, sp.spc || spc)).join('');
+}
+/* box beds: oval, rectangle or rounded rectangle */
+const bedForm = (it) => it.form || (it.type === 'groundcover' ? 'round' : 'oval');
+function roundRectD(x, y, w, h, r) {
+  if (r <= 0) return `M${n(x)},${n(y)}H${n(x + w)}V${n(y + h)}H${n(x)}Z`;
+  return `M${n(x + r)},${n(y)}H${n(x + w - r)}A${n(r)},${n(r)} 0 0 1 ${n(x + w)},${n(y + r)}V${n(y + h - r)}A${n(r)},${n(r)} 0 0 1 ${n(x + w - r)},${n(y + h)}H${n(x + r)}A${n(r)},${n(r)} 0 0 1 ${n(x)},${n(y + h - r)}V${n(y + r)}A${n(r)},${n(r)} 0 0 1 ${n(x + r)},${n(y)}Z`;
+}
+function bedPathD(it) {
+  const rx = it.w / 2, ry = it.h / 2, f = bedForm(it);
+  if (f === 'oval') return `M${n(-rx)},0A${n(rx)},${n(ry)} 0 1,0 ${n(rx)},0A${n(rx)},${n(ry)} 0 1,0 ${n(-rx)},0Z`;
+  return roundRectD(-rx, -ry, it.w, it.h, f === 'rect' ? 0 : Math.min(1.5, it.w / 4, it.h / 4));
+}
+/* outline points of a box bed, used to turn it into a freeform shape */
+function bedOutlinePts(it) {
+  const rx = it.w / 2, ry = it.h / 2, f = bedForm(it);
+  if (f === 'oval') { const out = []; for (let i = 0; i < 8; i++) { const a = 2 * Math.PI * i / 8; out.push([rx * Math.cos(a), ry * Math.sin(a)]); } return { pts: out, smooth: true }; }
+  return { pts: [[-rx, -ry], [rx, -ry], [rx, ry], [-rx, ry]], smooth: false };
+}
+function bedRender(it, o, rng) {
+  const rx = it.w / 2, ry = it.h / 2, oval = bedForm(it) === 'oval';
+  const insideF = (pad) => (oval ? (x, y) => (x / Math.max(0.1, rx - pad)) ** 2 + (y / Math.max(0.1, ry - pad)) ** 2 < 1 : (x, y) => Math.abs(x) < rx - pad && Math.abs(y) < ry - pad);
+  return plantedBed(bedPathD(it), insideF, [-rx, -ry, rx, ry], bedMix(it), o, rng, it.type);
 }
 function shapeRender(it, o, rng) {
   const d = shapeD(it.pts, it.smooth);
@@ -682,22 +735,10 @@ function shapeRender(it, o, rng) {
     return `<path d="${d}" fill="${finishFill(f, o)}" stroke="#5F574C" stroke-width="${n(o.u * 1.2)}"/>`;
   }
   // planting bed
-  const sp = spOf(it), poly = shapePoly(it.pts, it.smooth);
+  const poly = shapePoly(it.pts, it.smooth);
   const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
   const bb = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
-  if (!o.render) {
-    let s = `<path d="${d}" fill="${o.color ? (sp ? T[sp.t].tint : T.bedShape.tint) : '#fff'}" fill-opacity="${o.color ? 0.55 : 1}" stroke="${INK}" stroke-width="${n(o.u * 1.2)}"/>`;
-    if (!sp) return s + `<path d="${d}" fill="url(#dd-dots)"/>`;
-    if (sp.t === 'groundcover') return s + `<path d="${d}" fill="url(#dd-hatch)"/>`;
-    let c = '';
-    const spc = sp.spc || 1.5;
-    for (let y = bb[1] + spc / 2, row = 0; y < bb[3]; y += spc * 0.87, row++) for (let x = bb[0] + spc / 2 + (row % 2) * spc / 2; x < bb[2]; x += spc) if (polyDist([x, y], poly) === 0 && segMin([x, y], poly) > spc * 0.4) c += sp.t === 'annual' ? `<circle cx="${n(x)}" cy="${n(y)}" r="${n(Math.max(0.08, o.u * 0.7))}" fill="${INK}"/>` : `<circle cx="${n(x)}" cy="${n(y)}" r="${n(spc * 0.32)}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 0.6)}"/>`;
-    return s + c;
-  }
-  if (sp && sp.t === 'groundcover') return `<path d="${d}" fill="${sp.c}" stroke="${shade(sp.c, -0.5)}" stroke-width="${n(o.u)}"/><path d="${d}" fill="url(#ld-leafy)"/>`;
-  let s = `<path d="${d}" fill="url(#ld-mulch)" stroke="#2E2016" stroke-width="${n(o.u * 1.4)}"/>`;
-  if (sp) s += clumps(sp, (x, y) => inPoly([x, y], poly) && segMin([x, y], poly) > (sp.spc || 1.5) * 0.4, bb, rng, o, sp.t);
-  return s;
+  return plantedBed(d, (pad) => (x, y) => inPoly([x, y], poly) && segMin([x, y], poly) > pad, bb, bedMix(it), o, rng, it.type);
 }
 function segMin(p, poly) { let d = Infinity; for (let i = 0; i < poly.length; i++) d = Math.min(d, segDist(p, poly[i], poly[(i + 1) % poly.length])); return d; }
 
@@ -750,40 +791,9 @@ const DDRAW = {
       `<circle r="${n(r * 0.66)}" fill="none" stroke="${INK}" stroke-width="${n(u * 0.6)}"/>` +
       `<circle r="${n(r * 0.33)}" fill="none" stroke="${INK}" stroke-width="${n(u * 0.6)}" stroke-dasharray="${n(u * 2)} ${n(u * 1.5)}"/>`;
   },
-  perennial(it, o, rng) {
-    const rx = it.w / 2, ry = it.h / 2, u = o.u;
-    let s = `<ellipse rx="${n(rx)}" ry="${n(ry)}" ${fillOf('perennial', o, '#fff')} stroke="${INK}" stroke-width="${n(u * 1.15)}"/>`;
-    const step = 1.35;
-    for (let y = -ry + step * 0.6; y < ry; y += step * 0.86) {
-      for (let x = -rx + step * 0.5 + ((Math.round((y + ry) / (step * 0.86)) % 2) * step / 2); x < rx; x += step) {
-        const jx = x + (rng() - 0.5) * 0.4, jy = y + (rng() - 0.5) * 0.4;
-        if ((jx / (rx - 0.65)) ** 2 + (jy / (ry - 0.65)) ** 2 < 1) s += `<circle cx="${n(jx)}" cy="${n(jy)}" r="0.48" fill="none" stroke="${INK}" stroke-width="${n(u * 0.65)}"/>`;
-      }
-    }
-    return s;
-  },
-  annual(it, o) {
-    const rx = it.w / 2, ry = it.h / 2, u = o.u;
-    let s = `<ellipse rx="${n(rx)}" ry="${n(ry)}" ${fillOf('annual', o, '#fff')} stroke="${INK}" stroke-width="${n(u * 1.15)}"/><path d="`;
-    const st = 0.62, dr = Math.max(0.07, u * 0.75);
-    let row = 0;
-    for (let y = -ry + st; y < ry; y += st, row++) {
-      for (let x = -rx + st + (row % 2) * st / 2; x < rx; x += st) {
-        if ((x / (rx - 0.4)) ** 2 + (y / (ry - 0.4)) ** 2 < 1) s += `M${n(x - dr)},${n(y)}a${n(dr)},${n(dr)} 0 1,0 ${n(dr * 2)},0a${n(dr)},${n(dr)} 0 1,0 ${n(-dr * 2)},0`;
-      }
-    }
-    return s + `" fill="${INK}"/>`;
-  },
-  groundcover(it, o) {
-    const w = it.w, h = it.h, u = o.u, rr = Math.min(1.2, h / 4, w / 4);
-    let s = `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" rx="${n(rr)}" ${fillOf('groundcover', o, '#fff')} stroke="${INK}" stroke-width="${n(u * 1.15)}"/><path d="`;
-    for (let x = -w / 2 + 0.5; x < w / 2 - 0.3; x += 0.5) {
-      const edge = Math.min(x + w / 2, w / 2 - x);
-      const inset = edge < rr ? rr - Math.sqrt(Math.max(0, rr * rr - (rr - edge) ** 2)) + 0.35 : 0.35;
-      s += `M${n(x)},${n(-h / 2 + inset)}V${n(h / 2 - inset)}`;
-    }
-    return s + `" stroke="${INK}" stroke-width="${n(u * 0.6)}" fill="none"/>`;
-  },
+  perennial(it, o, rng) { return bedRender(it, o, rng); },
+  annual(it, o, rng) { return bedRender(it, o, rng); },
+  groundcover(it, o, rng) { return bedRender(it, o, rng); },
   patio(it, o) {
     const w = it.w, h = it.h, f = it.finish || 'stone', R = `x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}"`;
     return `<rect ${R} fill="${finishFill(f, o)}"/><rect ${R} fill="url(#${DRAFT_HATCH[f]})" stroke="${INK}" stroke-width="${n(o.u * 1.3)}"/>`;
@@ -892,8 +902,9 @@ function itemLabel(it, o) {
   let s = '';
   const sp = spOf(it);
   // plant tag: key code in a white tag, like a professional planting plan
-  if (o.tags && sp && sp.t !== 'turf') {
-    const code = PLANT_CODE[sp.id];
+  const tagSp = isBedType(it.type) ? bedMix(it).map((m) => m.sp) : (sp ? [sp] : []);
+  if (o.tags && tagSp.length && tagSp[0].t !== 'turf') {
+    const code = tagSp.map((q) => PLANT_CODE[q.id]).join(' · ');
     let x, y;
     if (t.kind === 'circle') { x = it.x + it.r * 0.62; y = it.y + it.r * 0.62; } else [x, y] = itemCenter(it);
     const fs = 1.15, w = code.length * fs * 0.62 + 0.7;

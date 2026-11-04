@@ -18,12 +18,15 @@ Right now students do this on paper. This tool lets them do it online too: place
 | `scripts/e2e_test.js` | Playwright check at 1440×900 and 390×844 (`node scripts/e2e_test.js`). |
 | `scripts/e2e_custom.js` | Playwright check of the own-yard flow (`node scripts/e2e_custom.js`). |
 | `scripts/e2e_client.js` | Playwright check of the editable client checklist (`node scripts/e2e_client.js`). |
+| `scripts/e2e_beds.js` | Playwright check of bed shapes, mixed beds, freeform beds and your own plants (`node scripts/e2e_beds.js`). |
 
 ### Projects and the base plan
 
 - `state.site` absent = the Scott lab. `state.site = {kind:'custom', name, client, w, h, street, north, streetName, img?}` = a student's own yard. Every design keeps an editable client checklist in `state.wants = [{t, d}]` (add, double-click to edit, reorder, remove; the Scott lab starts with the brief's seven and has *Reset to the Scott family's list*). Older files with the fixed `checklist: [bool×7]` convert on open. `lot()`, `fitRect()`, `buildingPolys()`, `wantList()` hide the difference from the rest of the app.
 - Each design has a `pid`. Autosave writes `scottDesign.v1` (current) plus `ldProject.<pid>` and the `ldProjects` index; File → My designs lists them.
 - The Scott plan starts clean: only lot, roof plan, drive, sidewalk and street. Two layers are off by default: **Notes & labels** (`SITE_NOTES` dimensions/elevations, `BASE_NOTES`, `houseNotes()` door labels) and **Utility lines** (`SITE_UTIL`, overhead electric, service drop, underground). The power-line check still runs and tells students to turn the layer on.
+- Beds (perennial, annual, groundcover boxes and `bedShape`) take any bed plant. `it.mix = [{sp, w}]` (2+ plants, shares kept at 100% by `balance()`) is drawn in drifts by `bedSpots()`/`plantedBed()` and counted per plant in the takeoff; one plant uses `it.sp`. Box beds have `form` (oval, rect, round). *Make freeform* turns box beds, lawns and patios into shapes with draggable corners.
+- Students can add their own plants (library → Add your own plant). They live in `state.customPlants` (ids `u…`), are validated by `cleanCustomPlants()` and merged into `PLANTS`/`PLANT_BY_ID`/`PLANT_CODE` by `registerCustom()` on load, undo and design switch; new designs copy them.
 - Fences have a `style` (privacy, picket, split, chain, iron) and `height`; Arrange → Fence the property line and the New design dialog add one along the non-street lot lines.
 - The Scott house draws as a clean hip-roof plan (`cleanHouse()`), with door stoops, A/C and gas meter. The original floor plan from core.json (`BASE_FLOOR`, everything from the house polygon on) is the optional "House floor plan" layer.
 - The export picks the largest engineering scale (1 in = 10, 20, 30… ft) that fits a custom lot; the Scott sheet stays at 1 in = 10 ft.
