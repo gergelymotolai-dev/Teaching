@@ -16,6 +16,14 @@ const FILE = 'file://' + path.resolve(__dirname, '../dist/verdant-studio.html');
     await p.goto(FILE); await p.waitForTimeout(400);
     const r = await p.evaluate(() => { const rail = document.getElementById('rail').getBoundingClientRect(); const f = document.querySelector('[data-tool="fence"]').getBoundingClientRect(); return { bottom: rail.bottom, fence: f.bottom, all: [...document.querySelectorAll('#rail .tool')].every((t) => t.getBoundingClientRect().bottom <= rail.bottom) }; });
     ok(r.fence <= r.bottom && r.all, 'at 1280×720 the fence tool and every other tool are on screen');
+    for (const w of [1280, 1024]) {
+      await p.setViewportSize({ width: w, height: 720 }); await p.waitForTimeout(250);
+      ok(await p.evaluate(() => [...document.querySelectorAll('.libtabs button')].every((b) => b.scrollWidth <= b.clientWidth)), `at ${w} px every library tab label fits its tab`);
+    }
+    await p.setViewportSize({ width: 1280, height: 720 });
+    await p.click('[data-openlib="' + await p.evaluate(() => document.querySelector('[data-libtab][aria-selected="true"]').dataset.libtab) + '"]'); await p.waitForTimeout(250);
+    const lay = await p.evaluate(() => ({ lib: getComputedStyle(document.getElementById('lib')).display, stage: document.getElementById('stage').getBoundingClientRect().width, dock: document.querySelector('aside.dock').getBoundingClientRect().width }));
+    ok(lay.lib === 'none' && lay.stage > 800 && lay.dock < 320, `with the library closed the plan keeps the room (plan ${Math.round(lay.stage)} px, panels ${Math.round(lay.dock)} px)`);
     await p.context().close();
   }
 

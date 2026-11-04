@@ -2779,6 +2779,16 @@ function setLibTab(tab) {
   markLibButtons(); saveView();
 }
 document.querySelectorAll('[data-libtab]').forEach((b) => b.addEventListener('click', () => { if (!view.lib) toggleLib(true); setLibTab(b.dataset.libtab); }));
+/* shrink the tab labels until every one fits its tab (narrow panels, browser zoom, fallback fonts) */
+function fitLibTabs() {
+  const bs = [...document.querySelectorAll('.libtabs button')];
+  if (!bs.length || !bs[0].clientWidth) return;
+  let fs = 12;
+  bs.forEach((b) => { b.style.fontSize = ''; b.style.letterSpacing = ''; });
+  while (fs > 8 && bs.some((b) => b.scrollWidth > b.clientWidth)) { fs -= 0.5; bs.forEach((b) => { b.style.fontSize = fs + 'px'; b.style.letterSpacing = fs < 11 ? '0' : ''; }); }
+}
+if (window.ResizeObserver) new ResizeObserver(fitLibTabs).observe(document.querySelector('.libtabs')); else window.addEventListener('resize', fitLibTabs);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitLibTabs);
 
 
 

@@ -453,8 +453,10 @@ function makeDefs() {
   d += pat('dd-hatch', 0.5, 1, `<path d="M0.25,0V1" stroke="${INK}" stroke-width="0.05"/>`);
   // filters and gradients
   d += '<filter id="ld-soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="0.45"/></filter>';
+  d += '<filter id="ld-softw" x="-120%" y="-120%" width="340%" height="340%"><feGaussianBlur stdDeviation="0.35"/></filter>';
   d += '<radialGradient id="ld-dome" cx="0.62" cy="0.4" r="0.7"><stop offset="0" stop-color="#fff" stop-opacity="0.32"/><stop offset="0.45" stop-color="#fff" stop-opacity="0"/><stop offset="0.75" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.28"/></radialGradient>';
   d += '<radialGradient id="ld-water" cx="0.45" cy="0.4" r="0.7"><stop offset="0" stop-color="#BFE3F5"/><stop offset="0.6" stop-color="#6FB3D8"/><stop offset="1" stop-color="#3C82AE"/></radialGradient>';
+  d += furnDefs(pat, specks, R);
   return `<defs>${d}</defs>`;
 }
 const DEFS = makeDefs();
@@ -950,6 +952,9 @@ function shapeRender(it, o, rng) {
   const d = shapeD(it.pts, it.smooth);
   if (it.type === 'poolShape') {
     const poly = shapePoly(it.pts, it.smooth), xs = poly.map((q) => q[0]), ys = poly.map((q) => q[1]);
+    if (o.render) return (o.icon ? '' : `<path d="${d}" transform="translate(-0.3 0.3)" fill="none" stroke="#0E1408" stroke-opacity="0.3" stroke-width="2.6" stroke-linejoin="round" filter="url(#ld-softw)"/>`) +
+      `<path d="${d}" fill="none" stroke="#8E8676" stroke-width="2.62" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="url(#ld-coping)" stroke-width="2.48" stroke-linejoin="round"/>` +
+      poolCore(d, null, o, rng, (Math.max(...xs) - Math.min(...xs)) > (Math.max(...ys) - Math.min(...ys)) ? 'x' : 'y');
     return `<path d="${d}" fill="none" stroke="${o.render ? '#D8D0BF' : INK}" stroke-width="${o.render ? 2.4 : n(o.u * 1.2)}" stroke-linejoin="round"/>` +
       (o.render ? `<path d="${d}" fill="none" stroke="#8E8676" stroke-width="2.5" stroke-opacity="0.35" stroke-linejoin="round" transform="translate(0 0)"/>` : '') +
       poolWater(d, o, rngFor(it.id), [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]) + `<path d="${d}" fill="none" stroke="${o.render ? '#3C82AE' : INK}" stroke-width="${n(o.u)}"/>`;
@@ -1110,7 +1115,328 @@ const DDRAW = {
   building(it, o, rng) { return shapeRender(it, o, rng); },
 };
 
-for (const k of Object.keys(FURN)) { RDRAW[k] = FURN[k]; DDRAW[k] = FURN[k]; }
+/* ------------------------------------------------------------------ detailed rendered outdoor living items
+ * Rendered style only; drafting styles keep the clean line symbols in FURN_D. Local feet around (0,0); sun from the south (page right), so shadows fall left. */
+const DSH = (o, d, k) => (o.icon ? '' : `<path d="${d}" transform="translate(${n(-0.45 * (k || 1))} ${n(0.45 * (k || 1))})" fill="#0E1408" fill-opacity="0.3" filter="url(#ld-softw)"/>`);
+const RR = (x, y, w, h, r) => roundRectD(x, y, w, h, Math.max(0, Math.min(r, w / 2, h / 2)));
+const P = (d, fill, stroke, wd, extra) => `<path d="${d}" fill="${fill}"${stroke ? ` stroke="${stroke}" stroke-width="${wd}"` : ''}${extra || ''}/>`;
+const SHEEN = (d) => `<path d="${d}" fill="url(#ld-sheen)"/>`;
+const PUFF = (d) => `<path d="${d}" fill="url(#ld-puff)"/>`;
+/* a cushion: soft fill, puffed light, a piping seam */
+function cushion(x, y, w, h, color, r) {
+  const d = RR(x, y, w, h, r === undefined ? Math.min(w, h) * 0.22 : r);
+  return P(d, color, shade(color, -0.35), 0.05) + PUFF(d) + P(RR(x + 0.12, y + 0.12, w - 0.24, h - 0.24, Math.min(w, h) * 0.18), 'none', shade(color, -0.18), 0.03, ' stroke-dasharray="0.12 0.08"');
+}
+/* dining chair seen from above: woven frame, seat cushion, back rail */
+function chairR(x, y, w, h, rot, cush) {
+  const fr = RR(-w / 2, -h / 2, w, h, Math.min(w, h) * 0.18);
+  return `<g transform="translate(${n(x)} ${n(y)}) rotate(${n(rot || 0)})">${P(fr, 'url(#ld-wicker)', '#2E2219', 0.06)}${SHEEN(fr)}` +
+    cushion(-w / 2 + w * 0.13, -h / 2 + h * 0.26, w * 0.74, h * 0.62, cush || '#E6DCC6') +
+    P(RR(-w / 2 + 0.05, -h / 2 + 0.05, w - 0.1, h * 0.2, 0.08), '#3B2C20', '', '') + '</g>';
+}
+function teakTop(d, o) { return P(d, 'url(#ld-teak)', '#5E4129', 0.07) + SHEEN(d); }
+function poolCore(waterD, bb, o, rng, deepAxis) {
+  let s = P(waterD, `url(#ld-poolw${deepAxis === 'x' ? 'x' : ''})`, '', '') + P(waterD, '#fff', '', '', ' filter="url(#ld-caus)"');
+  s += P(waterD, 'none', 'url(#ld-tile)', 0.75, ' stroke-linejoin="round"');                     // mosaic tile at the waterline
+  s += P(waterD, 'none', '#1E5F86', 0.06);
+  return s;
+}
+const FURN_R = {
+  table_round(it, o) {
+    const R = Math.min(it.w, it.h) / 2, tr = R * 0.5, k = clamp(Math.round(2 * Math.PI * (tr + 1) / 2.4), 4, 10);
+    const top = `M${n(-tr)},0A${n(tr)},${n(tr)} 0 1,0 ${n(tr)},0A${n(tr)},${n(tr)} 0 1,0 ${n(-tr)},0Z`;
+    let s = DSH(o, top);
+    for (let i = 0; i < k; i++) { const a = 2 * Math.PI * i / k, d = tr + 1; s += DSH(o, RR(d * Math.cos(a) - 0.85, d * Math.sin(a) - 0.85, 1.7, 1.7, 0.3), 0.6) + chairR(d * Math.cos(a), d * Math.sin(a), 1.75, 1.75, a * 180 / Math.PI + 90); }
+    return s + teakTop(top, o) + `<circle r="${n(tr * 0.82)}" fill="none" stroke="#C99C69" stroke-opacity="0.5" stroke-width="0.05"/><circle r="0.18" fill="#2B2420"/><circle r="0.08" fill="#6B5D4E"/>`;
+  },
+  table_rect(it, o) {
+    const tw = Math.max(2, it.w - 3.4), th = Math.max(2, it.h - 3.4), per = Math.max(1, Math.floor(tw / 2.4));
+    const top = RR(-tw / 2, -th / 2, tw, th, 0.15);
+    let s = '';
+    const seats = [];
+    for (let i = 0; i < per; i++) { const x = -tw / 2 + tw * (i + 0.5) / per; seats.push([x, -th / 2 - 1, 180], [x, th / 2 + 1, 0]); }
+    if (it.w >= 7.5) seats.push([-tw / 2 - 1, 0, 90], [tw / 2 + 1, 0, -90]);
+    for (const [x, y, r] of seats) s += DSH(o, RR(x - 0.85, y - 0.85, 1.7, 1.7, 0.3), 0.6) + chairR(x, y, 1.75, 1.75, r);
+    let slats = '';
+    for (let y = -th / 2 + 0.38; y < th / 2 - 0.1; y += 0.38) slats += `M${n(-tw / 2 + 0.1)},${n(y)}H${n(tw / 2 - 0.1)}`;
+    return s + DSH(o, top) + teakTop(top, o) + `<path d="${slats}" stroke="#4A321E" stroke-width="0.035" stroke-opacity="0.7"/>`;
+  },
+  sofa(it, o, rng) {
+    const w = it.w, h = it.h, arm = Math.min(0.75, w * 0.11), back = h * 0.32, nC = Math.max(1, Math.round((w - 2 * arm) / 2.2));
+    const fr = RR(-w / 2, -h / 2, w, h, 0.35);
+    let s = DSH(o, fr) + P(fr, 'url(#ld-wicker)', '#2E2219', 0.07) + SHEEN(fr);
+    const cw = (w - 2 * arm) / nC;
+    for (let i = 0; i < nC; i++) s += cushion(-w / 2 + arm + i * cw + 0.04, -h / 2 + 0.12, cw - 0.08, back - 0.1, '#D9CBB0');
+    for (let i = 0; i < nC; i++) s += cushion(-w / 2 + arm + i * cw + 0.04, -h / 2 + back + 0.08, cw - 0.08, h - back - 0.25, '#E6DCC6');
+    const pill = ['#2F6F8F', '#C9783A', '#2F6F8F'];
+    for (let i = 0; i < Math.min(2, nC); i++) { const x = i ? w / 2 - arm - 0.9 : -w / 2 + arm + 0.1; s += `<g transform="translate(${n(x + 0.4)} ${n(-h / 2 + back + 0.3)}) rotate(${i ? 12 : -12})">${cushion(-0.42, -0.35, 0.84, 0.7, pill[i], 0.18)}</g>`; }
+    return s;
+  },
+  sectional(it, o) {
+    const w = it.w, h = it.h, d = Math.min(3, w * 0.35, h * 0.35);
+    const L = `M${n(-w / 2)},${n(-h / 2)}H${n(w / 2)}V${n(-h / 2 + d)}H${n(-w / 2 + d)}V${n(h / 2)}H${n(-w / 2)}Z`;
+    let s = DSH(o, L) + P(L, 'url(#ld-wicker)', '#2E2219', 0.07) + SHEEN(L);
+    const nx = Math.max(1, Math.round((w - d) / 2.3)), ny = Math.max(1, Math.round((h - d) / 2.3)), bk = d * 0.34;
+    s += cushion(-w / 2 + 0.12, -h / 2 + 0.12, d - 0.2, bk, '#D9CBB0') + cushion(-w / 2 + 0.12, -h / 2 + 0.12, bk, d - 0.2, '#D9CBB0');
+    for (let i = 0; i < nx; i++) { const cw = (w - d - 0.2) / nx; s += cushion(-w / 2 + d + i * cw, -h / 2 + 0.12, cw - 0.08, bk, '#D9CBB0') + cushion(-w / 2 + d + i * cw, -h / 2 + bk + 0.18, cw - 0.08, d - bk - 0.35, '#E6DCC6'); }
+    for (let i = 0; i < ny; i++) { const ch = (h - d - 0.2) / ny; s += cushion(-w / 2 + 0.12, -h / 2 + d + i * ch, bk, ch - 0.08, '#D9CBB0') + cushion(-w / 2 + bk + 0.18, -h / 2 + d + i * ch, d - bk - 0.35, ch - 0.08, '#E6DCC6'); }
+    s += cushion(-w / 2 + bk + 0.18, -h / 2 + bk + 0.18, d - bk - 0.35, d - bk - 0.35, '#E6DCC6');
+    s += `<g transform="translate(${n(-w / 2 + d * 0.62)} ${n(-h / 2 + d * 0.62)}) rotate(45)">${cushion(-0.45, -0.4, 0.9, 0.8, '#2F6F8F', 0.2)}</g>`;
+    s += `<g transform="translate(${n(w / 2 - 1.1)} ${n(-h / 2 + bk + 0.55)}) rotate(-10)">${cushion(-0.42, -0.36, 0.84, 0.72, '#C9783A', 0.18)}</g>`;
+    return s;
+  },
+  chair(it, o) {
+    const w = it.w, h = it.h, fr = RR(-w / 2, -h / 2, w, h, Math.min(w, h) * 0.22);
+    return DSH(o, fr) + P(fr, 'url(#ld-wicker)', '#2E2219', 0.06) + SHEEN(fr) + cushion(-w / 2 + w * 0.16, -h / 2 + h * 0.08, w * 0.68, h * 0.26, '#D9CBB0') +
+      cushion(-w / 2 + w * 0.16, -h / 2 + h * 0.36, w * 0.68, h * 0.54, '#E6DCC6') + `<g transform="translate(0 ${n(-h * 0.12)}) rotate(-8)">${cushion(-w * 0.18, -h * 0.1, w * 0.36, h * 0.24, '#2F6F8F', 0.12)}</g>`;
+  },
+  lounge(it, o) {
+    const w = it.w, h = it.h, fr = RR(-w / 2, -h / 2, w, h, 0.3);
+    let slats = '';
+    for (let y = -h / 2 + 0.2; y < h / 2; y += 0.28) slats += `M${n(-w / 2 + 0.12)},${n(y)}H${n(w / 2 - 0.12)}`;
+    return DSH(o, fr) + P(fr, '#C9CED1', '#7E868B', 0.06) + `<path d="${slats}" stroke="#9AA1A6" stroke-width="0.06"/>` + SHEEN(fr) +
+      cushion(-w / 2 + 0.14, -h / 2 + 0.16, w - 0.28, h * 0.32, '#3F7FA8', 0.25) + cushion(-w / 2 + 0.14, -h / 2 + h * 0.34 + 0.12, w - 0.28, h * 0.62 - 0.3, '#4F92BC', 0.25) +
+      cushion(-w * 0.3, -h / 2 + 0.25, w * 0.6, h * 0.12, '#F3EEE2', 0.15);
+  },
+  bench(it, o, rng) {
+    const w = it.w, h = it.h, fr = RR(-w / 2, -h / 2, w, h, 0.08);
+    let s = DSH(o, fr) + P(fr, '#3B2C20', '', '');
+    const n3 = Math.max(3, Math.round(h / 0.45)), sh = (h - 0.16) / n3;
+    for (let i = 0; i < n3; i++) { const d = RR(-w / 2 + 0.06, -h / 2 + 0.08 + i * sh, w - 0.12, sh - 0.06, 0.04); s += P(d, 'url(#ld-teak)', '', '') + SHEEN(d); }
+    return s + P(RR(-w / 2 + 0.3, -h / 2, 0.22, h, 0.03), '#2B2017', '', '', ' fill-opacity="0.55"') + P(RR(w / 2 - 0.52, -h / 2, 0.22, h, 0.03), '#2B2017', '', '', ' fill-opacity="0.55"');
+  },
+  umbrella(it, o) {
+    const R = Math.min(it.w, it.h) / 2, k = 8;
+    let s = o.icon ? '' : `<circle cx="-1.1" cy="1.1" r="${n(R)}" fill="#0E1408" fill-opacity="0.25" filter="url(#ld-softw)"/>`;
+    const cols = ['#E9DFC9', '#DCCFB2'];
+    for (let i = 0; i < k; i++) {
+      const a0 = 2 * Math.PI * i / k, a1 = 2 * Math.PI * (i + 1) / k, am = (a0 + a1) / 2;
+      const p0 = [R * Math.cos(a0), R * Math.sin(a0)], p1 = [R * Math.cos(a1), R * Math.sin(a1)], c = [R * 0.86 * Math.cos(am), R * 0.86 * Math.sin(am)];
+      const d = `M0,0L${n(p0[0])},${n(p0[1])}Q${n(c[0])},${n(c[1])} ${n(p1[0])},${n(p1[1])}Z`;
+      const lit = Math.cos(am) * 0.5 - Math.sin(am) * 0.25;
+      s += P(d, shade(cols[i % 2], lit * 0.12), '#A8987A', 0.05, ' stroke-linejoin="round"') + P(d, 'url(#ld-panel)', '', '');
+    }
+    for (let i = 0; i < k; i++) { const a = 2 * Math.PI * i / k; s += `<path d="M0,0L${n(R * Math.cos(a))},${n(R * Math.sin(a))}" stroke="#8C7C60" stroke-width="0.06" stroke-opacity="0.8"/>`; }
+    return s + `<circle r="${n(R * 0.1)}" fill="#E9DFC9" stroke="#8C7C60" stroke-width="0.05"/><circle r="${n(R * 0.045)}" fill="#5E5240"/>`;
+  },
+  pergola(it, o) {
+    const w = it.w, h = it.h, ps = 0.55;
+    let s = '';
+    if (!o.icon) {   // the slatted shadow it throws on the ground
+      let sh = '';
+      for (let x = -w / 2 + 0.6; x < w / 2; x += 1) sh += `M${n(x - 0.9)},${n(-h / 2 + 0.6)}v${n(h)}`;
+      s += `<path d="${sh}" stroke="#0E1408" stroke-opacity="0.22" stroke-width="0.38" filter="url(#ld-softw)"/>`;
+    }
+    for (const [x, y] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) s += P(RR(x * (w / 2 - 0.3) - ps / 2, y * (h / 2 - 0.3) - ps / 2, ps, ps, 0.04), '#5E4129', '#3B2A1A', 0.05);
+    for (const y of [-h / 2 + 0.3, h / 2 - 0.3]) { const d = RR(-w / 2 - 0.9, y - 0.24, w + 1.8, 0.48, 0.05); s += DSH(o, d, 0.6) + P(d, 'url(#ld-teakv)', '#3B2A1A', 0.05) + SHEEN(d); }
+    for (let x = -w / 2 + 0.6; x < w / 2; x += 1) { const d = RR(x - 0.13, -h / 2 - 0.6, 0.26, h + 1.2, 0.04); s += DSH(o, d, 0.4) + P(d, '#A97B4D', '#5E4129', 0.04) + `<path d="M${n(x + 0.08)},${n(-h / 2 - 0.55)}V${n(h / 2 + 0.55)}" stroke="#C99C69" stroke-width="0.05"/>`; }
+    return s;
+  },
+  grill(it, o) {
+    const w = it.w, h = it.h, bw = w * 0.56, body = RR(-w / 2, -h / 2 + 0.25, w, h - 0.5, 0.12), lid = RR(-bw / 2, -h / 2, bw, h, 0.45);
+    let s = DSH(o, body) + P(body, 'url(#ld-steel)', '#6B7378', 0.05);
+    let gr = '';
+    for (let x = -w / 2 + 0.25; x < -bw / 2 - 0.15; x += 0.18) gr += `M${n(x)},${n(-h / 2 + 0.45)}V${n(h / 2 - 0.45)}`;
+    s += `<path d="${gr}" stroke="#7E868B" stroke-width="0.04"/>`;
+    s += `<circle cx="${n(w / 2 - (w / 2 - bw / 2) / 2)}" cy="0" r="${n(Math.min(0.5, h * 0.18))}" fill="#2B2D2F" stroke="#111" stroke-width="0.04"/><circle cx="${n(w / 2 - (w / 2 - bw / 2) / 2)}" cy="0" r="${n(Math.min(0.3, h * 0.1))}" fill="none" stroke="#5F666B" stroke-width="0.04"/>`;
+    s += DSH(o, lid, 0.5) + P(lid, 'url(#ld-lid)', '#0E0F10', 0.06) + `<path d="M${n(-bw / 2 + 0.3)},${n(-h / 2 + 0.35)}Q0,${n(-h / 2 + 0.1)} ${n(bw / 2 - 0.3)},${n(-h / 2 + 0.35)}" stroke="#fff" stroke-opacity="0.35" stroke-width="0.07" fill="none"/>`;
+    s += P(RR(-bw * 0.32, h / 2 - 0.22, bw * 0.64, 0.14, 0.06), '#C9CED1', '#6B7378', 0.03);
+    for (let i = 0; i < 4; i++) s += `<circle cx="${n(-bw / 2 + bw * (i + 0.5) / 4)}" cy="${n(h / 2 - 0.05)}" r="0.09" fill="#1C1D1F"/>`;
+    return s;
+  },
+  kitchen(it, o) {
+    const w = it.w, h = it.h, top = RR(-w / 2, -h / 2, w, h, 0.1);
+    let s = DSH(o, top) + P(top, 'url(#ld-granite)', '#4E4A45', 0.06) + SHEEN(top);
+    const gx = -w * 0.34, gw = w * 0.32, hood = RR(gx, -h / 2 + 0.28, gw, h - 0.56, 0.3);
+    s += P(hood, 'url(#ld-lid)', '#0E0F10', 0.05);
+    let gr = '';
+    for (let x = gx + 0.25; x < gx + gw - 0.15; x += 0.2) gr += `M${n(x)},${n(-h / 2 + 0.5)}V${n(h / 2 - 0.5)}`;
+    s += `<path d="${gr}" stroke="#55585C" stroke-width="0.045"/>` + `<path d="M${n(gx + 0.3)},${n(-h / 2 + 0.4)}H${n(gx + gw - 0.3)}" stroke="#fff" stroke-opacity="0.3" stroke-width="0.06"/>`;
+    const sx = w * 0.1, sink = RR(sx, -h / 2 + 0.45, w * 0.2, h - 0.9, 0.25);
+    s += P(sink, 'url(#ld-steel)', '#6B7378', 0.05) + P(RR(sx + 0.12, -h / 2 + 0.57, w * 0.2 - 0.24, h - 1.14, 0.18), '#8E969B', '', '') + `<circle cx="${n(sx + w * 0.1)}" cy="0" r="0.08" fill="#4E555A"/>`;
+    s += `<path d="M${n(sx + w * 0.1)},${n(-h / 2 + 0.25)}v0.5" stroke="#C9CED1" stroke-width="0.12" stroke-linecap="round"/>`;
+    return s;
+  },
+  firepit(it, o, rng) {
+    const R = Math.min(it.w, it.h) / 2;
+    let s = o.icon ? '' : `<circle r="${n(R * 1.9)}" fill="url(#ld-glow)"/><circle cx="-0.35" cy="0.35" r="${n(R)}" fill="#0E1408" fill-opacity="0.35" filter="url(#ld-softw)"/>`;
+    const k = clamp(Math.round(R * 4), 10, 24);
+    s += `<circle r="${n(R)}" fill="#6E665C"/>`;
+    for (let i = 0; i < k; i++) {
+      const a0 = 2 * Math.PI * i / k + 0.02, a1 = 2 * Math.PI * (i + 1) / k - 0.02, r0 = R * 0.66, r1 = R * 0.98;
+      const d = `M${n(r0 * Math.cos(a0))},${n(r0 * Math.sin(a0))}L${n(r1 * Math.cos(a0))},${n(r1 * Math.sin(a0))}A${n(r1)},${n(r1)} 0 0 1 ${n(r1 * Math.cos(a1))},${n(r1 * Math.sin(a1))}L${n(r0 * Math.cos(a1))},${n(r0 * Math.sin(a1))}A${n(r0)},${n(r0)} 0 0 0 ${n(r0 * Math.cos(a0))},${n(r0 * Math.sin(a0))}Z`;
+      s += P(d, shade('#B5A892', (rng() - 0.5) * 0.18), '', '') + P(d, 'url(#ld-puff)', '', '', ' fill-opacity="0.6"');
+    }
+    s += `<circle r="${n(R * 0.64)}" fill="#1E1714"/><circle r="${n(R * 0.6)}" fill="url(#ld-fire)"/>`;
+    for (let i = 0; i < 3; i++) { const a = i * 60 + 15; s += `<g transform="rotate(${a})"><rect x="${n(-R * 0.5)}" y="-0.13" width="${n(R)}" height="0.26" rx="0.12" fill="#5A3A22" stroke="#2B1A0E" stroke-width="0.04"/><circle cx="${n(-R * 0.5)}" cy="0" r="0.12" fill="#C9A06A"/></g>`; }
+    for (let i = 0; i < 9; i++) { const a = rng() * 6.28, d = Math.sqrt(rng()) * R * 0.38; s += `<path d="M${n(d * Math.cos(a))},${n(d * Math.sin(a) + 0.2)}q0.12,-0.3 0,-0.55q-0.12,0.25 0,0.55z" fill="#FFD25A" fill-opacity="0.9"/>`; }
+    return s;
+  },
+  firetable(it, o, rng) {
+    const w = it.w, h = it.h, top = RR(-w / 2, -h / 2, w, h, 0.25);
+    let s = (o.icon ? '' : `<circle r="${n(Math.max(w, h) * 0.9)}" fill="url(#ld-glow)"/>`) + DSH(o, top) + P(top, '#9A968F', '#4E4A45', 0.06) + P(top, 'url(#ld-granite)', '', '', ' fill-opacity="0.5"') + SHEEN(top);
+    const gw = w * 0.62, gh = h * 0.62, glass = RR(-gw / 2, -gh / 2, gw, gh, 0.1);
+    s += P(glass, '#1E2A33', '#BFD6E3', 0.08);
+    for (let i = 0; i < 40; i++) s += `<circle cx="${n((rng() - 0.5) * (gw - 0.4))}" cy="${n((rng() - 0.5) * (gh - 0.4))}" r="0.07" fill="${['#4FA3C8', '#7FC1DE', '#2E6F95'][i % 3]}"/>`;
+    s += `<rect x="${n(-gw * 0.32)}" y="${n(-gh * 0.12)}" width="${n(gw * 0.64)}" height="${n(gh * 0.24)}" rx="0.1" fill="url(#ld-fire)"/>`;
+    return s;
+  },
+  pool(it, o, rng) {
+    const w = it.w, h = it.h, c = 1.2, outer = RR(-w / 2, -h / 2, w, h, 0.3), water = RR(-w / 2 + c, -h / 2 + c, w - 2 * c, h - 2 * c, 0.2);
+    let s = DSH(o, outer, 0.5) + P(outer, 'url(#ld-coping)', '#8E8676', 0.07) + SHEEN(outer);
+    s += poolCore(water, null, o, rng, w > h ? 'x' : 'y');
+    const sw2 = Math.min(6, (w - 2 * c) * 0.45);
+    for (let i = 0; i < 3; i++) s += P(RR(-w / 2 + c + 0.35, -h / 2 + c + 0.35 + i * 0.9, sw2 - 0.4, 0.9, 0.15), i === 0 ? '#CDEBF5' : shade('#9FD6EC', -i * 0.08), '#fff', 0.05, ' fill-opacity="0.85"');
+    const lx = w / 2 - c - 1.6, ly = h / 2 - c;
+    s += `<path d="M${n(lx)},${n(ly + 0.6)}V${n(ly - 0.9)}M${n(lx + 0.9)},${n(ly + 0.6)}V${n(ly - 0.9)}" stroke="#E3E6E8" stroke-width="0.12" stroke-linecap="round"/><path d="M${n(lx)},${n(ly - 0.3)}H${n(lx + 0.9)}" stroke="#E3E6E8" stroke-width="0.08"/>`;
+    s += `<rect x="-0.5" y="${n(h / 2 - c - 3.2)}" width="1" height="0.5" rx="0.1" fill="#1E5F86" fill-opacity="0.5"/>`;
+    return s;
+  },
+  pool_kidney(it, o, rng) {
+    const w = it.w, h = it.h, outer = KIDNEY(w, h), inner = KIDNEY(w - 2.4, h - 2.4);
+    return DSH(o, outer, 0.5) + P(outer, 'url(#ld-coping)', '#8E8676', 0.07) + SHEEN(outer) + poolCore(inner, null, o, rng, 'y') +
+      `<path d="M${n(-w * 0.12)},${n(-h / 2 + 1.5)}q${n(w * 0.12)},0.7 ${n(w * 0.24)},0" stroke="#fff" stroke-opacity="0.75" stroke-width="0.08" fill="none"/><path d="M${n(-w * 0.1)},${n(-h / 2 + 2.3)}q${n(w * 0.1)},0.6 ${n(w * 0.2)},0" stroke="#fff" stroke-opacity="0.6" stroke-width="0.08" fill="none"/>`;
+  },
+  hottub(it, o, rng) {
+    const w = it.w, h = it.h, cab = RR(-w / 2, -h / 2, w, h, 0.9);
+    let s = DSH(o, cab, 0.6) + P(cab, 'url(#ld-teakv)', '#3B2A1A', 0.07) + SHEEN(cab);
+    const shell = RR(-w / 2 + 0.45, -h / 2 + 0.45, w - 0.9, h - 0.9, 0.7);
+    s += P(shell, '#EEF2F4', '#B9C2C8', 0.05);
+    const water = RR(-w / 2 + 0.9, -h / 2 + 0.9, w - 1.8, h - 1.8, 0.55);
+    s += P(water, 'url(#ld-poolw)', '', '') + P(water, '#fff', '', '', ' filter="url(#ld-caus)" opacity="0.8"');
+    for (const [x, y] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      const cx = x * (w / 2 - 1.75), cy = y * (h / 2 - 1.75);
+      s += `<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(Math.min(w, h) * 0.13)}" fill="#BFE3F5" fill-opacity="0.55" stroke="#fff" stroke-opacity="0.6" stroke-width="0.04"/>`;
+      for (let i = 0; i < 6; i++) { const a = rng() * 6.28, d = rng() * 0.35; s += `<circle cx="${n(cx + d * Math.cos(a))}" cy="${n(cy + d * Math.sin(a))}" r="${n(0.04 + rng() * 0.06)}" fill="#fff" fill-opacity="0.85"/>`; }
+    }
+    s += `<circle r="${n(Math.min(w, h) * 0.14)}" fill="none" stroke="#fff" stroke-opacity="0.55" stroke-width="0.05"/>`;
+    return s;
+  },
+  playset(it, o, rng) {
+    const w = it.w, h = it.h, dk = Math.min(w * 0.4, h * 0.55), x0 = -w / 2, y0 = -h / 2;
+    const slide = RR(x0 + dk - 0.2, y0 + dk * 0.3, w - dk + 0.2, 1.9, 0.95);
+    let s = DSH(o, slide, 0.6) + P(slide, 'url(#ld-slide)', '#B8860B', 0.06) + P(RR(x0 + dk, y0 + dk * 0.3 + 0.35, w - dk - 0.6, 1.2, 0.6), '#FFE07A', '', '', ' fill-opacity="0.55"');
+    const wall = RR(x0 + dk * 0.15, y0 + dk - 0.1, dk * 0.7, h - dk + 0.1, 0.08);
+    s += DSH(o, wall, 0.6) + P(wall, 'url(#ld-teakv)', '#4E3622', 0.06);
+    for (let y = y0 + dk + 0.45; y < h / 2 - 0.2; y += 0.7) for (const [fx, c] of [[0.32, '#E2552F'], [0.62, '#F2B705'], [0.47, '#2F7DB8']]) s += `<path d="M${n(x0 + dk * fx)},${n(y + (fx === 0.47 ? 0.35 : 0))}l0.16,-0.08 0.06,0.17 -0.17,0.08z" fill="${c}" stroke="#222" stroke-width="0.02"/>`;
+    const deck = RR(x0, y0, dk, dk, 0.08);
+    s += DSH(o, deck, 1.2) + P(deck, 'url(#ld-teakv)', '#3B2A1A', 0.07);
+    const roofS = `M${n(x0 - 0.3)},${n(y0 - 0.3)}L${n(x0 + dk / 2)},${n(y0 + dk / 2)}L${n(x0 + dk + 0.3)},${n(y0 - 0.3)}Z`, roofN = `M${n(x0 - 0.3)},${n(y0 + dk + 0.3)}L${n(x0 + dk / 2)},${n(y0 + dk / 2)}L${n(x0 + dk + 0.3)},${n(y0 + dk + 0.3)}Z`;
+    const roofW = `M${n(x0 - 0.3)},${n(y0 - 0.3)}L${n(x0 + dk / 2)},${n(y0 + dk / 2)}L${n(x0 - 0.3)},${n(y0 + dk + 0.3)}Z`, roofE = `M${n(x0 + dk + 0.3)},${n(y0 - 0.3)}L${n(x0 + dk / 2)},${n(y0 + dk / 2)}L${n(x0 + dk + 0.3)},${n(y0 + dk + 0.3)}Z`;
+    s += P(roofS, '#2E8B57', '#1D5F3A', 0.05) + P(roofN, '#267A4B', '#1D5F3A', 0.05) + P(roofW, '#1F6B40', '#1D5F3A', 0.05) + P(roofE, '#36A066', '#1D5F3A', 0.05);
+    for (const d of [roofS, roofN, roofW, roofE]) s += P(d, 'url(#ld-shingle)', '', '', ' fill-opacity="0.5"');
+    return s + `<circle cx="${n(x0 + dk / 2)}" cy="${n(y0 + dk / 2)}" r="0.18" fill="#F2B705"/>`;
+  },
+  swing(it, o) {
+    const w = it.w, h = it.h, n2 = Math.max(1, Math.round((w - 2) / 3.2));
+    const leg = (x1, y1, x2, y2) => `<path d="M${n(x1)},${n(y1)}L${n(x2)},${n(y2)}" stroke="#3B2A1A" stroke-width="0.46" stroke-linecap="round"/><path d="M${n(x1)},${n(y1)}L${n(x2)},${n(y2)}" stroke="#A97B4D" stroke-width="0.32" stroke-linecap="round"/>`;
+    let s = o.icon ? '' : `<rect x="${n(-w / 2 + 0.4)}" y="0.3" width="${n(w - 0.8)}" height="0.6" rx="0.3" fill="#0E1408" fill-opacity="0.25" filter="url(#ld-softw)"/>`;
+    s += leg(-w / 2, -h / 2, -w / 2 + 1, 0) + leg(-w / 2, h / 2, -w / 2 + 1, 0) + leg(w / 2, -h / 2, w / 2 - 1, 0) + leg(w / 2, h / 2, w / 2 - 1, 0);
+    s += `<path d="M${n(-w / 2 + 0.8)},0H${n(w / 2 - 0.8)}" stroke="#3B2A1A" stroke-width="0.6" stroke-linecap="round"/><path d="M${n(-w / 2 + 0.8)},-0.08H${n(w / 2 - 0.8)}" stroke="#B98A5A" stroke-width="0.36" stroke-linecap="round"/>`;
+    const seatCol = ['#E2552F', '#2F7DB8', '#F2B705'];
+    for (let i = 0; i < n2; i++) {
+      const x = -w / 2 + 1 + (w - 2) * (i + 0.5) / n2;
+      s += `<path d="M${n(x - 0.7)},0.2V0.9M${n(x + 0.7)},0.2V0.9" stroke="#8E969B" stroke-width="0.06" stroke-dasharray="0.08 0.05"/>`;
+      const seat = RR(x - 0.85, 0.75, 1.7, 0.6, 0.25);
+      s += DSH(o, seat, 0.4) + P(seat, seatCol[i % 3], shade(seatCol[i % 3], -0.4), 0.05) + SHEEN(seat);
+    }
+    return s;
+  },
+  sandbox(it, o, rng) {
+    const w = it.w, h = it.h, fr = RR(-w / 2, -h / 2, w, h, 0.05), sand = RR(-w / 2 + 0.45, -h / 2 + 0.45, w - 0.9, h - 0.9, 0.05);
+    let s = DSH(o, fr, 0.6) + P(fr, 'url(#ld-teakv)', '#3B2A1A', 0.06) + SHEEN(fr) + P(sand, 'url(#ld-sand)', '#B8A06B', 0.04);
+    s += `<path d="M${n(-w / 2)},${n(-h / 2)}l0.45,0.45M${n(w / 2)},${n(-h / 2)}l-0.45,0.45M${n(w / 2)},${n(h / 2)}l-0.45,-0.45M${n(-w / 2)},${n(h / 2)}l0.45,-0.45" stroke="#3B2A1A" stroke-width="0.04"/>`;
+    for (let i = 0; i < 5; i++) { const x = (rng() - 0.5) * (w - 2), y = (rng() - 0.5) * (h - 2); s += `<path d="M${n(x)},${n(y)}q0.3,-0.25 0.6,0" stroke="#C9B37D" stroke-width="0.06" fill="none"/>`; }
+    s += `<circle cx="${n(w * 0.18)}" cy="${n(-h * 0.12)}" r="0.42" fill="#E2552F" stroke="#9E3517" stroke-width="0.05"/><circle cx="${n(w * 0.18)}" cy="${n(-h * 0.12)}" r="0.28" fill="#B8401F"/>`;
+    s += `<g transform="translate(${n(-w * 0.15)} ${n(h * 0.15)}) rotate(-30)"><rect x="-0.08" y="-0.6" width="0.16" height="0.8" fill="#2F7DB8"/><path d="M-0.28,0.2h0.56l-0.1,0.4h-0.36z" fill="#2F7DB8"/></g>`;
+    return s;
+  },
+  trampoline(it, o) {
+    const R = Math.min(it.w, it.h) / 2;
+    let s = o.icon ? '' : `<circle cx="-0.7" cy="0.7" r="${n(R)}" fill="#0E1408" fill-opacity="0.3" filter="url(#ld-softw)"/>`;
+    s += `<circle r="${n(R)}" fill="#2F7DB8" stroke="#1F5A86" stroke-width="0.07"/>`;
+    const k = 16;
+    for (let i = 0; i < k; i++) { const a = 2 * Math.PI * i / k; s += `<path d="M${n(R * 0.86 * Math.cos(a))},${n(R * 0.86 * Math.sin(a))}L${n(R * Math.cos(a))},${n(R * Math.sin(a))}" stroke="#1F5A86" stroke-width="0.05"/>`; }
+    s += `<circle r="${n(R)}" fill="url(#ld-puff)"/>`;
+    let springs = '';
+    for (let i = 0; i < 48; i++) { const a = 2 * Math.PI * i / 48; springs += `M${n(R * 0.74 * Math.cos(a))},${n(R * 0.74 * Math.sin(a))}L${n(R * 0.84 * Math.cos(a))},${n(R * 0.84 * Math.sin(a))}`; }
+    s += `<path d="${springs}" stroke="#C9CED1" stroke-width="0.06"/>`;
+    s += `<circle r="${n(R * 0.74)}" fill="url(#ld-mat)" stroke="#111" stroke-width="0.05"/><circle r="${n(R * 0.74)}" fill="url(#ld-puff)" fill-opacity="0.5"/>`;
+    s += `<circle r="${n(R * 0.94)}" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="0.05" stroke-dasharray="0.15 0.12"/>`;
+    for (let i = 0; i < 8; i++) { const a = 2 * Math.PI * i / 8 + 0.2; s += `<circle cx="${n(R * 0.95 * Math.cos(a))}" cy="${n(R * 0.95 * Math.sin(a))}" r="0.16" fill="#222" stroke="#888" stroke-width="0.03"/>`; }
+    return s;
+  },
+};
+/* rendered materials used above (added to the shared defs) */
+function furnDefs(pat, specks, R) {
+  let d = '';
+  d += '<linearGradient id="ld-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.32"/><stop offset="0.42" stop-color="#fff" stop-opacity="0"/><stop offset="0.62" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.24"/></linearGradient>';
+  d += '<radialGradient id="ld-puff" cx="0.45" cy="0.4" r="0.72"><stop offset="0" stop-color="#fff" stop-opacity="0.38"/><stop offset="0.55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.2"/></radialGradient>';
+  d += '<radialGradient id="ld-panel" cx="0" cy="0" r="1" gradientUnits="objectBoundingBox"><stop offset="0" stop-color="#fff" stop-opacity="0.22"/><stop offset="1" stop-color="#000" stop-opacity="0.12"/></radialGradient>';
+  d += '<linearGradient id="ld-steel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#EEF1F3"/><stop offset="0.5" stop-color="#A9B0B5"/><stop offset="1" stop-color="#D3D8DB"/></linearGradient>';
+  d += '<radialGradient id="ld-lid" cx="0.4" cy="0.3" r="0.8"><stop offset="0" stop-color="#5A5E62"/><stop offset="0.6" stop-color="#2A2C2F"/><stop offset="1" stop-color="#141516"/></radialGradient>';
+  d += '<linearGradient id="ld-poolw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A8E1F3"/><stop offset="0.45" stop-color="#55B4DC"/><stop offset="1" stop-color="#1F73A6"/></linearGradient>';
+  d += '<linearGradient id="ld-poolwx" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#A8E1F3"/><stop offset="0.45" stop-color="#55B4DC"/><stop offset="1" stop-color="#1F73A6"/></linearGradient>';
+  d += '<radialGradient id="ld-glow"><stop offset="0" stop-color="#FFB347" stop-opacity="0.45"/><stop offset="0.5" stop-color="#FF8C2A" stop-opacity="0.12"/><stop offset="1" stop-color="#FF8C2A" stop-opacity="0"/></radialGradient>';
+  d += '<linearGradient id="ld-slide" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD54A"/><stop offset="0.5" stop-color="#F2B705"/><stop offset="1" stop-color="#C98F00"/></linearGradient>';
+  let wk = '<rect width="0.4" height="0.4" fill="#6B4A2E"/>';
+  wk += '<path d="M0,0.1H0.4M0,0.3H0.4" stroke="#8C6640" stroke-width="0.09"/><path d="M0.1,0V0.4M0.3,0V0.4" stroke="#4A321E" stroke-width="0.05" stroke-opacity="0.8"/>';
+  d += pat('ld-wicker', 0.4, 0.4, wk);
+  let tk = '<rect width="4" height="0.5" fill="#B07F4F"/><rect y="0.25" width="4" height="0.25" fill="#A57446"/>';
+  tk += '<path d="M0,0.12Q1,0.08 2,0.13T4,0.12M0,0.37Q1,0.33 2,0.38T4,0.37" stroke="#8C6038" stroke-width="0.025" fill="none"/><path d="M0,0.25H4M0,0H4" stroke="#6B4A2E" stroke-width="0.03"/>';
+  d += pat('ld-teak', 4, 0.5, tk);
+  d += pat('ld-teakv', 0.5, 4, '<rect width="0.5" height="4" fill="#A97B4D"/><rect x="0.25" width="0.25" height="4" fill="#9C6F43"/><path d="M0.12,0Q0.08,1 0.13,2T0.12,4M0.37,0Q0.33,1 0.38,2T0.37,4" stroke="#7E5632" stroke-width="0.025" fill="none"/><path d="M0.25,0V4M0,0V4" stroke="#5E4129" stroke-width="0.03"/>');
+  d += pat('ld-granite', 1.2, 1.2, '<rect width="1.2" height="1.2" fill="#5D5954"/>' + specks(1.2, 1.2, 40, ['#8C8780', '#3E3B37', '#A9A39A', '#2B2926'], 0.02, 0.06));
+  d += pat('ld-coping', 2, 2, '<rect width="2" height="2" fill="#9C9384"/><rect x="0.04" y="0.04" width="0.92" height="0.92" fill="#D8D0BF"/><rect x="1.04" y="0.04" width="0.92" height="0.92" fill="#CFC6B4"/><rect x="0.04" y="1.04" width="0.92" height="0.92" fill="#D2C9B8"/><rect x="1.04" y="1.04" width="0.92" height="0.92" fill="#DCD5C5"/>');
+  d += pat('ld-tile', 0.5, 0.5, '<rect width="0.5" height="0.5" fill="#E8F1F4"/><rect x="0.02" y="0.02" width="0.21" height="0.21" fill="#1F6FA0"/><rect x="0.27" y="0.02" width="0.21" height="0.21" fill="#3D8CBB"/><rect x="0.02" y="0.27" width="0.21" height="0.21" fill="#3D8CBB"/><rect x="0.27" y="0.27" width="0.21" height="0.21" fill="#1F6FA0"/>');
+  // sunlight caustics on the pool floor: contour bands of a noise field, kept inside the water shape
+  d += '<filter id="ld-caus" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="1" seed="7" result="t"/><feColorMatrix in="t" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  1 0 0 0 0" result="a"/><feComponentTransfer in="a" result="b"><feFuncA type="table" tableValues="0 0 0.05 0.4 0.05 0 0.03 0.32 0.03 0 0.05 0.42 0.05 0 0.03 0.3 0.03 0 0"/></feComponentTransfer><feComposite in="b" in2="SourceAlpha" operator="in"/></filter>';
+  d += pat('ld-mat', 0.3, 0.3, '<rect width="0.3" height="0.3" fill="#1E2022"/><path d="M0,0.15H0.3M0.15,0V0.3" stroke="#25282A" stroke-width="0.03"/>');
+  d += pat('ld-shingle', 0.6, 0.4, '<path d="M0,0.2H0.6M0.3,0.2V0.4M0,0V0.2M0.6,0V0.2" stroke="#0E3A21" stroke-width="0.04"/>');
+  d += pat('ld-chain', 0.36, 0.36, '<path d="M0,0.18L0.18,0L0.36,0.18L0.18,0.36Z" fill="none" stroke="#9AA1A6" stroke-width="0.035"/>');
+  d += pat('ld-boards', 0.55, 0.55, '<rect width="0.55" height="0.55" fill="#8C6640"/><rect width="0.5" height="0.55" fill="#A97B4D"/><path d="M0.15,0V0.55M0.32,0V0.55" stroke="#7E5632" stroke-width="0.02" stroke-opacity="0.6"/>');
+  return d;
+}
+/* detailed rendered fence: each run drawn in its own local frame so boards and pickets sit across it */
+function fenceDetailed(it, o) {
+  const st = it.style || 'privacy', pts = it.pts;
+  const d = ptsD(pts);
+  const sw0 = st === 'privacy' ? 0.5 : 0.3, so = st === 'chain' || st === 'iron' ? 0.035 : 0.06;
+  let s = o.icon ? '' : [1, 1.5, 2.1, 2.9, 3.8].map((k) => `<path d="${d}" transform="translate(-0.3 0.3)" fill="none" stroke="#0E1408" stroke-opacity="${so}" stroke-width="${n(sw0 * k)}" stroke-linejoin="round" stroke-linecap="round"/>`).join('');
+  const seg = (fn) => { let out = ''; for (let i = 1; i < pts.length; i++) { const [x1, y1] = pts[i - 1], [x2, y2] = pts[i], L = Math.hypot(x2 - x1, y2 - y1); if (L < 0.05) continue; out += `<g transform="translate(${n(x1)} ${n(y1)}) rotate(${n(Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI)})">${fn(L)}</g>`; } return out; };
+  const post = (p, size, fill, stroke, cap) => `<rect x="${n(p[0] - size / 2)}" y="${n(p[1] - size / 2)}" width="${n(size)}" height="${n(size)}" rx="${n(size * 0.12)}" fill="${fill}" stroke="${stroke}" stroke-width="0.05"/>` + (cap ? `<rect x="${n(p[0] - size * 0.3)}" y="${n(p[1] - size * 0.3)}" width="${n(size * 0.6)}" height="${n(size * 0.6)}" fill="${cap}"/>` : '');
+  const rpost = (p, r, fill, stroke, hi) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${n(r)}" fill="${fill}" stroke="${stroke}" stroke-width="0.05"/>` + (hi ? `<circle cx="${n(p[0] + r * 0.25)}" cy="${n(p[1] - r * 0.25)}" r="${n(r * 0.4)}" fill="${hi}"/>` : '');
+  if (st === 'picket') {
+    s += seg((L) => {
+      let b = `<rect x="0" y="-0.07" width="${n(L)}" height="0.14" fill="#B8B2A6"/>`;
+      for (let x = 0.15; x < L - 0.1; x += 0.5) b += `<rect x="${n(x)}" y="-0.2" width="0.3" height="0.12" fill="#FFFFFF" stroke="#9A958B" stroke-width="0.025"/><path d="M${n(x)},-0.08h0.3" stroke="#D8D3C9" stroke-width="0.02"/>`;
+      return b;
+    });
+    return s + fencePosts(pts, 8).map((p) => post(p, 0.42, '#FFFFFF', '#8F8B82', '#ECE8E0')).join('');
+  }
+  if (st === 'split') {
+    s += seg((L) => `<path d="M0,-0.12H${n(L)}" stroke="#5E4430" stroke-width="0.26" stroke-linecap="round"/><path d="M0,-0.16H${n(L)}" stroke="#A7835B" stroke-width="0.1"/><path d="M0,0.14H${n(L)}" stroke="#5E4430" stroke-width="0.24" stroke-linecap="round"/><path d="M0,0.1H${n(L)}" stroke="#9A774F" stroke-width="0.08"/>`);
+    return s + fencePosts(pts, 10).map((p) => rpost(p, 0.32, '#6E5038', '#3B2A1A', '#8C6A48') + `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="0.17" fill="none" stroke="#4E3622" stroke-width="0.03"/>`).join('');
+  }
+  if (st === 'chain') {
+    s += seg((L) => `<rect x="0" y="-0.16" width="${n(L)}" height="0.32" fill="url(#ld-chain)"/><path d="M0,0H${n(L)}" stroke="#7E868B" stroke-width="0.09"/><path d="M0,-0.02H${n(L)}" stroke="#D7DCDF" stroke-width="0.03"/>`);
+    return s + fencePosts(pts, 10).map((p) => rpost(p, 0.22, '#C9CED1', '#5F666B', '#EEF1F3')).join('');
+  }
+  if (st === 'iron') {
+    s += seg((L) => {
+      let b = `<path d="M0,0H${n(L)}" stroke="#151515" stroke-width="0.1"/><path d="M0,-0.03H${n(L)}" stroke="#5A5A5A" stroke-width="0.025"/>`;
+      for (let x = 0.2; x < L - 0.1; x += 0.42) b += `<path d="M${n(x)},-0.11l0.07,0.11 -0.07,0.11 -0.07,-0.11z" fill="#151515"/>`;
+      return b;
+    });
+    return s + fencePosts(pts, 6).map((p) => post(p, 0.36, '#1C1C1C', '#000', '#4A4A4A')).join('');
+  }
+  // wood privacy, board-on-board
+  s += seg((L) => `<rect x="0" y="-0.24" width="${n(L)}" height="0.48" fill="url(#ld-boards)" stroke="#4E3622" stroke-width="0.04"/><rect x="0" y="-0.24" width="${n(L)}" height="0.12" fill="#C99C69" fill-opacity="0.55"/><path d="M0,0.16H${n(L)}" stroke="#5E4129" stroke-width="0.07" stroke-opacity="0.7"/>`);
+  return s + fencePosts(pts, 8).map((p) => post(p, 0.62, '#5E4129', '#2E2016', '#7E5A3A')).join('');
+}
+
+for (const k of Object.keys(FURN)) { RDRAW[k] = FURN_R[k] || FURN[k]; DDRAW[k] = FURN[k]; }
+RDRAW.fence = fenceDetailed;
 RDRAW.poolShape = DDRAW.poolShape = (it, o, rng) => shapeRender(it, o, rng);
 
 /* draw one item. o: {u: ink width (ft), render, color, tags, hit, icon, seeTrees} */
