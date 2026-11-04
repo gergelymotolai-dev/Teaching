@@ -361,7 +361,8 @@ dialog::backdrop{background:rgba(10,12,10,.55)}
       <label class="layer"><input type="checkbox" id="tDiagram" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:repeating-linear-gradient(135deg,#C9DEF0 0 4px,#F1D9A6 4px 8px)"></span><span class="lname">Functional diagram</span></label>
       <label class="layer"><input type="checkbox" id="tTypes"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#ECECE6;color:#1A1A1A;font:700 9px/16px var(--display);text-align:center">AR</span><span class="lname">Plant tags (key codes)</span></label>
       <label class="layer"><input type="checkbox" id="tDesign" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:radial-gradient(circle at 40% 40%,#8DB862,#4F7E36)"></span><span class="lname">Design (plants &amp; hardscape)</span></label>
-      <label class="layer"><input type="checkbox" id="tSite" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#fff;border-style:dashed"></span><span class="lname">Site info (dims, utilities)</span></label>
+      <label class="layer"><input type="checkbox" id="tSite"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#fff;color:#1A1A1A;font:600 8px/16px var(--display);text-align:center">ABC</span><span class="lname">Notes &amp; labels (dimensions, doors)</span></label>
+      <label class="layer" id="tUtilRow"><input type="checkbox" id="tUtil"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#fff linear-gradient(transparent 7px,#1A1A1A 7px,#1A1A1A 9px,transparent 9px)"></span><span class="lname">Utility lines (power, underground)</span></label>
       <label class="layer"><input type="checkbox" id="tGrid"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#fff linear-gradient(#6E9FC2 1px,transparent 1px) 0 0/7px 7px,linear-gradient(90deg,#6E9FC2 1px,#fff 1px) 0 0/7px 7px"></span><span class="lname">10 ft grid</span></label>
       <label class="layer"><input type="checkbox" id="tBase" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#EFEFE9"></span><span class="lname">Base plan (house, lot, street)</span></label>
       <label class="layer" id="tFloorRow"><input type="checkbox" id="tFloor"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#F1F1EE;border-width:2px"></span><span class="lname">House floor plan (rooms, windows)</span></label>
@@ -1017,6 +1018,8 @@ const ZONES = {
   garden: { name: 'Garden', tint: '#F2CBDB' },
 };
 const FINISHES = { flagstone: 'Flagstone', stone: 'Cut stone', pavers: 'Concrete pavers', brick: 'Brick', concrete: 'Concrete', gravel: 'Gravel' };
+const FENCE_STYLES = { privacy: 'Wood privacy fence', picket: 'White picket fence', split: 'Split-rail fence', chain: 'Chain-link fence', iron: 'Metal (wrought iron) fence' };
+const FENCE_HEIGHT = { privacy: 6, picket: 4, split: 4, chain: 4, iron: 4 };
 const PATH_FINISHES = { concrete: 'Concrete', pavers: 'Concrete pavers', brick: 'Brick', flagstone: 'Flagstone', gravel: 'Gravel', mulch: 'Mulch' };
 /* kind: circle (x,y,r) | box (x,y,w,h,rot) | line (pts, open) | shape (pts, closed) | text
  * band: drawing order inside a layer so a lawn never hides the trees on it. */
@@ -1034,7 +1037,7 @@ const T = {
   patio:     { name: 'Patio', kind: 'box', d: { w: 16, h: 14, finish: 'stone' }, band: 1, tint: '#DCD6CA', op: 1 },
   deck:      { name: 'Deck', kind: 'box', d: { w: 12, h: 12 }, band: 2, tint: '#DDBF93', op: 1 },
   path:      { name: 'Walk / path', kind: 'line', d: { width: 4, finish: 'concrete' }, band: 3, tint: '#E6DECE', op: 1 },
-  fence:     { name: 'Fence / screen', kind: 'line', d: {}, band: 6 },
+  fence:     { name: 'Fence / screen', kind: 'line', d: { style: 'privacy', height: 6 }, band: 6 },
   veg:       { name: 'Vegetable garden', kind: 'box', d: { w: 12, h: 10 }, band: 2, tint: '#D3E5B5', op: 1 },
   wood:      { name: 'Wood stockpile', kind: 'box', d: { w: 8, h: 4 }, band: 2, tint: '#CDAA7D', op: 1 },
   lawn:      { name: 'Lawn / recreation area', kind: 'box', d: { w: 30, h: 20, sp: 'cyda' }, band: 0, tint: '#E1F0D5', op: 1 },
@@ -1511,19 +1514,25 @@ const RDRAW = {
       `<path d="${d}" fill="none" stroke="${fill}" stroke-width="${n(w)}" stroke-linejoin="round"/>`;
   },
   fence(it, o) {
-    const d = ptsD(it.pts), posts = fencePosts(it.pts);
-    return (o.icon ? '' : `<path d="${d}" transform="translate(-0.3 0.3)" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="0.5" filter="url(#ld-soft)"/>`) +
-      `<path d="${d}" fill="none" stroke="#7A5634" stroke-width="0.42" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="#B08458" stroke-width="0.14" stroke-linejoin="round"/>` +
-      `<g fill="#4E3622">${posts.map((p) => `<rect x="${n(p[0] - 0.3)}" y="${n(p[1] - 0.3)}" width="0.6" height="0.6"/>`).join('')}</g>`;
+    const d = ptsD(it.pts), st = it.style || 'privacy';
+    const shadow = (w) => (o.icon ? '' : `<path d="${d}" transform="translate(-0.3 0.3)" fill="none" stroke="#000" stroke-opacity="0.3" stroke-width="${w}" filter="url(#ld-soft)"/>`);
+    const posts = (gap, shape, size, fill, stroke) => `<g fill="${fill}"${stroke ? ` stroke="${stroke}" stroke-width="0.05"` : ''}>${fencePosts(it.pts, gap).map((p) => (shape === 'c' ? `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${n(size / 2)}"/>` : `<rect x="${n(p[0] - size / 2)}" y="${n(p[1] - size / 2)}" width="${n(size)}" height="${n(size)}"/>`)).join('')}</g>`;
+    const line = (c, w, extra) => `<path d="${d}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linejoin="round"${extra || ''}/>`;
+    if (st === 'picket') return shadow(0.35) + line('#8F8B82', 0.34) + line('#FFFFFF', 0.26, ' stroke-dasharray="0.22 0.12"') + posts(8, 's', 0.45, '#FFFFFF', '#8F8B82');
+    if (st === 'split') return shadow(0.25) + line('#7A5B3C', 0.22) + line('#B08A60', 0.08) + posts(10, 'c', 0.55, '#5E4430');
+    if (st === 'chain') return line('#9CA3A8', 0.28, ' stroke-opacity="0.55" stroke-dasharray="0.12 0.1"') + line('#6F767C', 0.06) + posts(10, 'c', 0.4, '#BFC5C9', '#5F666B');
+    if (st === 'iron') return shadow(0.2) + line('#1E1E1E', 0.08) + line('#1E1E1E', 0.3, ' stroke-dasharray="0.05 0.4"') + posts(6, 's', 0.35, '#1E1E1E');
+    return shadow(0.5) + line('#7A5634', 0.42) + line('#B08458', 0.14) + posts(8, 's', 0.6, '#4E3622');
   },
   bedShape(it, o, rng) { return shapeRender(it, o, rng); },
   lawnShape(it, o, rng) { return shapeRender(it, o, rng); },
   paveShape(it, o, rng) { return shapeRender(it, o, rng); },
   building(it, o, rng) { return shapeRender(it, o, rng); },
 };
-function fencePosts(pts) {
+function fencePosts(pts, gap) {
+  gap = gap || 8;
   const L = polyLen(pts), posts = [];
-  for (let k = 0; k <= Math.floor(L / 8); k++) posts.push(pointAlong(pts, k * 8));
+  for (let k = 0; k <= Math.floor(L / gap); k++) posts.push(pointAlong(pts, k * gap));
   return posts.concat(pts);
 }
 /* plant clumps on a jittered hex grid inside a test function */
@@ -1720,9 +1729,13 @@ const DDRAW = {
       `<path d="${d}" fill="none" stroke="url(#${DRAFT_HATCH[f]})" stroke-width="${n(w)}" stroke-linejoin="round"/>`;
   },
   fence(it, o) {
-    const d = ptsD(it.pts), u = o.u, ps = Math.max(0.5, u * 4);
-    return `<path d="${d}" fill="none" stroke="${o.color ? '#5B4630' : INK}" stroke-width="${n(u * 1.6)}" stroke-linejoin="round"/>` +
-      `<g fill="${INK}">` + fencePosts(it.pts).map((p) => `<rect x="${n(p[0] - ps / 2)}" y="${n(p[1] - ps / 2)}" width="${n(ps)}" height="${n(ps)}"/>`).join('') + '</g>';
+    const d = ptsD(it.pts), u = o.u, ps = Math.max(0.5, u * 4), st = it.style || 'privacy', col = o.color ? '#5B4630' : INK;
+    const base = `<path d="${d}" fill="none" stroke="${col}" stroke-width="${n(u * 1.6)}" stroke-linejoin="round"/>`;
+    if (st === 'picket') return base + `<path d="${d}" fill="none" stroke="${col}" stroke-width="${n(ps * 0.9)}" stroke-dasharray="${n(u * 0.8)} ${n(ps * 0.7)}"/>`;
+    if (st === 'split') return `<path d="${d}" fill="none" stroke="${col}" stroke-width="${n(u * 1.2)}" stroke-dasharray="${n(ps * 2)} ${n(ps * 0.6)}"/><g fill="#fff" stroke="${col}" stroke-width="${n(u)}">` + fencePosts(it.pts, 10).map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${n(ps * 0.5)}"/>`).join('') + '</g>';
+    if (st === 'chain') return `<path d="${d}" fill="none" stroke="${col}" stroke-width="${n(u)}"/><path d="${d}" fill="none" stroke="${col}" stroke-width="${n(ps * 0.8)}" stroke-dasharray="${n(u)} ${n(ps * 0.5)}" transform="rotate(0)"/>` + `<g fill="${col}">` + fencePosts(it.pts, 10).map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${n(ps * 0.4)}"/>`).join('') + '</g>';
+    if (st === 'iron') return `<path d="${d}" fill="none" stroke="${col}" stroke-width="${n(u)}"/><g fill="${col}">` + fencePosts(it.pts, 6).map((p) => `<rect x="${n(p[0] - ps * 0.35)}" y="${n(p[1] - ps * 0.35)}" width="${n(ps * 0.7)}" height="${n(ps * 0.7)}"/>`).join('') + '</g>';
+    return base + `<g fill="${INK}">` + fencePosts(it.pts).map((p) => `<rect x="${n(p[0] - ps / 2)}" y="${n(p[1] - ps / 2)}" width="${n(ps)}" height="${n(ps)}"/>`).join('') + '</g>';
   },
   bubble(it, o) {
     const z = ZONES[it.zone] || ZONES.private, u = o.u;
@@ -1864,7 +1877,7 @@ const INDEX_KEY = 'ldProjects';
 const PROJ_KEY = (id) => 'ldProject.' + id;
 const NORTHS = { left: 'Left', up: 'Up', right: 'Right', down: 'Down' };
 const STREETS = { bottom: 'Bottom', top: 'Top', left: 'Left', right: 'Right', none: 'No street' };
-const VIEW_KEY = 'scottDesign.v2.view';
+const VIEW_KEY = 'scottDesign.v3.view';
 const WANTS = [
   'Sidewalk to the front door',
   'Recreation area',
@@ -1900,7 +1913,7 @@ const TIPS = {
   bedShape: 'Draw any bed outline: click each point, double-click or click the first point to close.',
   lawn: 'Rectangle of lawn. Pick the grass in the library.', lawnShape: 'Draw a curved lawn edge point by point.',
   patio: 'Rectangle patio. Choose stone, pavers, brick or concrete.', paveShape: 'Draw any paved shape point by point.',
-  deck: 'Wood deck.', path: 'Click each corner of the walk, double-click to finish.', fence: 'Click each corner of the fence, double-click to finish.',
+  deck: 'Wood deck.', path: 'Click each corner of the walk, double-click to finish.', fence: 'Click each corner of the fence, double-click to finish. Pick the style (privacy, picket, split rail, chain link, metal) under Properties, or use Arrange → Fence the property line.',
   veg: 'Raised vegetable garden.', wood: 'Firewood stockpile.', birdbath: 'Bird bath or feeder. The kids birdwatch.',
   bubble: 'Use-area bubble for the functional diagram.', arrow: 'Circulation arrow: click points, double-click to finish.',
   building: 'Draw a house, garage or shed outline: click each corner, then click the first corner to close.',
@@ -1940,11 +1953,12 @@ let sel = [];                      // selected ids
 let tool = 'select';
 const curSp = Object.assign({}, SP_DEFAULT);
 let libSp = SP_DEFAULT.dtree;      // species shown in the library info card
-const view = { cx: 41, cy: 58, k: 6, site: true, grid: false, diagram: true, design: true, tags: false, base: true, style: 'render', snap: true, lib: true, floor: false, img: true };
+const view = { cx: 41, cy: 58, k: 6, site: false, util: false, grid: false, diagram: true, design: true, tags: false, base: true, style: 'render', snap: true, lib: true, floor: false, img: true };
 let hist = [], hIdx = -1, commitTimer = null, pendingLabel = 'Edit';
 let checkRun = false;
 let draft = null, hover = null, measure = null, marquee = null, snapMark = null;
 let clip = [], pasteN = 0;
+const lastFence = { style: 'privacy', height: 6 };
 const byId = (id) => state.items.find((i) => i.id === id);
 const selItems = () => sel.map(byId).filter(Boolean);
 const single = () => (sel.length === 1 ? byId(sel[0]) || null : null);
@@ -1992,7 +2006,7 @@ function autosave(s) {
   }
 }
 function saveView() {
-  try { localStorage.setItem(VIEW_KEY, JSON.stringify({ site: view.site, grid: view.grid, diagram: view.diagram, design: view.design, tags: view.tags, base: view.base, style: view.style, snap: view.snap, lib: view.lib, floor: view.floor, img: view.img })); } catch (e) { /* ignore */ }
+  try { localStorage.setItem(VIEW_KEY, JSON.stringify({ site: view.site, grid: view.grid, diagram: view.diagram, design: view.design, tags: view.tags, base: view.base, style: view.style, snap: view.snap, lib: view.lib, floor: view.floor, img: view.img, util: view.util })); } catch (e) { /* ignore */ }
 }
 
 /* ------------------------------------------------------------------ validation */
@@ -2050,6 +2064,7 @@ function cleanState(raw) {
     if (r.type === 'bubble') it.zone = ZONES[r.zone] ? r.zone : 'private';
     if (r.type === 'patio' || r.type === 'paveShape') it.finish = FINISHES[r.finish] ? r.finish : t.d.finish;
     if (r.type === 'path') it.finish = PATH_FINISHES[r.finish] ? r.finish : 'concrete';
+    if (r.type === 'fence') { it.style = FENCE_STYLES[r.style] ? r.style : 'privacy'; it.height = numOr(r.height, 2, 12, FENCE_HEIGHT[it.style]); }
     const cats = spCats(r.type);
     if (cats.length) {
       const sp = PLANT_BY_ID[r.sp];
@@ -2179,7 +2194,13 @@ nav.addEventListener('pointerup', () => { delete nav.dataset.drag; });
 
 /* ------------------------------------------------------------------ base plan: Scott lab house or the student's own lot */
 const HOUSE_IDX = CORE.base.findIndex((e) => e.startsWith('<polygon'));
-const BASE_LOT = CORE.base.slice(0, HOUSE_IDX).join(''), BASE_FLOOR = CORE.base.slice(HOUSE_IDX).join('');
+const isNoteText = (e) => /<text[^>]*>(DRIVEWAY|PUBLIC SIDEWALK)<\/text>/.test(e);
+const BASE_LOT = CORE.base.slice(0, HOUSE_IDX).filter((e) => !isNoteText(e)).join(''), BASE_FLOOR = CORE.base.slice(HOUSE_IDX).join('');
+const BASE_NOTES = CORE.base.slice(0, HOUSE_IDX).filter(isNoteText).join('');
+/* core.json site layer: 0-13 lot dimensions, 14-46 overhead electric, service drop and underground line, 47+ elevations */
+const UTIL_FROM = CORE.site.findIndex((e) => /<line[^>]*y1="143\.4"/.test(e)), UTIL_TO = CORE.site.findIndex((e) => /FF EL\./.test(e));
+const SITE_UTIL = CORE.site.slice(UTIL_FROM, UTIL_TO).join('');
+const SITE_NOTES = CORE.site.slice(0, UTIL_FROM).concat(CORE.site.slice(UTIL_TO)).join('');
 /* hip roof on a rectangle: faces shaded as if lit from the south (page right) */
 function hipRoof(x1, y1, x2, y2, o) {
   const w = x2 - x1, h = y2 - y1, base = o.render ? '#CBC5BA' : (o.color ? '#EFEEE9' : '#fff');
@@ -2215,9 +2236,13 @@ function cleanHouse(o) {
   // A/C and gas meter: things to screen with plants
   s += `<rect x="76.4" y="50.6" width="2.4" height="2.4" fill="#fff" stroke="${ink}" stroke-width="0.12"/><path d="M76.4,50.6L78.8,53M78.8,50.6L76.4,53" stroke="${ink}" stroke-width="0.07"/>`;
   s += `<rect x="70.3" y="74.45" width="1.4" height="1" fill="#fff" stroke="${ink}" stroke-width="0.12"/>`;
-  s += lab(54.5, 56.3, 'SCOTT RESIDENCE', 1.6) + lab(54.5, 58.1, '2-STORY', 1, 500) + lab(24, 65.2, 'GARAGE', 1.5);
-  s += lab(51.5, 77.4, 'FRONT DOOR', 0.85, 500) + lab(53.5, 40.6, 'BACK DOOR', 0.85, 500) + lab(68.5, 45.6, 'SLIDING DOORS', 0.85, 500) + lab(80.2, 51.8, 'A/C', 0.85, 500) + lab(71, 76.3, 'GAS', 0.75, 500);
+  s += lab(54.5, 57.2, 'SCOTT RESIDENCE', 1.6) + lab(24, 66.5, 'GARAGE', 1.5);
   return s;
+}
+/* small notes on the clean house; they live on the Notes & labels layer */
+function houseNotes() {
+  const lab = (x, y, t, fs) => `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-weight="500" font-size="${fs}" letter-spacing="0.05em" fill="${INK}" paint-order="stroke" stroke="#fff" stroke-width="${n(fs * 0.3)}" stroke-linejoin="round">${t}</text>`;
+  return lab(54.5, 58.9, '2-STORY', 1) + lab(51.5, 77.4, 'FRONT DOOR', 0.85) + lab(53.5, 40.6, 'BACK DOOR', 0.85) + lab(68.5, 45.6, 'SLIDING DOORS', 0.85) + lab(80.2, 51.8, 'A/C', 0.85) + lab(71, 76.3, 'GAS', 0.75);
 }
 function customBase(o) {
   const st = state.site, L = lot();
@@ -2260,11 +2285,17 @@ function baseMarkup(o) {
   if (!isScott()) return customBase(o);
   return `<g transform="${CORE_T}">${BASE_LOT}${view.floor ? BASE_FLOOR : ''}</g>` + (view.floor ? '' : cleanHouse(o));
 }
-const siteMarkup = () => (isScott() ? `<g transform="${CORE_T}">${CORE.site.join('')}</g>` : customSite());
+function siteMarkup() {
+  if (!isScott()) return view.site ? customSite() : '';
+  let s = '';
+  if (view.util) s += `<g transform="${CORE_T}">${SITE_UTIL}</g>`;
+  if (view.site) s += `<g transform="${CORE_T}">${SITE_NOTES}${view.floor ? '' : BASE_NOTES}</g>` + (view.floor ? '' : houseNotes());
+  return s;
+}
 let baseKey = '';
 function renderBase() {
   const o = drawOpts();
-  const key = [isScott() ? 'scott' : JSON.stringify(Object.assign({}, state.site, { img: state.site.img ? [state.site.img.x, state.site.img.y, state.site.img.w, state.site.img.op, state.site.img.src.length] : 0 })), view.style, view.floor].join('|');
+  const key = [isScott() ? 'scott' : JSON.stringify(Object.assign({}, state.site, { img: state.site.img ? [state.site.img.x, state.site.img.y, state.site.img.w, state.site.img.op, state.site.img.src.length] : 0 })), view.style, view.floor, view.site, view.util].join('|');
   if (key === baseKey) return;
   baseKey = key;
   gBase.innerHTML = baseMarkup(o);
@@ -2277,6 +2308,7 @@ function renderBase() {
   nb.setAttribute('x', F.x - 2); nb.setAttribute('y', F.y - 2); nb.setAttribute('width', F.w + 4); nb.setAttribute('height', F.h + 4);
   $('tImgRow').hidden = isScott() || !state.site.img;
   $('tFloorRow').hidden = !isScott();
+  $('tUtilRow').hidden = !isScott();
   const t = esc(projName());
   document.querySelector('header.top h1').innerHTML = `${t}<span>Landscape Designer</span>`;
   document.title = `${projName()} · Landscape Designer`;
@@ -2300,7 +2332,7 @@ function renderPlan() {
   gDiagram.innerHTML = sortedItems('diagram').map((it) => drawItem(it, o)).join('');
   renderBase();
   gBase.style.display = view.base ? '' : 'none';
-  gSite.style.display = view.site ? '' : 'none';
+  gSite.style.display = '';
   gImg.style.display = view.img ? '' : 'none';
   gGrid.innerHTML = view.grid ? gridMarkup() : '';
   gDesign.style.display = view.design ? '' : 'none';
@@ -2619,6 +2651,10 @@ function renderProps() {
   if (it.type === 'bubble') h += fld('Zone', `<select data-f="zone" aria-label="Zone"${dis}>${Object.entries(ZONES).map(([k, z]) => `<option value="${k}" ${it.zone === k ? 'selected' : ''}>${z.name}</option>`).join('')}</select>`);
   if (it.type === 'patio' || it.type === 'paveShape') h += fld('Surface', `<select data-f="finish" aria-label="Surface"${dis}>${Object.entries(FINISHES).map(([k, z]) => `<option value="${k}" ${(it.finish || t.d.finish) === k ? 'selected' : ''}>${z}</option>`).join('')}</select>`);
   if (it.type === 'path') h += `<div class="row2">${fld('Width ft', numIn('width', it.width || 4, 1, 30, 0.5, 'Path width in feet'))}${fld('Surface', `<select data-f="finish" aria-label="Surface"${dis}>${Object.entries(PATH_FINISHES).map(([k, z]) => `<option value="${k}" ${(it.finish || 'concrete') === k ? 'selected' : ''}>${z}</option>`).join('')}</select>`)}</div>`;
+  if (it.type === 'fence') {
+    h += `<div class="row2">${fld('Fence style', `<select data-f="fstyle" aria-label="Fence style"${dis}>${Object.entries(FENCE_STYLES).map(([k, z]) => `<option value="${k}" ${(it.style || 'privacy') === k ? 'selected' : ''}>${z.replace(' fence', '')}</option>`).join('')}</select>`)}${fld('Height', `<select data-f="fheight" aria-label="Fence height"${dis}>${[3, 4, 5, 6, 8].map((v) => `<option value="${v}" ${(it.height || 6) === v ? 'selected' : ''}>${v} ft</option>`).join('')}</select>`)}</div>`;
+    h += `<p class="muted" style="margin-bottom:8px">${{ privacy: 'Solid boards: blocks views and noise. Good for the busy street side and around the patio.', picket: 'Low and open: marks the edge of a front yard.', split: 'Rustic and open: marks a line without blocking views.', chain: 'See-through and low cost: keeps pets and kids in.', iron: 'Open and formal: lets light and views through.' }[it.style || 'privacy']}</p>`;
+  }
   if (t.kind === 'line') h += `<p class="muted" style="margin-bottom:8px">${polyLen(it.pts).toFixed(1)} ft long. Drag a white dot to move a corner, a blue dot to add one.</p>`;
   if (t.kind === 'text') { h += fld('Text', `<input type="text" data-f="text" value="${esc(it.text || '')}" maxlength="200" aria-label="Label text"${dis}>`); h += fld('Text size ft', numIn('size', it.size, 0.5, 20, 0.25, 'Text size')); }
   else h += fld(it.type === 'bubble' ? 'Label (blank shows the zone)' : 'Label', `<input type="text" data-f="label" value="${esc(it.label || '')}" placeholder="${t.tree ? 'e.g. Shade for patio' : 'Optional'}" maxlength="120" aria-label="Label"${dis}>`);
@@ -2669,6 +2705,8 @@ $('props').addEventListener('change', (e) => {
   if (f === 'smooth') { it.smooth = e.target.checked; renderItems([it.id]); renderProps(); commit(it.smooth ? 'Smooth edge' : 'Straight edge'); return; }
   if (f === 'zone') { it.zone = ZONES[v] ? v : 'private'; renderItems([it.id]); commit('Change zone'); return; }
   if (f === 'finish') { it.finish = v; renderItems([it.id]); commit('Change surface'); return; }
+  if (f === 'fstyle') { it.style = FENCE_STYLES[v] ? v : 'privacy'; it.height = FENCE_HEIGHT[it.style]; Object.assign(lastFence, { style: it.style, height: it.height }); renderItems([it.id]); renderProps(); commit('Change fence style'); return; }
+  if (f === 'fheight') { it.height = +v || 6; lastFence.height = it.height; renderItems([it.id]); commit('Change fence height'); return; }
   flush();
 });
 $('props').addEventListener('click', (e) => {
@@ -2774,6 +2812,7 @@ function newItem(type, p) {
   const t = T[type];
   const it = Object.assign({ id: uid(), type }, clone(t.d));
   if (spCats(type).length) { if (PLANT_BY_ID[curSp[type]]) it.sp = curSp[type]; else delete it.sp; }
+  if (type === 'fence') Object.assign(it, lastFence);
   if (t.kind === 'line' || t.kind === 'shape') return it;
   it.x = r1(p[0]); it.y = r1(p[1]);
   if (t.kind === 'circle' && t.plant && PLANT_BY_ID[it.sp]) it.r = Math.max(0.5, PLANT_BY_ID[it.sp].w / 2);
@@ -3018,11 +3057,12 @@ const MENUS = [
     mi('all', 'Select all', selectAll, { k: 'Ctrl+A' }), mi('none', 'Deselect', () => select(null), { k: 'Esc', en: hasSel })]],
   ['View', [mi('zin', 'Zoom in', () => zoomCenter(1.3), { k: 'Ctrl +' }), mi('zout', 'Zoom out', () => zoomCenter(1 / 1.3), { k: 'Ctrl −' }), mi('zfit', 'Fit plan', fit, { k: 'Ctrl+0' }), mi('z100', 'Actual print size', zoomActual, { k: 'Ctrl+1' }), '-',
     mi('srender', 'Rendered plan', () => setStyle('render'), { ck: () => view.style === 'render' }), mi('scolor', 'Color line drafting', () => setStyle('color'), { ck: () => view.style === 'color' }), mi('sbw', 'Black & white drafting', () => setStyle('bw'), { ck: () => view.style === 'bw' }), '-',
-    mi('vgrid', '10 ft grid', () => toggleView('tGrid'), { ck: () => view.grid }), mi('vsite', 'Site info', () => toggleView('tSite'), { ck: () => view.site }), mi('vtags', 'Plant tags', () => toggleView('tTypes'), { ck: () => view.tags }), mi('vdiag', 'Functional diagram', () => toggleView('tDiagram'), { ck: () => view.diagram }),
+    mi('vgrid', '10 ft grid', () => toggleView('tGrid'), { ck: () => view.grid }), mi('vsite', 'Notes & labels', () => toggleView('tSite'), { ck: () => view.site }), mi('vutil', 'Utility lines', () => toggleView('tUtil'), { ck: () => view.util, en: isScott }), mi('vtags', 'Plant tags', () => toggleView('tTypes'), { ck: () => view.tags }), mi('vdiag', 'Functional diagram', () => toggleView('tDiagram'), { ck: () => view.diagram }),
     mi('vfloor', 'House floor plan detail', () => toggleView('tFloor'), { ck: () => view.floor, en: isScott }),
     mi('vsnap', 'Snap', () => { $('optSnap').checked = !view.snap; $('optSnap').dispatchEvent(new Event('change')); }, { ck: () => view.snap }), mi('vlib', 'Plant library', () => toggleLib(), { ck: () => view.lib })]],
   ['Arrange', [mi('front', 'Bring to front', () => reorder(1), { k: 'Ctrl+]', en: hasSel }), mi('back', 'Send to back', () => reorder(-1), { k: 'Ctrl+[', en: hasSel }), '-',
     ...Object.keys(ALIGN_NAMES).map((k) => mi('al-' + k, ALIGN_NAMES[k], () => align(k), { en: () => editable().length > (k.startsWith('dist') ? 2 : 1) })), '-',
+    mi('fencelot', 'Fence the property line', () => fenceLot(), {}), '-',
     mi('rot90', 'Rotate 90°', rotate90, { en: hasSel }), mi('lock', 'Lock / unlock', toggleLock, { k: 'Ctrl+L', en: hasSel })]],
   ['Help', [mi('keys', 'Keyboard shortcuts', showKeys, { k: '?' }), mi('brief', 'Project brief', showBrief), mi('about', 'About this tool', showAbout)]],
 ];
@@ -3148,7 +3188,7 @@ function runCheck() {
       const dh = bldg.length ? Math.min(...bldg.map((b) => polyDist(p, b.poly))) : Infinity;
       if (dh < 15) issues.push({ id: it.id, msg: `${nameOf(it)}: the trunk is only ${dh.toFixed(1)} ft from the ${scott ? 'house' : 'building'}. Keep trees 15–20 ft from the side and 12–15 ft from a corner.` });
       for (const w of scott ? WIRES : []) {
-        if (segDist(p, w.a, w.b) < it.r) issues.push({ id: it.id, msg: `${nameOf(it)}: the canopy reaches ${w.name}${sp && sp.h > w.h ? `, and it grows ${sp.h} ft tall (the wire is ${w.h} ft up)` : ''}. Move it, or use a small tree under 25 ft.` });
+        if (segDist(p, w.a, w.b) < it.r) issues.push({ id: it.id, msg: `${nameOf(it)}: the canopy reaches ${w.name}${sp && sp.h > w.h ? `, and it grows ${sp.h} ft tall (the wire is ${w.h} ft up)` : ''}. Move it, or use a small tree under 25 ft.${view.util ? '' : ' Turn on Utility lines under Layers to see the wires.'}` });
       }
     }
     if (layerOf(it) !== 'design' || t.kind === 'text') continue;
@@ -3204,7 +3244,7 @@ function takeoff() {
     if (it.type === 'patio' || it.type === 'paveShape') addM('pave-' + it.finish, `${FINISHES[it.finish] || 'Paving'} paving`, 'paveShape', a, 'sq ft');
     if (it.type === 'deck') addM('deck', 'Wood deck', 'deck', a, 'sq ft');
     if (it.type === 'path') addM('path-' + it.finish, `${PATH_FINISHES[it.finish] || 'Concrete'} walk`, 'path', polyLen(it.pts), 'lin ft', a);
-    if (it.type === 'fence') addM('fence', 'Wood privacy fence', 'fence', polyLen(it.pts), 'lin ft');
+    if (it.type === 'fence') { const fs = it.style || 'privacy'; addM('fence-' + fs + (it.height || 6), `${it.height || FENCE_HEIGHT[fs]} ft ${FENCE_STYLES[fs].toLowerCase()}`, 'fence', polyLen(it.pts), 'lin ft'); }
     if (it.type === 'veg') addM('veg', 'Raised vegetable beds', 'veg', a, 'sq ft');
     if (it.type === 'wood') addM('wood', 'Firewood stockpile', 'wood', 1, 'ea');
     if (it.type === 'birdbath') addM('bird', 'Bird bath / feeder', 'birdbath', 1, 'ea');
@@ -3277,7 +3317,7 @@ function renderSide(light) {
 }
 
 /* ------------------------------------------------------------------ layers, style, meta, client list */
-const TOGGLES = { tSite: 'site', tGrid: 'grid', tDiagram: 'diagram', tDesign: 'design', tTypes: 'tags', tBase: 'base', tFloor: 'floor', tImg: 'img' };
+const TOGGLES = { tSite: 'site', tUtil: 'util', tGrid: 'grid', tDiagram: 'diagram', tDesign: 'design', tTypes: 'tags', tBase: 'base', tFloor: 'floor', tImg: 'img' };
 for (const [id, key] of Object.entries(TOGGLES)) {
   $(id).addEventListener('change', (e) => {
     view[key] = e.target.checked;
@@ -3476,7 +3516,7 @@ function sheetSVG() {
   if (view.base) s += `<g${view.style === 'bw' ? ' filter="url(#gray)"' : ''}>${baseMarkup(o)}</g>`;
   if (view.grid) s += gridMarkup();
   if (view.design) s += sortedItems('design').map((it) => drawItem(it, o)).join('');
-  if (view.site) s += siteMarkup();
+  s += siteMarkup();
   if (view.diagram) s += sortedItems('diagram').map((it) => drawItem(it, o)).join('');
   s += '</g></g>';
   s += sheetSchedule(1312) + titleBlock(1476, fr.scale);
@@ -3671,6 +3711,8 @@ function showNew(err) {
       <label class="check" style="margin:2px 0 8px"><input type="checkbox" id="nfHouse" checked> Start with a house outline (you can reshape it, or draw more buildings with the Building tool)</label>
       <div class="row2" id="nfHouseBox">${fld('House width along the street (ft)', '<input id="nfHW" type="number" min="5" max="500" value="40">')}${fld('House depth (ft)', '<input id="nfHD" type="number" min="5" max="500" value="30">')}
         ${fld('Setback from the street (ft)', '<input id="nfHS" type="number" min="0" max="1000" value="25">')}${fld('From the side lot line (ft)', '<input id="nfHX" type="number" min="0" max="1000" value="15">')}</div>
+      <label class="check" style="margin:2px 0 8px"><input type="checkbox" id="nfFence"> Fence the property line (not the street side) with a
+        <select id="nfFenceStyle" style="height:24px;margin-left:4px;background:var(--well);color:var(--text);border:1px solid var(--line-2);border-radius:2px">${Object.entries(FENCE_STYLES).map(([k, z]) => `<option value="${k}">${z.replace(' fence', '').toLowerCase()}</option>`).join('')}</select> fence</label>
       ${fld('Photo or plat to trace (optional)', '<input id="nfImg" type="file" accept="image/png,image/jpeg,image/webp" style="height:auto;padding:5px">')}
       <p class="muted">A screenshot of your yard from Google Maps or a copy of your property survey works well. You set its scale after it loads.</p>
       <div class="btnrow"><button type="button" class="btn gold" id="nfCreate">Create design</button><button type="button" class="btn" data-close>Cancel</button></div></div>`);
@@ -3689,6 +3731,10 @@ function showNew(err) {
       const box = { bottom: [sx, site.h - sb - hd, sx + hw, site.h - sb], top: [sx, sb, sx + hw, sb + hd], left: [sb, sx, sb + hd, sx + hw], right: [site.w - sb - hd, sx, site.w - sb, sx + hw], none: [sx, sb, sx + hw, sb + hd] }[site.street];
       const [x1, y1, x2, y2] = box.map(r1);
       st.items.push({ id: uid(), type: 'building', pts: [[x1, y1], [x2, y1], [x2, y2], [x1, y2]], smooth: false, label: 'HOUSE' });
+    }
+    if ($('nfFence').checked) {
+      const fs = $('nfFenceStyle').value;
+      st.items.push({ id: uid(), type: 'fence', pts: fenceLotPts(site.street, site).map((p) => [r1(p[0]), r1(p[1])]), style: fs, height: FENCE_HEIGHT[fs] });
     }
     const file = $('nfImg').files && $('nfImg').files[0];
     closeDialog(); switchTo(st, `New design: ${site.name}`);
@@ -3806,7 +3852,7 @@ $('bNew').addEventListener('click', () => showNew());
 (function boot() {
   try {
     const v = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null');
-    if (v) for (const k of ['site', 'grid', 'diagram', 'design', 'tags', 'base', 'snap', 'lib', 'floor', 'img']) if (typeof v[k] === 'boolean') view[k] = v[k];
+    if (v) for (const k of ['site', 'grid', 'diagram', 'design', 'tags', 'base', 'snap', 'lib', 'floor', 'img', 'util']) if (typeof v[k] === 'boolean') view[k] = v[k];
     if (v && ['render', 'color', 'bw'].includes(v.style)) view.style = v.style;
   } catch (e) { /* ignore */ }
   if (innerWidth <= 1000) view.lib = false;
@@ -3828,6 +3874,22 @@ $('bNew').addEventListener('click', () => showNew());
   if (restored) toast(`Your last design was restored: ${projName()}`);
   autosave(snapshot());
 })();
+
+/* a fence along every lot line except the street side; students can reshape it afterward */
+function fenceLotPts(street, L) {
+  const W = L.w, H = L.h;
+  return { bottom: [[0, H], [0, 0], [W, 0], [W, H]], top: [[0, 0], [0, H], [W, H], [W, 0]], left: [[0, 0], [W, 0], [W, H], [0, H]],
+    right: [[W, 0], [0, 0], [0, H], [W, H]] }[street] || [[0, 0], [W, 0], [W, H], [0, H], [0, 0]];
+}
+function fenceLot(style) {
+  const scott = isScott();
+  const pts = scott ? [[0, 107], [0, 0], [82, 0], [82, 107]] : fenceLotPts(state.site.street, lot());
+  const it = Object.assign({ id: uid(), type: 'fence', pts: pts.map((p) => [r1(p[0]), r1(p[1])]) }, lastFence, style ? { style, height: FENCE_HEIGHT[style] } : {});
+  if (!view.design) { view.design = true; $('tDesign').checked = true; }
+  state.items.push(it); sel = [it.id];
+  setTool('select'); renderPlan(); renderProps(); showTab('pProps'); commit('Fence the property line');
+  toast('Fence added along the property line. Pick its style under Properties.');
+}
 
 })();
 </script>

@@ -22,6 +22,8 @@ Right now students do this on paper. This tool lets them do it online too: place
 
 - `state.site` absent = the Scott lab. `state.site = {kind:'custom', name, client, w, h, street, north, streetName, img?}` = a student's own yard; `state.wants = [{t, d}]` is its editable wish list. `lot()`, `fitRect()`, `buildingPolys()`, `wantList()` hide the difference from the rest of the app.
 - Each design has a `pid`. Autosave writes `scottDesign.v1` (current) plus `ldProject.<pid>` and the `ldProjects` index; File → My designs lists them.
+- The Scott plan starts clean: only lot, roof plan, drive, sidewalk and street. Two layers are off by default: **Notes & labels** (`SITE_NOTES` dimensions/elevations, `BASE_NOTES`, `houseNotes()` door labels) and **Utility lines** (`SITE_UTIL`, overhead electric, service drop, underground). The power-line check still runs and tells students to turn the layer on.
+- Fences have a `style` (privacy, picket, split, chain, iron) and `height`; Arrange → Fence the property line and the New design dialog add one along the non-street lot lines.
 - The Scott house draws as a clean hip-roof plan (`cleanHouse()`), with door stoops, A/C and gas meter. The original floor plan from core.json (`BASE_FLOOR`, everything from the house polygon on) is the optional "House floor plan" layer.
 - The export picks the largest engineering scale (1 in = 10, 20, 30… ft) that fits a custom lot; the Scott sheet stays at 1 in = 10 ft.
 

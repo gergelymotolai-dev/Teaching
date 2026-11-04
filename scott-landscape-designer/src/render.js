@@ -115,6 +115,8 @@ const ZONES = {
   garden: { name: 'Garden', tint: '#F2CBDB' },
 };
 const FINISHES = { flagstone: 'Flagstone', stone: 'Cut stone', pavers: 'Concrete pavers', brick: 'Brick', concrete: 'Concrete', gravel: 'Gravel' };
+const FENCE_STYLES = { privacy: 'Wood privacy fence', picket: 'White picket fence', split: 'Split-rail fence', chain: 'Chain-link fence', iron: 'Metal (wrought iron) fence' };
+const FENCE_HEIGHT = { privacy: 6, picket: 4, split: 4, chain: 4, iron: 4 };
 const PATH_FINISHES = { concrete: 'Concrete', pavers: 'Concrete pavers', brick: 'Brick', flagstone: 'Flagstone', gravel: 'Gravel', mulch: 'Mulch' };
 /* kind: circle (x,y,r) | box (x,y,w,h,rot) | line (pts, open) | shape (pts, closed) | text
  * band: drawing order inside a layer so a lawn never hides the trees on it. */
@@ -132,7 +134,7 @@ const T = {
   patio:     { name: 'Patio', kind: 'box', d: { w: 16, h: 14, finish: 'stone' }, band: 1, tint: '#DCD6CA', op: 1 },
   deck:      { name: 'Deck', kind: 'box', d: { w: 12, h: 12 }, band: 2, tint: '#DDBF93', op: 1 },
   path:      { name: 'Walk / path', kind: 'line', d: { width: 4, finish: 'concrete' }, band: 3, tint: '#E6DECE', op: 1 },
-  fence:     { name: 'Fence / screen', kind: 'line', d: {}, band: 6 },
+  fence:     { name: 'Fence / screen', kind: 'line', d: { style: 'privacy', height: 6 }, band: 6 },
   veg:       { name: 'Vegetable garden', kind: 'box', d: { w: 12, h: 10 }, band: 2, tint: '#D3E5B5', op: 1 },
   wood:      { name: 'Wood stockpile', kind: 'box', d: { w: 8, h: 4 }, band: 2, tint: '#CDAA7D', op: 1 },
   lawn:      { name: 'Lawn / recreation area', kind: 'box', d: { w: 30, h: 20, sp: 'cyda' }, band: 0, tint: '#E1F0D5', op: 1 },
@@ -609,19 +611,25 @@ const RDRAW = {
       `<path d="${d}" fill="none" stroke="${fill}" stroke-width="${n(w)}" stroke-linejoin="round"/>`;
   },
   fence(it, o) {
-    const d = ptsD(it.pts), posts = fencePosts(it.pts);
-    return (o.icon ? '' : `<path d="${d}" transform="translate(-0.3 0.3)" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="0.5" filter="url(#ld-soft)"/>`) +
-      `<path d="${d}" fill="none" stroke="#7A5634" stroke-width="0.42" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="#B08458" stroke-width="0.14" stroke-linejoin="round"/>` +
-      `<g fill="#4E3622">${posts.map((p) => `<rect x="${n(p[0] - 0.3)}" y="${n(p[1] - 0.3)}" width="0.6" height="0.6"/>`).join('')}</g>`;
+    const d = ptsD(it.pts), st = it.style || 'privacy';
+    const shadow = (w) => (o.icon ? '' : `<path d="${d}" transform="translate(-0.3 0.3)" fill="none" stroke="#000" stroke-opacity="0.3" stroke-width="${w}" filter="url(#ld-soft)"/>`);
+    const posts = (gap, shape, size, fill, stroke) => `<g fill="${fill}"${stroke ? ` stroke="${stroke}" stroke-width="0.05"` : ''}>${fencePosts(it.pts, gap).map((p) => (shape === 'c' ? `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${n(size / 2)}"/>` : `<rect x="${n(p[0] - size / 2)}" y="${n(p[1] - size / 2)}" width="${n(size)}" height="${n(size)}"/>`)).join('')}</g>`;
+    const line = (c, w, extra) => `<path d="${d}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linejoin="round"${extra || ''}/>`;
+    if (st === 'picket') return shadow(0.35) + line('#8F8B82', 0.34) + line('#FFFFFF', 0.26, ' stroke-dasharray="0.22 0.12"') + posts(8, 's', 0.45, '#FFFFFF', '#8F8B82');
+    if (st === 'split') return shadow(0.25) + line('#7A5B3C', 0.22) + line('#B08A60', 0.08) + posts(10, 'c', 0.55, '#5E4430');
+    if (st === 'chain') return line('#9CA3A8', 0.28, ' stroke-opacity="0.55" stroke-dasharray="0.12 0.1"') + line('#6F767C', 0.06) + posts(10, 'c', 0.4, '#BFC5C9', '#5F666B');
+    if (st === 'iron') return shadow(0.2) + line('#1E1E1E', 0.08) + line('#1E1E1E', 0.3, ' stroke-dasharray="0.05 0.4"') + posts(6, 's', 0.35, '#1E1E1E');
+    return shadow(0.5) + line('#7A5634', 0.42) + line('#B08458', 0.14) + posts(8, 's', 0.6, '#4E3622');
   },
   bedShape(it, o, rng) { return shapeRender(it, o, rng); },
   lawnShape(it, o, rng) { return shapeRender(it, o, rng); },
   paveShape(it, o, rng) { return shapeRender(it, o, rng); },
   building(it, o, rng) { return shapeRender(it, o, rng); },
 };
-function fencePosts(pts) {
+function fencePosts(pts, gap) {
+  gap = gap || 8;
   const L = polyLen(pts), posts = [];
-  for (let k = 0; k <= Math.floor(L / 8); k++) posts.push(pointAlong(pts, k * 8));
+  for (let k = 0; k <= Math.floor(L / gap); k++) posts.push(pointAlong(pts, k * gap));
   return posts.concat(pts);
 }
 /* plant clumps on a jittered hex grid inside a test function */
@@ -818,9 +826,13 @@ const DDRAW = {
       `<path d="${d}" fill="none" stroke="url(#${DRAFT_HATCH[f]})" stroke-width="${n(w)}" stroke-linejoin="round"/>`;
   },
   fence(it, o) {
-    const d = ptsD(it.pts), u = o.u, ps = Math.max(0.5, u * 4);
-    return `<path d="${d}" fill="none" stroke="${o.color ? '#5B4630' : INK}" stroke-width="${n(u * 1.6)}" stroke-linejoin="round"/>` +
-      `<g fill="${INK}">` + fencePosts(it.pts).map((p) => `<rect x="${n(p[0] - ps / 2)}" y="${n(p[1] - ps / 2)}" width="${n(ps)}" height="${n(ps)}"/>`).join('') + '</g>';
+    const d = ptsD(it.pts), u = o.u, ps = Math.max(0.5, u * 4), st = it.style || 'privacy', col = o.color ? '#5B4630' : INK;
+    const base = `<path d="${d}" fill="none" stroke="${col}" stroke-width="${n(u * 1.6)}" stroke-linejoin="round"/>`;
+    if (st === 'picket') return base + `<path d="${d}" fill="none" stroke="${col}" stroke-width="${n(ps * 0.9)}" stroke-dasharray="${n(u * 0.8)} ${n(ps * 0.7)}"/>`;
+    if (st === 'split') return `<path d="${d}" fill="none" stroke="${col}" stroke-width="${n(u * 1.2)}" stroke-dasharray="${n(ps * 2)} ${n(ps * 0.6)}"/><g fill="#fff" stroke="${col}" stroke-width="${n(u)}">` + fencePosts(it.pts, 10).map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${n(ps * 0.5)}"/>`).join('') + '</g>';
+    if (st === 'chain') return `<path d="${d}" fill="none" stroke="${col}" stroke-width="${n(u)}"/><path d="${d}" fill="none" stroke="${col}" stroke-width="${n(ps * 0.8)}" stroke-dasharray="${n(u)} ${n(ps * 0.5)}" transform="rotate(0)"/>` + `<g fill="${col}">` + fencePosts(it.pts, 10).map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${n(ps * 0.4)}"/>`).join('') + '</g>';
+    if (st === 'iron') return `<path d="${d}" fill="none" stroke="${col}" stroke-width="${n(u)}"/><g fill="${col}">` + fencePosts(it.pts, 6).map((p) => `<rect x="${n(p[0] - ps * 0.35)}" y="${n(p[1] - ps * 0.35)}" width="${n(ps * 0.7)}" height="${n(ps * 0.7)}"/>`).join('') + '</g>';
+    return base + `<g fill="${INK}">` + fencePosts(it.pts).map((p) => `<rect x="${n(p[0] - ps / 2)}" y="${n(p[1] - ps / 2)}" width="${n(ps)}" height="${n(ps)}"/>`).join('') + '</g>';
   },
   bubble(it, o) {
     const z = ZONES[it.zone] || ZONES.private, u = o.u;
