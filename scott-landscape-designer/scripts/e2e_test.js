@@ -10,10 +10,12 @@ fs.mkdirSync(OUT, { recursive: true });
 
 async function run(w, h, tag) {
   const browser = await chromium.launch();
-  const ctx = await browser.newContext({ viewport: { width: w, height: h }, acceptDownloads: true, hasTouch: w < 500 });
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, acceptDownloads: true, hasTouch: w < 500, offline: true });  // like a USB drive: no network
+  let netReqs = 0;
+  ctx.on('request', (r) => { if (!r.url().startsWith('file:') && !r.url().startsWith('data:') && !r.url().startsWith('blob:')) netReqs++; });
   const page = await ctx.newPage();
   const errors = [];
-  page.on('console', (m) => { if (m.type() === 'error' && !/ERR_TUNNEL|ERR_PROXY|net::/.test(m.text())) errors.push(m.text()); });
+  page.on('console', (m) => { if (m.type() === 'error' && true) errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto(FILE);
   await page.waitForTimeout(400);
@@ -165,6 +167,13 @@ async function run(w, h, tag) {
   const [dp] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.click('[data-fmt="png"]')]);
   await dp.saveAs(`${OUT}/${tag}-sheet.png`);
   ok(fs.statSync(`${OUT}/${tag}-sheet.png`).size > 50000, 'png exported');
+  ok(await page.evaluate(() => document.fonts.check('600 16px Oswald') && document.fonts.check('16px "Source Sans 3"')), 'bundled fonts loaded offline');
+  await press('Escape'); await page.click('#bExport'); await page.waitForTimeout(300);
+  const [dpdf] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.click('[data-fmt="pdf"]')]);
+  await dpdf.saveAs(`${OUT}/${tag}-sheet.pdf`);
+  const head = fs.readFileSync(`${OUT}/${tag}-sheet.pdf`).subarray(0, 5).toString();
+  ok(head === '%PDF-' && fs.statSync(`${OUT}/${tag}-sheet.pdf`).size > 50000, 'PDF exported offline');
+  ok(netReqs === 0, `no network requests (${netReqs})`);
   ok(errors.length === 0, 'no console errors ' + errors.join(' | '));
   await browser.close();
 }

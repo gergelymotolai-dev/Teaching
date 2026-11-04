@@ -13,7 +13,8 @@ Right now students do this on paper. This tool lets them do it online too: place
 | `src/render.js` | **Done.** Item types, shared SVG patterns/filters, rendered presentation symbols (textured canopies with sun shadows, mowing stripes, mulch beds, stone/brick/paver/deck textures) and the lab's drafting symbols. |
 | `src/app.js` | **Done.** State, undo history with named steps, multi-select/marquee, copy/paste, align/distribute, lock/hide, grid and corner snapping, freeform curved/straight shapes with point editing, design check (incl. tree crowding and mature height under wires), plant schedule and material takeoff, 11×17 export (PNG/PDF/JSON), open/save. |
 | `data/core.json` | **Done.** Base plan geometry as SVG element strings (see Geometry). |
-| `scripts/build.py` | **Done.** Bundles plants.js + render.js + app.js into one script scope and injects it and core.json into the template → `dist/landscape-designer.html`. |
+| `scripts/build.py` | **Done.** Bundles plants.js + render.js + app.js into one script scope and inlines it, core.json, the fonts and jsPDF (from `src/vendor/`) into the template → `dist/landscape-designer.html`. Fails the build if any external `<link>`/`<script src>` is left. |
+| `src/vendor/` | Bundled jsPDF 2.5.1 (MIT) and Oswald / Source Sans 3 variable fonts (SIL OFL), with their licenses. The fonts are also embedded in the exported sheet, so PNG/PDF use the real typefaces. |
 | `scripts/e2e_test.js` | Playwright check at 1440×900 and 390×844 (`node scripts/e2e_test.js`). |
 
 Build with `python3 scripts/build.py`. Test with Playwright: Chromium and Playwright are usually installed already.
@@ -165,9 +166,12 @@ The drawing itself stays drafting-style: black ink on white, with light tints on
   - get no console errors.
 - No `alert`, `prompt`, `confirm` or `window.print` anywhere.
 
+## Distribution (decided)
+
+Gary uploads the HTML to Blackboard and also hands it out on USB drives. So the page must work **offline from file://**: no network requests at all (the e2e test runs with the network off and asserts zero requests, bundled fonts loaded, and a real PDF export). Inside a frame that blocks downloads (Blackboard), `saveBlob` returns `'framed'` and the app shows the copy / save-image fallback with a note.
+
 ## Open questions for Gary (ask, don't assume)
 
-- Where will students open it: a shared Claude artifact link, Blackboard, or Gary's own site? Sharing a Claude artifact with students outside his organization means making the link public.
 - Should designs be submitted inside the tool? That needs signed-in viewers, which students may not have. For now they turn in the exported PDF or PNG.
 
 ## Background files

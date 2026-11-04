@@ -1353,12 +1353,14 @@ async function saveBlob(filename, blob) {
     try { await dl.save({ filename, data: blob }); return 'saved'; } catch (e) { return e && e.code === 'declined' ? 'declined' : 'fallback'; }
   }
   if (window.claude) return 'fallback';
+  let framed = false;
+  try { framed = window.self !== window.top; } catch (e) { framed = true; }
   try {
     const url = URL.createObjectURL(blob), a = document.createElement('a');
     a.href = url; a.download = filename; a.rel = 'noopener';
     document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-    return 'saved';
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return framed ? 'framed' : 'saved';
   } catch (e) { return 'fallback'; }
 }
 const designJSON = () => JSON.stringify(state, null, 1);
@@ -1376,8 +1378,9 @@ async function copyText(ta) {
 async function saveDesign() {
   flush();
   const r = await saveBlob(slug() + '.json', new Blob([designJSON()], { type: 'application/json' }));
-  if (r === 'saved') toast('Design file saved'); else if (r === 'declined') toast('Save canceled'); else jsonFallback();
+  if (r === 'saved') toast('Design file saved'); else if (r === 'declined') toast('Save canceled'); else jsonFallback(r === 'framed' ? FRAMED_NOTE : undefined);
 }
+const FRAMED_NOTE = "If the download didn't start, the page you opened this from (like Blackboard) may be blocking it. Download the HTML file and open it from your computer or USB drive, or use this instead.";
 $('bSave').addEventListener('click', saveDesign);
 function loadState(st, msg) { state = st; sel = []; draft = null; measure = null; syncMeta(); renderAll(); commit('Open file'); toast(msg); }
 function openFromText(text) {
@@ -1424,7 +1427,8 @@ $('bRedo').addEventListener('click', redo);
 function sheetSVG() {
   const o = drawOpts();
   const SW = 1056, SH = 1632;
-  let s = `<svg xmlns="${NS}" width="${SW}" height="${SH}" viewBox="0 0 ${SW} ${SH}">${DEFS}<rect width="${SW}" height="${SH}" fill="#fff"/>`;
+  const fontCss = ($('fontFaces') || {}).textContent || '';
+  let s = `<svg xmlns="${NS}" width="${SW}" height="${SH}" viewBox="0 0 ${SW} ${SH}"><style>${fontCss}</style>${DEFS}<rect width="${SW}" height="${SH}" fill="#fff"/>`;
   s += `<defs><clipPath id="planClip"><rect x="40" y="78" width="976" height="1222"/></clipPath><filter id="gray"><feColorMatrix type="saturate" values="0"/></filter></defs>`;
   s += `<text x="48" y="66" font-family="${FONT}" font-weight="700" font-size="26" fill="${GREEN}">SCOTT RESIDENCE — DESIGN PLAN<tspan dx="14" font-weight="500" font-size="14" fill="#4A4A4A" letter-spacing="0.08em">· CLIENT: THE SCOTT FAMILY</tspan></text>`;
   s += `<g clip-path="url(#planClip)">`;
@@ -1527,7 +1531,7 @@ function loadJsPDF() {
   if (!jspdfP) {
     jspdfP = new Promise((res, rej) => {
       const sc = document.createElement('script');
-      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';  // only if the bundled copy is missing
       sc.onload = () => (window.jspdf && window.jspdf.jsPDF ? res(window.jspdf.jsPDF) : rej(new Error('PDF maker did not load')));
       sc.onerror = () => { jspdfP = null; rej(new Error('PDF maker did not load')); };
       document.head.appendChild(sc);
@@ -1549,7 +1553,7 @@ async function doExport(fmt, btn) {
     const c = await sheetCanvas();
     if (fmt === 'png') {
       const r = await saveBlob(slug() + '.png', await canvasBlob(c, 'image/png'));
-      if (r === 'saved') toast('PNG saved'); else if (r === 'declined') toast('Save canceled'); else pngFallback(c.toDataURL('image/png'));
+      if (r === 'saved') toast('PNG saved'); else if (r === 'declined') toast('Save canceled'); else pngFallback(c.toDataURL('image/png'), r === 'framed' ? FRAMED_NOTE : undefined);
       return;
     }
     let jsPDF;
@@ -1558,7 +1562,7 @@ async function doExport(fmt, btn) {
     pdf.setProperties({ title: 'Scott Residence — Design Plan', subject: 'AGPS 1024 design project', author: state.meta.name || '' });
     pdf.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 11, 17, undefined, 'FAST');
     const r = await saveBlob(slug() + '.pdf', pdf.output('blob'));
-    if (r === 'saved') toast('PDF saved'); else if (r === 'declined') toast('Save canceled'); else pngFallback(c.toDataURL('image/png'), "This page can't save a PDF here.");
+    if (r === 'saved') toast('PDF saved'); else if (r === 'declined') toast('Save canceled'); else pngFallback(c.toDataURL('image/png'), r === 'framed' ? FRAMED_NOTE : "This page can't save a PDF here.");
   } catch (e) {
     openDialog(`<h3>Export didn't work</h3><p class="err">${esc(e.message || 'Something went wrong.')}</p><p>Try again, or save the design file and ask your instructor.</p><div class="btnrow"><button type="button" class="btn" data-close>Close</button></div>`);
   } finally {

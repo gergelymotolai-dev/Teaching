@@ -6,6 +6,14 @@ A professional-style landscape design tool (modeled on PRO Landscape): rendered 
 
 Open `dist/landscape-designer.html` in any browser. Press `?` in the app for keyboard shortcuts.
 
+## Giving it to students
+
+The HTML file is fully self-contained (about 700 KB): fonts, the PDF maker and the base plan are all inside it. It needs no internet connection.
+
+- **USB drive or computer:** copy `landscape-designer.html` anywhere and double-click it. Chrome, Edge, Firefox and Safari all work.
+- **Blackboard:** upload the same file as a course file. Tell students to download it and open it from their computer. If they open it inside Blackboard instead, it still runs, but Blackboard may block the Save and Export downloads; the app then explains this and offers a copy/save-image fallback.
+- Work autosaves in the browser on that computer only. On a shared or lab computer, students should use **Save** to keep a `.json` design file (on their USB drive, for example) and **Open** to continue later.
+
 ## Hand it to Claude Code
 
 1. Unzip this folder.
