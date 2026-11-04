@@ -78,7 +78,7 @@ const TIPS = {
   lawn: 'Rectangle of lawn. Pick the grass in the library.', lawnShape: 'Draw a curved lawn edge point by point.',
   patio: 'Rectangle patio. Choose stone, pavers, brick or concrete.', paveShape: 'Draw any paved shape point by point.',
   deck: 'Wood deck.', path: 'Click each corner of the walk, double-click to finish.', fence: 'Click each corner of the fence, double-click to finish. Pick the style (privacy, picket, split rail, chain link, metal) under Properties, or use Arrange → Fence the property line.',
-  pondShape: 'Draw a natural pond: click around the edge, then the first dot to close.', stream: 'Click along the course of the stream, double-click to finish. Set its width under Properties.',
+  pondShape: 'Draw a natural pond: click around the edge, then the first dot to close.', stream: 'Click along the course of the stream, double-click to finish. Click near a pond and the point snaps onto its edge, so the stream runs into it. Set its width under Properties.',
   wall: 'Click each corner of the wall, double-click to finish. Pick retaining block, fieldstone, seat wall, brick or timber at the top; Curved makes a smooth arc.',
   lights: 'String lights: click each pole or hook, double-click to finish. Bistro or fairy bulbs at the top.',
   veg: 'Raised vegetable garden.', wood: 'Firewood stockpile.', birdbath: 'Bird bath or feeder. The kids birdwatch.',
@@ -150,10 +150,10 @@ let sel = [];                      // selected ids
 let tool = 'select';
 const curSp = Object.assign({}, SP_DEFAULT);
 let libSp = SP_DEFAULT.dtree;      // species shown in the library info card
-const view = { cx: 41, cy: 58, k: 6, flow: true, site: false, util: false, grid: false, diagram: true, design: true, tags: false, base: true, style: 'render', snap: true, lib: true, floor: false, img: true };
+const view = { cx: 41, cy: 58, k: 6, site: false, util: false, grid: false, diagram: true, design: true, tags: false, base: true, style: 'render', snap: true, lib: true, floor: false, img: true };
 let hist = [], hIdx = -1, commitTimer = null, pendingLabel = 'Edit';
 let checkRun = false;
-let draft = null, hover = null, measure = null, marquee = null, snapMark = null;
+let draft = null, hover = null, measure = null, marquee = null, snapMark = null, snapPond = false;
 let clip = [], pasteN = 0;
 const toolPreset = { wall: { style: 'seat', height: 1.5, width: 1.5 } };
 const bedFormPref = { perennial: 'oval', annual: 'oval', groundcover: 'round' };
@@ -163,7 +163,7 @@ const byId = (id) => state.items.find((i) => i.id === id);
 const selItems = () => sel.map(byId).filter(Boolean);
 const single = () => (sel.length === 1 ? byId(sel[0]) || null : null);
 const waterItems = () => state.items.filter((i) => i.type === 'pondShape' || i.type === 'stream');
-const drawOpts = (extra) => Object.assign({ u: 0.125, render: view.style === 'render', color: view.style !== 'bw', tags: view.tags, seeTrees: view.seeTrees, water: waterItems(), flow: view.flow !== false }, extra || {});
+const drawOpts = (extra) => Object.assign({ u: 0.125, render: view.style === 'render', color: view.style !== 'bw', tags: view.tags, seeTrees: view.seeTrees, water: waterItems() }, extra || {});
 
 /* ------------------------------------------------------------------ history */
 const snapshot = () => JSON.stringify(state);
@@ -208,7 +208,7 @@ function autosave(s) {
   }
 }
 function saveView() {
-  try { localStorage.setItem(VIEW_KEY, JSON.stringify({ site: view.site, grid: view.grid, diagram: view.diagram, design: view.design, tags: view.tags, base: view.base, style: view.style, snap: view.snap, lib: view.lib, floor: view.floor, img: view.img, util: view.util, seeTrees: view.seeTrees, flow: view.flow, libTab })); } catch (e) { /* ignore */ }
+  try { localStorage.setItem(VIEW_KEY, JSON.stringify({ site: view.site, grid: view.grid, diagram: view.diagram, design: view.design, tags: view.tags, base: view.base, style: view.style, snap: view.snap, lib: view.lib, floor: view.floor, img: view.img, util: view.util, seeTrees: view.seeTrees, libTab })); } catch (e) { /* ignore */ }
 }
 
 /* ------------------------------------------------------------------ validation */
@@ -716,7 +716,8 @@ function renderOverlay() {
     for (let i = 0; i < N; i++) { const a = P[i], b = P[(i + 1) % N]; s += handle((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 'lm' + i, k, '#2C7BC0', 4); }
     P.forEach((q, i) => { s += handle(q[0], q[1], 'lv' + i, k, '#fff', 7); });
   }
-  if (snapMark) s += `<rect x="${n(snapMark[0] - 5 / k)}" y="${n(snapMark[1] - 5 / k)}" width="${n(10 / k)}" height="${n(10 / k)}" fill="none" stroke="#E08A00" stroke-width="${n(1.6 / k)}" transform="rotate(45 ${n(snapMark[0])} ${n(snapMark[1])})" pointer-events="none"/>`;
+  if (snapMark && snapPond) s += `<circle cx="${n(snapMark[0])}" cy="${n(snapMark[1])}" r="${n(7 / k)}" fill="#2E86B8" fill-opacity="0.25" stroke="#2E86B8" stroke-width="${n(2 / k)}" pointer-events="none"/>`;
+  else if (snapMark) s += `<rect x="${n(snapMark[0] - 5 / k)}" y="${n(snapMark[1] - 5 / k)}" width="${n(10 / k)}" height="${n(10 / k)}" fill="none" stroke="#E08A00" stroke-width="${n(1.6 / k)}" transform="rotate(45 ${n(snapMark[0])} ${n(snapMark[1])})" pointer-events="none"/>`;
   if (marquee) {
     const x = Math.min(marquee.a[0], marquee.b[0]), y = Math.min(marquee.a[1], marquee.b[1]);
     s += `<rect x="${n(x)}" y="${n(y)}" width="${n(Math.abs(marquee.b[0] - marquee.a[0]))}" height="${n(Math.abs(marquee.b[1] - marquee.a[1]))}" fill="rgba(44,123,192,.1)" stroke="${SEL}" stroke-width="${n(1 / k)}" stroke-dasharray="${n(4 / k)} ${n(3 / k)}" pointer-events="none"/>`;
@@ -1288,8 +1289,20 @@ function newItem(type, p) {
   return it;
 }
 /* snapping: corners of other items and of the base plan within 10 px, else the 1 ft grid */
-function snapPt(p, exceptId) {
-  snapMark = null;
+/* a stream point near a pond lands exactly on the pond's edge, so the stream runs into it (works even with Snap off) */
+function pondSnap(p) {
+  const tol = Math.max(5, 30 / view.k);
+  let best = null, bd = tol;
+  for (const it of state.items) {
+    if (it.type !== 'pondShape' || it.hidden) continue;
+    const poly = shapePoly(it.pts, it.smooth), r = nearestOnPoly(p, poly), d = inPoly(p, poly) ? 0 : r.d;
+    if (d < bd || (inPoly(p, poly) && bd > 0)) { bd = d; best = r.q; }
+  }
+  return best;
+}
+function snapPt(p, exceptId, type) {
+  snapMark = null; snapPond = false;
+  if (type === 'stream') { const q = pondSnap(p); if (q) { snapMark = q; snapPond = true; return [q[0], q[1]]; } }
   if (!view.snap) return p;
   const tol = 10 / view.k;
   let best = null, bd = tol;
@@ -1327,7 +1340,7 @@ function polyClick(p, sx, sy) {
   if (dbl) { finishDraft(); return; }
   const t = T[tool];
   if (draft && t.kind === 'shape' && draft.pts.length >= 3 && dist(draft.pts[0], p) < 10 / view.k) { finishDraft(); return; }
-  p = snapPt(p);
+  p = snapPt(p, null, tool);
   if (!draft) draft = { type: tool, pts: [] };
   const last = draft.pts[draft.pts.length - 1];
   if (!last || dist(last, p) > 0.3) draft.pts.push([r1(p[0]), r1(p[1])]);
@@ -1429,7 +1442,7 @@ svg.addEventListener('pointermove', (e) => {
   trackCursor(p);
   if (!drag) {
     if (e.pointerType === 'mouse' && (T[tool] || draft)) {
-      hover = draft || (T[tool] && (T[tool].kind === 'line' || T[tool].kind === 'shape')) ? snapPt(p) : p;
+      hover = draft || (T[tool] && (T[tool].kind === 'line' || T[tool].kind === 'shape')) ? snapPt(p, null, draft ? draft.type : tool) : p;
       renderOverlay();
     }
     return;
@@ -1473,7 +1486,7 @@ svg.addEventListener('pointermove', (e) => {
         a = e.shiftKey || view.snap ? Math.round(a / 15) * 15 : Math.round(a);
         if (a > 180) a -= 360;
         it.rot = a;
-      } else if (h[0] === 'v') { const i = +h.slice(1); if (it.pts[i]) { const q = snapPt(p, it.id); it.pts[i] = [r1(q[0]), r1(q[1])]; } }
+      } else if (h[0] === 'v') { const i = +h.slice(1); if (it.pts[i]) { const q = snapPt(p, it.id, it.type); it.pts[i] = [r1(q[0]), r1(q[1])]; } }
       renderItems([it.id]); syncPropsValues();
       break;
     }
@@ -1868,7 +1881,7 @@ function renderSide(light) {
 }
 
 /* ------------------------------------------------------------------ layers, style, meta, client list */
-const TOGGLES = { tFlow: 'flow', tSee: 'seeTrees', tSite: 'site', tUtil: 'util', tGrid: 'grid', tDiagram: 'diagram', tDesign: 'design', tTypes: 'tags', tBase: 'base', tFloor: 'floor', tImg: 'img' };
+const TOGGLES = { tSee: 'seeTrees', tSite: 'site', tUtil: 'util', tGrid: 'grid', tDiagram: 'diagram', tDesign: 'design', tTypes: 'tags', tBase: 'base', tFloor: 'floor', tImg: 'img' };
 for (const [id, key] of Object.entries(TOGGLES)) {
   $(id).addEventListener('change', (e) => {
     view[key] = e.target.checked;
@@ -2098,7 +2111,7 @@ function sheetFrame() {
   return { s: k, ox: 48 + (AW - F.w * k) / 2 - F.x * k, oy: 84 + (AH - F.h * k) / 2 - F.y * k, scale, fits: fitsAt(scale), auto };
 }
 function sheetSVG() {
-  const fr = sheetFrame(), o = drawOpts({ u: 0.125 * PX / fr.s, flow: false });
+  const fr = sheetFrame(), o = drawOpts({ u: 0.125 * PX / fr.s });
   const SW = 1056, SH = 1632;
   const fontCss = ($('fontFaces') || {}).textContent || '';
   let s = `<svg xmlns="${NS}" width="${SW}" height="${SH}" viewBox="0 0 ${SW} ${SH}"><style>${fontCss}</style>${DEFS}<rect width="${SW}" height="${SH}" fill="#fff"/>`;
@@ -2868,7 +2881,7 @@ function markLibButtons() { document.querySelectorAll('[data-openlib]').forEach(
   try {
     const v = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null');
     if (v && ['plants', 'build', 'living'].includes(v.libTab)) libTab = v.libTab;
-    if (v) for (const k of ['site', 'grid', 'diagram', 'design', 'tags', 'base', 'snap', 'lib', 'floor', 'img', 'util', 'seeTrees', 'flow']) if (typeof v[k] === 'boolean') view[k] = v[k];
+    if (v) for (const k of ['site', 'grid', 'diagram', 'design', 'tags', 'base', 'snap', 'lib', 'floor', 'img', 'util', 'seeTrees']) if (typeof v[k] === 'boolean') view[k] = v[k];
     if (v && ['render', 'color', 'bw'].includes(v.style)) view.style = v.style;
   } catch (e) { /* ignore */ }
   if (innerWidth <= 1000) view.lib = false;

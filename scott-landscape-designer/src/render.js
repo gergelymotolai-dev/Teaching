@@ -1661,7 +1661,6 @@ function offsetLine(line, off) {
     return [p[0] - (b[1] - a[1]) / L * off, p[1] + (b[0] - a[0]) / L * off];
   });
 }
-const animOK = () => !(typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
 function streamDraw(it, o, rng) {
   const c = streamCourse(it, o), line = c.line, d = ptsD(line), w = c.w, L = polyLen(line), uid0 = String(it.id).replace(/[^\w-]/g, '');
   const inPond = (p, pad) => c.ponds.some((pd) => inPoly(p, pd.poly) || nearestOnPoly(p, pd.poly).d < (pad || 0));
@@ -1689,12 +1688,10 @@ function streamDraw(it, o, rng) {
     if (rng() < 0.22 && w > 1.5) g += `<g transform="translate(${n(cx)} ${n(cy)}) rotate(${n(deg)})"><path d="M-0.45,-0.35Q-0.75,0 -0.45,0.35" stroke="#fff" stroke-opacity="0.75" stroke-width="0.06" fill="none"/></g>` + boulder(cx, cy, 0.22 + rng() * 0.15, rng);
     else g += `<g transform="translate(${n(cx)} ${n(cy)}) rotate(${n(deg)})"><path d="M0,${n(-w * 0.12)}Q0.35,0 0,${n(w * 0.12)}" stroke="#fff" stroke-opacity="0.45" stroke-width="0.05" fill="none"/></g>`;
   }
-  // moving current: three lanes of light streaks running downstream
+  // current: three lanes of light streaks along the flow
   if (!o.icon) {
-    [[-0.26, '0.5 1.9', 2.6], [0, '0.9 2.4', 2.1], [0.24, '0.4 1.5', 3.0]].forEach(([f, dash, dur], i) => {
-      const per = dash.split(' ').reduce((a2, v) => a2 + +v, 0) * 3;
-      g += `<path d="${ptsD(offsetLine(line, f * w))}" fill="none" stroke="#fff" stroke-opacity="${[0.3, 0.42, 0.28][i]}" stroke-width="${n(Math.max(0.05, w * 0.035))}" stroke-linecap="round" stroke-dasharray="${dash}" stroke-dashoffset="${n(i * 0.7)}">` +
-        (o.flow && animOK() ? `<animate attributeName="stroke-dashoffset" from="${n(i * 0.7)}" to="${n(i * 0.7 - per)}" dur="${dur * 3}s" repeatCount="indefinite"/>` : '') + '</path>';
+    [[-0.26, '0.5 1.9'], [0, '0.9 2.4'], [0.24, '0.4 1.5']].forEach(([f, dash], i) => {
+      g += `<path d="${ptsD(offsetLine(line, f * w))}" fill="none" stroke="#fff" stroke-opacity="${[0.3, 0.42, 0.28][i]}" stroke-width="${n(Math.max(0.05, w * 0.035))}" stroke-linecap="round" stroke-dasharray="${dash}" stroke-dashoffset="${n(i * 0.7)}"/>`;
     });
   }
   s += masked ? `<g mask="url(#${mid})">${g}</g>` : g;
@@ -1710,12 +1707,10 @@ function streamDraw(it, o, rng) {
     let foam = `<g transform="translate(${n(fx)} ${n(fy)}) rotate(${n(deg)})"><path d="M-0.1,${n(-w * 0.42)}Q0.35,0 -0.1,${n(w * 0.42)}" stroke="#fff" stroke-opacity="0.85" stroke-width="0.12" fill="none" stroke-linecap="round"/>`;
     for (let i = 0; i < 10; i++) foam += `<circle cx="${n(0.2 + rng() * 0.9)}" cy="${n((rng() - 0.5) * w * 0.8)}" r="${n(0.04 + rng() * 0.07)}" fill="#fff" fill-opacity="0.8"/>`;
     s += foam + '</g>';
-    const cid = `mc-${uid0}`, rc = [p[0] + dir[0] * 0.9, p[1] + dir[1] * 0.9], R = Math.max(2.5, w * 1.2), anim = o.flow && animOK();
+    const cid = `mc-${uid0}`, rc = [p[0] + dir[0] * 0.9, p[1] + dir[1] * 0.9], R = Math.max(2.5, w * 1.2);
     s += `<defs><clipPath id="${cid}"><path d="${c.mouth.pond.d}"/></clipPath></defs><g clip-path="url(#${cid})" fill="none" stroke="#fff">`;
     for (let i = 0; i < 3; i++) {
-      s += anim
-        ? `<circle cx="${n(rc[0])}" cy="${n(rc[1])}" r="0.4" stroke-width="0.06" opacity="0"><animate attributeName="r" values="0.4;${n(R)}" dur="3.6s" begin="${n(i * 1.2)}s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.75;0" dur="3.6s" begin="${n(i * 1.2)}s" repeatCount="indefinite"/></circle>`
-        : `<circle cx="${n(rc[0])}" cy="${n(rc[1])}" r="${n(R * (i + 1) / 3.2)}" stroke-width="0.06" opacity="${n(0.6 - i * 0.18)}"/>`;
+      s += `<circle cx="${n(rc[0])}" cy="${n(rc[1])}" r="${n(R * (i + 1) / 3.2)}" stroke-width="0.06" opacity="${n(0.6 - i * 0.18)}"/>`;
     }
     s += '</g>';
   }
