@@ -65,7 +65,7 @@ header.top h1 span{color:var(--muted);font-weight:500;margin-left:6px}
 .btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
 
 /* ---------- options bar ---------- */
-.optbar{display:flex;align-items:center;gap:10px;min-height:34px;padding:3px 8px;background:var(--chrome-2);border-bottom:1px solid #000;overflow:hidden}
+.optbar{display:flex;align-items:center;gap:10px;height:34px;min-height:34px;padding:3px 8px;background:var(--chrome-2);border-bottom:1px solid #000;overflow:hidden}
 .optbar .cur{display:flex;align-items:center;gap:8px;padding-right:10px;border-right:1px solid var(--line);font-family:var(--display);font-weight:500;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
 .chip{border-radius:2px;background:#ECECE6;display:grid;place-items:center;overflow:hidden;flex:none}
 .chip.line{background:transparent}
@@ -120,11 +120,11 @@ aside.rail{background:var(--chrome-2);border-right:1px solid #000;padding:6px 0;
 .libfilters button[aria-pressed="true"]{background:#4A4D44;color:#fff;border-color:#6B6F64}
 .liblist{flex:1;overflow-y:auto;min-height:0}
 .libcat{position:sticky;top:0;z-index:1;background:#262724;padding:5px 10px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid #1E1F1C}
-.plant{display:flex;gap:9px;align-items:center;width:100%;padding:6px 8px 6px 10px;border:0;border-bottom:1px solid #22231F;background:transparent;color:var(--text);text-align:left}
+.plant{display:flex;gap:9px;align-items:center;width:100%;padding:4px 8px 4px 10px;touch-action:pan-y;cursor:grab;border:0;border-bottom:1px solid #22231F;background:transparent;color:var(--text);text-align:left}
 .plant:hover{background:var(--hover)}
 .plant[aria-pressed="true"]{background:#2F4A3A;box-shadow:inset 3px 0 0 var(--green-hi)}
-.plant .thumb{width:42px;height:42px;border-radius:3px;background:#F4F3EE;flex:none;display:grid;place-items:center;overflow:hidden}
-.plant .thumb svg{width:40px;height:40px}
+.plant .thumb{width:38px;height:38px;border-radius:3px;background:#F4F3EE;flex:none;display:grid;place-items:center;overflow:hidden}
+.plant .thumb svg{width:36px;height:36px}
 .plant .pn{min-width:0;flex:1}
 .plant .pn b{display:block;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .plant .pn i{display:block;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -132,10 +132,10 @@ aside.rail{background:var(--chrome-2);border-right:1px solid #000;padding:6px 0;
 .sun{display:inline-flex;gap:2px;align-items:center}
 .sun i{display:inline-block;width:8px;height:8px;border-radius:50%;border:1px solid #C9A227}
 .sun i.f{background:#F2C230}.sun i.p{background:linear-gradient(90deg,#F2C230 50%,transparent 50%)}.sun i.s{background:#555;border-color:#888}
-.libinfo{flex:none;border-top:1px solid #000;padding:10px;background:var(--panel-h);font-size:12px;line-height:1.4}
+.libinfo{flex:none;max-height:38%;overflow-y:auto;border-top:1px solid #000;padding:8px 10px;background:var(--panel-h);font-size:12px;line-height:1.4}
 .libinfo b{font-size:14px}
 .libinfo i{color:var(--muted)}
-.libinfo dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:6px 0}
+.libinfo dl{display:grid;grid-template-columns:auto 1fr;gap:1px 10px;margin:4px 0}
 .libinfo dt{color:var(--dim)}
 .libinfo dd{margin:0}
 .libinfo p{margin:4px 0 0;color:var(--muted)}
@@ -272,6 +272,9 @@ dialog::backdrop{background:rgba(10,12,10,.55)}
   .who{margin-left:0}
   .optbar{flex-wrap:wrap}
   .hint{flex-basis:100%;order:5}
+  .optbar{height:auto}
+  #optCtx,#optCtx[hidden]{display:flex;visibility:visible;order:6;flex-basis:100%;min-height:30px;overflow-x:auto}
+  #optCtx[hidden]>*{display:none}
   .status .hide-sm{display:none}
 }
 @media (max-width:560px){ .actions .btn .bl{display:none} .actions .btn.gold .bl{display:inline} .who input{width:104px} header.top h1 span{display:none} }
@@ -306,6 +309,7 @@ dialog::backdrop{background:rgba(10,12,10,.55)}
 
 <div class="optbar" role="toolbar" aria-label="Tool options">
   <div class="cur" id="optTool"></div>
+  <div id="optCtx" hidden></div>
   <div class="hint" id="hint" aria-live="polite"></div>
   <label class="tog" title="Snap to a 1 ft grid and to corners of other items"><input type="checkbox" id="optSnap" checked> Snap</label>
   <span class="optlabel">Style</span>
@@ -1921,7 +1925,7 @@ const TIPS = {
   label: 'Click the plan to add a text label.', measure: 'Drag to measure a distance in feet.',
   dtree: 'Pick a species in the library, then click to plant. Drawn at mature spread.', etree: 'Conifers and evergreen trees for screens and windbreaks.',
   bshrub: 'Holly, boxwood, azalea and other evergreen shrubs.', dshrub: 'Hydrangea, rose, beautyberry and other shrubs that drop leaves.',
-  perennial: 'Oval bed of perennials. Pick the plant in the library.', annual: 'Oval bed of annuals for seasonal color.', groundcover: 'Rectangle of ground cover.',
+  perennial: 'Perennial bed: oval, rectangle or rounded (pick at the top), or draw any shape.', annual: 'Annual bed for seasonal color: oval, rectangle or rounded, or draw any shape.', groundcover: 'Ground cover bed: oval, rectangle or rounded, or draw any shape.',
   bedShape: 'Draw any bed outline: click each point, double-click or click the first point to close.',
   lawn: 'Rectangle of lawn. Pick the grass in the library.', lawnShape: 'Draw a curved lawn edge point by point.',
   patio: 'Rectangle patio. Choose stone, pavers, brick or concrete.', paveShape: 'Draw any paved shape point by point.',
@@ -1971,6 +1975,8 @@ let hist = [], hIdx = -1, commitTimer = null, pendingLabel = 'Edit';
 let checkRun = false;
 let draft = null, hover = null, measure = null, marquee = null, snapMark = null;
 let clip = [], pasteN = 0;
+const bedFormPref = { perennial: 'oval', annual: 'oval', groundcover: 'round' };
+const drawSmooth = { bedShape: true, lawnShape: true, paveShape: false };
 const lastFence = { style: 'privacy', height: 6 };
 const byId = (id) => state.items.find((i) => i.id === id);
 const selItems = () => sel.map(byId).filter(Boolean);
@@ -2134,6 +2140,17 @@ css.textContent = `
 .props-h{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:500;font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.05em}
 .props-h .chip{width:28px;height:24px}.props-h .chip svg{width:26px;height:22px}
 .mixrow{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.shapeseg button{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;white-space:nowrap}
+.shapeseg svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#optCtx{display:flex;align-items:center;gap:8px;flex:none}
+@media (min-width:1001px){#optCtx[hidden]{display:none}}
+.optnote{font-size:12px;color:var(--dim);white-space:nowrap}
+.dragghost{position:fixed;z-index:80;pointer-events:none;display:none;align-items:center;gap:8px;padding:4px 10px 4px 4px;background:#111210;border:1px solid #4A4C46;border-radius:3px;color:var(--text);font-size:13px;transform:translate(-20%,-50%);box-shadow:0 6px 18px rgba(0,0,0,.45);opacity:.92}
+.dragghost.show{display:flex}
+.dragghost.over{border-color:var(--gold)}
+.dragghost .thumb{width:36px;height:36px;border-radius:3px;background:#F4F3EE;display:grid;place-items:center}
+.dragghost .thumb svg{width:34px;height:34px}
+.libhow{margin:0;padding:7px 10px;font-size:12px;color:var(--muted);border-bottom:1px solid #22231F}
 .mixrow .chip{width:26px;height:24px;border-radius:2px;background:#F4F3EE}.mixrow .chip svg{width:24px;height:22px}
 .mixrow select{flex:1;min-width:0;height:28px;padding:3px 6px;border:1px solid var(--line-2);border-radius:2px;background:var(--well);color:var(--text)}
 .mixrow input{width:52px;height:28px;padding:3px 5px;border:1px solid var(--line-2);border-radius:2px;background:var(--well);color:var(--text)}
@@ -2444,7 +2461,7 @@ function renderOverlay() {
     const pts = draft.pts.concat(hover ? [hover] : []);
     const t = T[draft.type];
     if (pts.length >= 2) {
-      const g = { id: 'draft', type: draft.type, pts, width: t.d.width, finish: t.d.finish, smooth: t.d.smooth, sp: curSp[draft.type] || t.d.sp };
+      const g = { id: 'draft', type: draft.type, pts, width: t.d.width, finish: t.d.finish, smooth: drawSmooth[draft.type] ?? t.d.smooth, sp: curSp[draft.type] || t.d.sp };
       if (t.kind === 'shape' && pts.length < 3) s += `<path d="${ptsD(pts)}" stroke="${SEL}" stroke-width="${sw}" fill="none" pointer-events="none"/>`;
       else s += `<g opacity="0.7" pointer-events="none">${drawItem(g, drawOpts({ tags: false }))}</g>`;
     }
@@ -2537,6 +2554,7 @@ function hintFor(tl) {
   }
   const sp = PLANT_BY_ID[curSp[tl]];
   if (t.stay) return `${click} to plant ${sp ? sp.cn : t.name.toLowerCase()} (${sp ? sp.w : t.d.r * 2} ft mature spread). Keep ${touch ? 'tapping' : 'clicking'} to add more. Esc when done.`;
+  if (bedFormPref[tl]) return `${click} the plan to place the bed${sp ? ` of ${sp.cn.toLowerCase()}` : ''}. Pick its shape with the buttons on the left of this bar.`;
   return `${click} the plan to place the ${t.name.toLowerCase()}${sp ? ` of ${sp.cn.toLowerCase()}` : ''}. Drag its corner dot to resize.`;
 }
 function setTool(tl) {
@@ -2555,6 +2573,7 @@ function setTool(tl) {
   svg.classList.toggle('hand', tl === 'hand');
   svg.classList.toggle('place', tl !== 'select' && tl !== 'hand');
   $('hint').textContent = hintFor(tl);
+  renderOptCtx();
   const sp = PLANT_BY_ID[curSp[tl]];
   $('optTool').innerHTML = `<span class="chip${LINE_ICO[tl] ? ' line' : ''}">${toolIcon(tl)}</span>${esc(toolName(tl))}${sp && T[tl] && T[tl].plant ? ` <small>${esc(sp.cn)}</small>` : ''}`;
   if (!T[tl]) hover = null;
@@ -2573,7 +2592,14 @@ function plantThumb(sp) {
 function speciesInfo(sp) {
   return `<b>${esc(sp.cn)}</b> <span style="font-family:var(--display);font-size:11px;border:1px solid #6B6F64;border-radius:2px;padding:0 4px;margin-left:4px">${PLANT_CODE[sp.id]}</span><br><i>${esc(sp.bn)}</i>
     <dl>${sp.t === 'turf' ? '' : `<dt>Mature size</dt><dd>${sp.w} ft wide × ${sp.h} ft tall</dd>`}<dt>Light</dt><dd>${sp.sun.split('/').map((s) => SUN_NAMES[s]).join(', ')}</dd><dt>Hardiness</dt><dd>${!sp.z ? '—' : sp.z === 'annual' ? 'Annual' : 'USDA zones ' + sp.z}</dd>${sp.spc ? `<dt>Spacing</dt><dd>${sp.spc} ft apart</dd>` : ''}</dl><p>${esc(sp.note || '')}</p>` +
-    (sp.custom ? `<div class="btnrow" style="margin-top:6px"><button type="button" class="btn" data-cp-edit="${sp.id}">Edit</button><button type="button" class="btn danger" data-cp-del="${sp.id}">Delete</button></div>` : '');
+    libActions(sp) + (sp.custom ? `<div class="btnrow" style="margin-top:6px"><button type="button" class="btn" data-cp-edit="${sp.id}">Edit</button><button type="button" class="btn danger" data-cp-del="${sp.id}">Delete</button></div>` : '');
+}
+function libActions(sp) {
+  const one = single(), ok = one && !one.locked && spCats(one.type).includes(sp.t);
+  let h = `<button type="button" class="btn gold" data-lib-act="plant" data-id="${sp.id}">Plant it</button>`;
+  if (ok && isBedType(one.type)) h += `<button type="button" class="btn" data-lib-act="bed" data-id="${sp.id}">Add to selected bed</button>`;
+  else if (ok && one.sp !== sp.id) h += `<button type="button" class="btn" data-lib-act="swap" data-id="${sp.id}">Swap selected for this</button>`;
+  return `<div class="btnrow" style="margin-top:6px">${h}</div>`;
 }
 function renderLibControls() {
   $('libCat').innerHTML = `<option value="all">All plants (${PLANTS.length})</option>` + CATS.map(([k, name]) => `<option value="${k}">${name} (${PLANTS.filter((p) => p.t === k).length})</option>`).join('');
@@ -2594,42 +2620,117 @@ function renderLib() {
     h += `<div class="libcat">${name}</div>`;
     h += rows.map((p) => `<button type="button" class="plant" data-sp="${p.id}" aria-pressed="${libSp === p.id}"><span class="thumb">${plantThumb(p)}</span><span class="pn"><b>${esc(p.cn)}${p.custom ? ' <span class="yours">YOURS</span>' : ''}</b><i>${esc(p.bn)}</i><span>${p.t === 'turf' ? 'Lawn grass' : `${p.w}′ W × ${p.h}′ H`} ${sunDots(p.sun)} ${p.z ? `<span>Z ${esc(p.z)}</span>` : ''}</span></span></button>`).join('');
   }
-  $('libList').innerHTML = h || '<p class="muted" style="padding:12px">No plants match. Try another search or light setting.</p>';
+  $('libList').innerHTML = h ? '<p class="libhow">Click a plant, then click the plan. Or drag it onto the plan, or onto a bed to add it.</p>' + h : '<p class="muted" style="padding:12px">No plants match. Try another search or light setting.</p>';
   const sp = PLANT_BY_ID[libSp];
+  libShown = null;
   $('libInfo').innerHTML = sp ? speciesInfo(sp) : '';
 }
 function toggleLib(force) { view.lib = force === undefined ? !view.lib : force; renderLib(); saveView(); requestAnimationFrame(applyView); }
+/* clicking a plant always starts planting it; dragging drops it on the plan (or into the bed under the pointer) */
+function bedTypeFor(sp, drop) {
+  if (sp.t === 'turf') return !drop && tool === 'lawnShape' ? 'lawnShape' : 'lawn';
+  if (['perennial', 'annual', 'groundcover'].includes(sp.t)) return !drop && tool === 'bedShape' ? 'bedShape' : sp.t;
+  return sp.t;
+}
+function pickPlant(id) {
+  const sp = PLANT_BY_ID[id];
+  if (!sp) return;
+  libSp = id;
+  const type = bedTypeFor(sp, false);
+  curSp[type] = id;
+  if (sel.length) select(null);
+  renderLib(); renderRail(); setTool(type);
+  toast(T[type].kind === 'shape' ? `Click around the plan to draw a bed of ${sp.cn}` : `Click the plan to plant ${sp.cn}${T[type].stay ? '. Keep clicking for more; Esc when done.' : '.'}`);
+}
+function addToBed(bed, sp) {
+  const mix = mixOf(bed);
+  if (mix.some((m) => m.sp === sp.id)) { toast(`${sp.cn} is already in this bed`); return; }
+  mix.push({ sp: sp.id, w: mix.length ? Math.round(100 / (mix.length + 1)) : 100 });
+  balance(mix, mix.length - 1); setMix(bed, mix); renderItems([bed.id]); renderProps(); commit('Add ' + sp.cn + ' to bed');
+  toast(`Added ${sp.cn} to the bed`);
+}
+function swapPlant(it, sp) {
+  it.sp = sp.id;
+  if (T[it.type].kind === 'circle') it.r = Math.max(0.5, sp.w / 2);
+  renderPlan(); renderProps(); commit('Change plant to ' + sp.cn); toast(`Changed to ${sp.cn}`);
+}
+function dropPlant(id, cx, cy) {
+  const sp = PLANT_BY_ID[id];
+  if (!sp) return;
+  libSp = id;
+  const el = document.elementFromPoint(cx, cy), hit = el && el.closest && el.closest('#plan [data-id]');
+  const target = hit ? byId(hit.getAttribute('data-id')) : null;
+  if (target && !target.locked && isBedType(target.type) && spCats(target.type).includes(sp.t)) { addToBed(target, sp); select(target.id); renderLib(); return; }
+  if (target && !target.locked && (target.type === 'lawn' || target.type === 'lawnShape') && sp.t === 'turf') { swapPlant(target, sp); renderLib(); return; }
+  const type = bedTypeFor(sp, true), p = toWorld(cx, cy);
+  curSp[type] = id;
+  if (tool !== 'select') setTool('select');
+  const it = newItem(type, view.snap ? [Math.round(p[0] * 2) / 2, Math.round(p[1] * 2) / 2] : p);
+  state.items.push(it); sel = [it.id];
+  renderProps(); renderPlan(); renderLib(); commit('Place ' + sp.cn);
+  toast(`${sp.cn} planted`);
+}
+let libDrag = null, libNoClick = false;
+const ghostEl = document.createElement('div');
+ghostEl.className = 'dragghost'; ghostEl.setAttribute('aria-hidden', 'true');
+document.body.appendChild(ghostEl);
+$('libList').addEventListener('pointerdown', (e) => {
+  const b = e.target.closest('[data-sp]');
+  if (!b || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  libDrag = { id: b.dataset.sp, x: e.clientX, y: e.clientY, on: false, touch: e.pointerType !== 'mouse', pid: e.pointerId };
+});
+document.addEventListener('pointermove', (e) => {
+  const d = libDrag;
+  if (!d || e.pointerId !== d.pid) return;
+  const dx = e.clientX - d.x, dy = e.clientY - d.y;
+  if (!d.on) {
+    if (d.touch ? Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) : Math.hypot(dx, dy) > 6) {
+      d.on = true;
+      const sp = PLANT_BY_ID[d.id];
+      ghostEl.innerHTML = `<span class="thumb">${plantThumb(sp)}</span>${esc(sp.cn)}`;
+      ghostEl.classList.add('show');
+    } else if (d.touch && Math.abs(dy) > 12) libDrag = null;   // vertical swipe scrolls the list
+    if (!d.on) return;
+  }
+  e.preventDefault();
+  ghostEl.style.left = e.clientX + 'px'; ghostEl.style.top = e.clientY + 'px';
+  const r = svg.getBoundingClientRect(), over = e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom;
+  ghostEl.classList.toggle('over', over);
+  if (over) trackCursor(toWorld(e.clientX, e.clientY));
+});
+function endLibDrag(e, cancel) {
+  const d = libDrag;
+  if (!d || e.pointerId !== d.pid) return;
+  libDrag = null;
+  ghostEl.classList.remove('show', 'over');
+  if (!d.on) return;
+  libNoClick = true; setTimeout(() => { libNoClick = false; }, 50);
+  if (cancel) return;
+  const r = svg.getBoundingClientRect();
+  if (e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom) dropPlant(d.id, e.clientX, e.clientY);
+  else toast('Drop the plant on the plan');
+}
+document.addEventListener('pointerup', (e) => endLibDrag(e, false));
+document.addEventListener('pointercancel', (e) => endLibDrag(e, true));
 $('libList').addEventListener('click', (e) => {
   const b = e.target.closest('[data-sp]');
-  if (!b) return;
-  const sp = PLANT_BY_ID[b.dataset.sp];
-  libSp = sp.id;
-  const one = single();
-  // with one matching item selected, the library swaps its species; otherwise it starts planting
-  if (one && !one.locked && isBedType(one.type) && spCats(one.type).includes(sp.t) && tool === 'select') {
-    const mix = mixOf(one);
-    if (mix.some((m) => m.sp === sp.id)) { toast(`${sp.cn} is already in this bed`); return; }
-    mix.push({ sp: sp.id, w: mix.length ? Math.round(100 / (mix.length + 1)) : 100 });
-    balance(mix, mix.length - 1); setMix(one, mix); renderItems([one.id]); renderProps(); renderLib(); commit('Add ' + sp.cn + ' to bed');
-    toast(`Added ${sp.cn} to the bed`);
-    return;
-  }
-  if (one && !one.locked && spCats(one.type).includes(sp.t) && tool === 'select') {
-    one.sp = sp.id;
-    if (T[one.type].kind === 'circle') one.r = Math.max(0.5, sp.w / 2);
-    renderPlan(); renderProps(); commit('Change plant to ' + sp.cn); renderLib();
-    toast(`Changed to ${sp.cn}`);
-    return;
-  }
-  const bedKind = ['perennial', 'annual', 'groundcover'].includes(sp.t);
-  const type = sp.t === 'turf' ? (tool === 'lawnShape' ? 'lawnShape' : 'lawn') : (bedKind && tool === 'bedShape' ? 'bedShape' : sp.t);
-  curSp[type] = sp.id;
-  renderLib(); renderRail(); setTool(type);
+  if (!b || libNoClick) return;
+  pickPlant(b.dataset.sp);
 });
-$('libList').addEventListener('mouseover', (e) => { const b = e.target.closest('[data-sp]'); if (b) $('libInfo').innerHTML = speciesInfo(PLANT_BY_ID[b.dataset.sp]); });
-$('libList').addEventListener('mouseleave', () => { const sp = PLANT_BY_ID[libSp]; $('libInfo').innerHTML = sp ? speciesInfo(sp) : ''; });
+function renderLibInfo(id) { const sp = PLANT_BY_ID[id || libShown || libSp]; $('libInfo').innerHTML = sp ? speciesInfo(sp) : ''; }
+let libShown = null;
+$('libList').addEventListener('mouseover', (e) => { const b = e.target.closest('[data-sp]'); if (b && !libDrag && b.dataset.sp !== libShown) { libShown = b.dataset.sp; renderLibInfo(libShown); } });
+/* the card keeps the last plant pointed at, so its buttons can be reached */
 $('libAddPlant').addEventListener('click', () => showPlantForm());
 $('libInfo').addEventListener('click', (e) => {
+  const act = e.target.closest('[data-lib-act]');
+  if (act) {
+    const sp = PLANT_BY_ID[act.dataset.id], one = single();
+    if (act.dataset.libAct === 'plant') pickPlant(sp.id);
+    if (act.dataset.libAct === 'swap' && one) { libSp = sp.id; swapPlant(one, sp); renderLib(); }
+    if (act.dataset.libAct === 'bed' && one) { libSp = sp.id; addToBed(one, sp); renderLib(); }
+    return;
+  }
   const ed = e.target.closest('[data-cp-edit]'), del = e.target.closest('[data-cp-del]');
   if (ed) showPlantForm(ed.dataset.cpEdit);
   if (del) deleteCustomPlant(del.dataset.cpDel);
@@ -2674,6 +2775,7 @@ function speciesCard(sp) {
     <small>${sp.t === 'turf' ? 'Lawn grass' : `Mature ${sp.w}′ W × ${sp.h}′ H`} · ${sp.sun.split('/').map((s) => SUN_NAMES[s]).join(', ')} · ${sp.z === 'annual' ? 'Annual' : 'Zones ' + sp.z}</small><small>${esc(sp.note)}</small></div></div>`;
 }
 function renderProps() {
+  renderOptCtx();
   const P = $('props'), items = selItems();
   if (!items.length) {
     P.innerHTML = `<p class="muted">Pick a tool on the left, or a plant in the library, and click the plan to place it.</p>
@@ -2697,7 +2799,7 @@ function renderProps() {
     h += mix.map((m, i) => `<div class="mixrow"><span class="chip">${plantThumb(m.sp)}</span><select data-mix="${i}" aria-label="Plant ${i + 1}"${dis}>${opts(m.sp.id)}</select>${mix.length > 1 ? `<input type="number" data-mixw="${i}" value="${Math.round(m.w * 100)}" min="1" max="100" aria-label="Share of the bed in percent"${dis}><span class="muted">%</span>` : ''}<button type="button" class="iconbtn" data-mixdel="${i}" aria-label="Remove ${esc(m.sp.cn)} from the bed"${dis || (mix.length === 1 && it.type !== 'bedShape') ? ' disabled style="visibility:hidden"' : ''}><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>`).join('');
     if (!mix.length) h += '<p class="muted" style="margin-bottom:6px">Mulch only. Add plants, or place trees and shrubs on top of it.</p>';
     h += `<div class="btnrow" style="margin-bottom:6px"><button type="button" class="btn" data-act="mixadd"${dis}>+ Add a plant to this bed</button></div>`;
-    h += `<p class="muted" style="margin-bottom:10px">${mix.length > 1 ? 'Plants are set out in natural drifts by their share. ' : ''}Tip: with the bed selected, click plants in the library to add them.</p>`;
+    h += `<p class="muted" style="margin-bottom:10px">${mix.length > 1 ? 'Plants are set out in natural drifts by their share. ' : ''}Tip: drag a plant from the library onto this bed to add it.</p>`;
     if (mix.length === 1) h += speciesCard(mix[0].sp);
     if (it.type !== 'bedShape') h += fld('Bed shape', `<select data-f="form" aria-label="Bed shape"${dis}>${[['oval', 'Oval'], ['rect', 'Rectangle (square corners)'], ['round', 'Rounded rectangle']].map(([k, l]) => `<option value="${k}" ${bedForm(it) === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`);
   } else if (cats.length) {
@@ -2795,7 +2897,7 @@ $('props').addEventListener('click', (e) => {
 function setSel(ids) {
   flush();
   sel = ids.filter((id) => byId(id));
-  renderProps(); renderOverlay();
+  renderProps(); renderOverlay(); if (view.lib) renderLibInfo();
   if (tabOpen('pObjects')) renderObjects();
 }
 const select = (id) => setSel(id ? [id] : []);
@@ -2887,9 +2989,11 @@ function newItem(type, p) {
   const it = Object.assign({ id: uid(), type }, clone(t.d));
   if (spCats(type).length) { if (PLANT_BY_ID[curSp[type]]) it.sp = curSp[type]; else delete it.sp; }
   if (type === 'fence') Object.assign(it, lastFence);
+  if (t.kind === 'shape' && drawSmooth[type] !== undefined) it.smooth = drawSmooth[type];
   if (t.kind === 'line' || t.kind === 'shape') return it;
   it.x = r1(p[0]); it.y = r1(p[1]);
   if (t.kind === 'circle' && t.plant && PLANT_BY_ID[it.sp]) it.r = Math.max(0.5, PLANT_BY_ID[it.sp].w / 2);
+  if (bedFormPref[type] && bedFormPref[type] !== (type === 'groundcover' ? 'round' : 'oval')) it.form = bedFormPref[type];
   if (t.kind === 'box') it.rot = 0;
   if (t.kind === 'text') it.text = 'Label';
   return it;
@@ -3970,32 +4074,7 @@ $('props').addEventListener('click', (e) => {
 });
 $('bNew').addEventListener('click', () => showNew());
 
-(function boot() {
-  try {
-    const v = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null');
-    if (v) for (const k of ['site', 'grid', 'diagram', 'design', 'tags', 'base', 'snap', 'lib', 'floor', 'img', 'util']) if (typeof v[k] === 'boolean') view[k] = v[k];
-    if (v && ['render', 'color', 'bw'].includes(v.style)) view.style = v.style;
-  } catch (e) { /* ignore */ }
-  if (innerWidth <= 1000) view.lib = false;
-  for (const [id, key] of Object.entries(TOGGLES)) $(id).checked = view[key];
-  $('optSnap').checked = view.snap;
-  $('styleSeg').querySelectorAll('[data-style]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.style === view.style));
-  let restored = false;
-  try {
-    const s = localStorage.getItem(STORE_KEY);
-    if (s) { state = cleanState(JSON.parse(s)); restored = state.items.length > 0 || !!state.site; }
-  } catch (e) { state = blankState(); }
-  if (!state.meta.date) { const d = new Date(); state.meta.date = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`; }
-  renderMenubar(); renderRail(); renderLibControls(); renderLib();
-  syncMeta();
-  setTool('select');
-  registerCustom(state.customPlants); renderLib();
-  hist = [{ s: snapshot(), label: 'Open' }]; hIdx = 0;
-  renderAll();
-  requestAnimationFrame(fit);
-  if (restored) toast(`Your last design was restored: ${projName()}`);
-  autosave(snapshot());
-})();
+
 
 /* a fence along every lot line except the street side; students can reshape it afterward */
 function fenceLotPts(street, L) {
@@ -4120,6 +4199,72 @@ function deleteCustomPlant(id) {
   if (libSp === id) libSp = SP_DEFAULT.dtree;
   renderLib(); commit('Delete your plant'); toast('Plant deleted');
 }
+
+/* ------------------------------------------------------------------ options bar: shape choices for beds, lawns and paving */
+const SHAPE_ICO = {
+  oval: '<ellipse cx="12" cy="12" rx="9" ry="6"/>', rect: '<rect x="3" y="6" width="18" height="12"/>', round: '<rect x="3" y="6" width="18" height="12" rx="4"/>',
+  draw: '<path d="M4 16c2-6 5-9 9-9 4 0 7 3 7 6s-3 5-7 5c-3 0-4 2-9-2z"/><circle cx="4" cy="16" r="1.4"/><circle cx="13" cy="7" r="1.4"/><circle cx="20" cy="13" r="1.4"/>',
+  curved: '<path d="M4 17C4 7 20 7 20 17"/>', straight: '<path d="M4 17 9 7h6l5 10"/>', free: '<path d="M5 18 4 8l7-3 9 4-2 9z"/><circle cx="5" cy="18" r="1.4"/><circle cx="4" cy="8" r="1.4"/><circle cx="11" cy="5" r="1.4"/><circle cx="20" cy="9" r="1.4"/><circle cx="18" cy="18" r="1.4"/>',
+};
+const segBtn = (k, label, on, data) => `<button type="button" ${data}="${k}" aria-pressed="${on}" title="${label}"><svg viewBox="0 0 24 24" aria-hidden="true">${SHAPE_ICO[k]}</svg><span>${label}</span></button>`;
+function renderOptCtx() {
+  const box = $('optCtx');
+  if (!box) return;
+  const one = single();
+  let h = '';
+  if (one && !one.locked && ['perennial', 'annual', 'groundcover'].includes(one.type) && tool === 'select') {
+    h = `<span class="optlabel">Bed shape</span><div class="seg shapeseg">${['oval', 'rect', 'round'].map((k) => segBtn(k, { oval: 'Oval', rect: 'Rectangle', round: 'Rounded' }[k], bedForm(one) === k, 'data-setform')).join('')}${segBtn('free', 'Freeform', false, 'data-freeform')}</div>`;
+  } else if (one && !one.locked && FREEFORM[one.type] && tool === 'select') {
+    h = `<span class="optlabel">Shape</span><div class="seg shapeseg">${segBtn('free', 'Make freeform', false, 'data-freeform')}</div>`;
+  } else if (one && !one.locked && T[one.type].kind === 'shape' && tool === 'select') {
+    h = `<span class="optlabel">Edges</span><div class="seg shapeseg">${segBtn('curved', 'Curved', !!one.smooth, 'data-setsmooth')}${segBtn('straight', 'Straight', !one.smooth, 'data-setsmooth')}</div><span class="optnote">Drag the white dots to reshape · blue dots add a corner</span>`;
+  } else if (['perennial', 'annual', 'groundcover'].includes(tool)) {
+    h = `<span class="optlabel">Bed shape</span><div class="seg shapeseg">${['oval', 'rect', 'round'].map((k) => segBtn(k, { oval: 'Oval', rect: 'Rectangle', round: 'Rounded' }[k], bedFormPref[tool] === k, 'data-prefform')).join('')}${segBtn('draw', 'Draw any shape', false, 'data-drawbed')}</div>`;
+  } else if (drawSmooth[tool] !== undefined) {
+    h = `<span class="optlabel">Edges</span><div class="seg shapeseg">${segBtn('curved', 'Curved', drawSmooth[tool], 'data-drawsmooth')}${segBtn('straight', 'Straight', !drawSmooth[tool], 'data-drawsmooth')}</div>`;
+  }
+  box.innerHTML = h;
+  box.hidden = !h;
+}
+$('optCtx').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  const one = single();
+  if (b.dataset.prefform) { bedFormPref[tool] = b.dataset.prefform; renderOptCtx(); renderOverlay(); toast(`New beds will be ${{ oval: 'ovals', rect: 'rectangles', round: 'rounded rectangles' }[b.dataset.prefform]}. Click the plan to place one.`); return; }
+  if (b.dataset.drawbed !== undefined) { const sp = curSp[tool]; curSp.bedShape = sp; setTool('bedShape'); toast('Click around the plan to draw the bed. Double-click or click the first dot to finish.'); return; }
+  if (b.dataset.drawsmooth) { drawSmooth[tool] = b.dataset.drawsmooth === 'curved'; renderOptCtx(); renderOverlay(); return; }
+  if (!one || one.locked) return;
+  if (b.dataset.setform) { one.form = b.dataset.setform; renderItems([one.id]); renderProps(); commit('Change bed shape'); return; }
+  if (b.dataset.freeform !== undefined) { makeFreeform(); return; }
+  if (b.dataset.setsmooth) { one.smooth = b.dataset.setsmooth === 'curved'; renderItems([one.id]); renderProps(); commit(one.smooth ? 'Curved edges' : 'Straight edges'); }
+});
+
+(function boot() {
+  try {
+    const v = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null');
+    if (v) for (const k of ['site', 'grid', 'diagram', 'design', 'tags', 'base', 'snap', 'lib', 'floor', 'img', 'util']) if (typeof v[k] === 'boolean') view[k] = v[k];
+    if (v && ['render', 'color', 'bw'].includes(v.style)) view.style = v.style;
+  } catch (e) { /* ignore */ }
+  if (innerWidth <= 1000) view.lib = false;
+  for (const [id, key] of Object.entries(TOGGLES)) $(id).checked = view[key];
+  $('optSnap').checked = view.snap;
+  $('styleSeg').querySelectorAll('[data-style]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.style === view.style));
+  let restored = false;
+  try {
+    const s = localStorage.getItem(STORE_KEY);
+    if (s) { state = cleanState(JSON.parse(s)); restored = state.items.length > 0 || !!state.site; }
+  } catch (e) { state = blankState(); }
+  if (!state.meta.date) { const d = new Date(); state.meta.date = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`; }
+  renderMenubar(); renderRail(); renderLibControls(); renderLib();
+  syncMeta();
+  setTool('select');
+  registerCustom(state.customPlants); renderLib();
+  hist = [{ s: snapshot(), label: 'Open' }]; hIdx = 0;
+  renderAll();
+  requestAnimationFrame(fit);
+  if (restored) toast(`Your last design was restored: ${projName()}`);
+  autosave(snapshot());
+})();
 
 })();
 </script>

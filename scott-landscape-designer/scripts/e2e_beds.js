@@ -15,16 +15,24 @@ fs.mkdirSync(D, { recursive: true });
   const items = async () => (await p.evaluate(() => JSON.parse(localStorage.getItem('scottDesign.v1')))).items;
   const st = async () => p.evaluate(() => JSON.parse(localStorage.getItem('scottDesign.v1')));
 
-  // 1. a square bed: place a perennial bed and switch it to a rectangle
-  await p.click('[data-tool="perennial"]'); await click(20, 30);
-  await p.selectOption('[data-f="form"]', 'rect');
+  // 1. a square bed: pick Rectangle in the top bar before placing, and switch a placed bed back and forth
+  await p.click('[data-tool="perennial"]');
+  ok(await p.isVisible('#optCtx [data-prefform="rect"]'), 'bed shape buttons show in the top bar');
+  await p.click('#optCtx [data-prefform="rect"]'); await click(20, 30);
   let bed = (await items())[0];
-  ok(bed.form === 'rect', 'bed shape can be a rectangle');
-  // 2. mix plants: library click adds to the selected bed, + button adds another, shares are editable
-  await p.fill('#libSearch', 'coneflower'); await p.click('[data-sp="ecpu"]'); await p.fill('#libSearch', '');
+  ok(bed.form === 'rect', 'new bed is a rectangle');
+  await p.click('#optCtx [data-setform="oval"]');
+  ok((await items())[0].form === undefined || (await items())[0].form === 'oval', 'top bar changes the selected bed to an oval');
+  await p.click('#optCtx [data-setform="rect"]');
+  ok((await items())[0].form === 'rect', 'and back to a rectangle');
+  // 2. mix plants: drag a plant from the library onto the bed, + button adds another, shares are editable
+  await p.fill('#libSearch', 'coneflower');
+  const src = await (await p.$('[data-sp="ecpu"]')).boundingBox(); const [bx0, by0] = await scr(20, 30);
+  await p.mouse.move(src.x + 30, src.y + 20); await p.mouse.down(); await p.mouse.move(bx0, by0, { steps: 12 }); await p.mouse.up();
+  await p.fill('#libSearch', '');
   await p.click('[data-act="mixadd"]');
   bed = (await items())[0];
-  ok(bed.mix && bed.mix.length === 3, 'bed holds three plants: ' + (bed.mix || []).map((m) => m.sp).join(', '));
+  ok(bed.mix && bed.mix.length === 3, 'drag onto the bed adds the plant; bed holds: ' + (bed.mix || []).map((m) => m.sp).join(', '));
   await p.fill('[data-mixw="0"]', '60'); await p.press('[data-mixw="0"]', 'Tab');
   await p.selectOption('[data-mix="2"]', 'limu');
   bed = (await items())[0];
@@ -61,11 +69,16 @@ fs.mkdirSync(D, { recursive: true });
   const tree = (await items()).find((i) => i.sp === pawpaw.id);
   ok(tree && tree.type === 'dtree' && tree.r === 10, 'your own tree is planted at its 20 ft spread');
   await click(18, 30);
-  await p.click(`[data-sp="${coral.id}"]`);
+  await p.hover(`[data-sp="${coral.id}"]`); await p.click('#libInfo [data-lib-act="bed"]');
   bed = (await items()).find((i) => i.type === 'bedShape');
   ok(bed.mix.some((m) => m.sp === coral.id), 'your own plant goes into the selected bed');
+  // clicking a plant with a tree selected starts planting; it does not swap the selected tree
+  await click(60, 25);
+  await p.click('[data-sp="acsa"]');
+  ok((await items()).find((i) => i.id === tree.id).sp === pawpaw.id && await p.evaluate(() => document.querySelector('[data-tool="dtree"]').getAttribute('aria-pressed') === 'true'), 'clicking a plant starts planting and leaves the selected tree alone');
   // 5. draw a misshapen bed directly
-  await p.keyboard.press('Escape'); await p.click('[data-tool="bedShape"]');
+  await p.keyboard.press('Escape'); await p.click('[data-tool="annual"]'); await p.click('#optCtx [data-drawbed]');
+  ok(await p.evaluate(() => document.querySelector('[data-tool="bedShape"]').getAttribute('aria-pressed') === 'true'), '"Draw any shape" switches to the draw-a-bed tool');
   for (const [x, y] of [[40, 85], [52, 84], [56, 92], [47, 97], [41, 93]]) { await click(x, y); await p.waitForTimeout(420); }
   await p.keyboard.press('Enter');
   const drawn = (await items()).find((i) => i.type === 'bedShape' && i.pts.length === 5);
