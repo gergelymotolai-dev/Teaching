@@ -1,0 +1,1567 @@
+/* Scott Residence Landscape Designer — app logic.
+ * Vanilla JS, inline SVG. World units are FEET: x runs right from the north
+ * property line, y runs down from the back (east) property line.
+ * Injected into src/template.html by scripts/build.py. CORE comes from data/core.json.
+ */
+(function () {
+'use strict';
+
+/* ------------------------------------------------------------------ constants */
+const $ = (id) => document.getElementById(id);
+const INK = '#1A1A1A';
+const GREEN = '#1B5633';
+const FONT = "Oswald, 'Arial Narrow', Arial, sans-serif";
+const PX = 9.6, X0 = 120, Y0 = 128;            // core.json px per ft and lot origin
+const CORE_T = `scale(${1 / PX}) translate(${-X0},${-Y0})`;
+const LOT = { w: 82, h: 111 };
+const FIT = { x: -6, y: -6, w: 94, h: 129 };
+const HOUSE = [[34, 44], [59, 44], [59, 47], [75, 47], [75, 74], [34, 74]];
+const GARAGE = [[14, 53], [34, 53], [34, 80], [14, 80]];
+const DRIVE = { x1: 16, x2: 32, y1: 80, y2: 107 };
+const WIRES = [
+  { name: 'the overhead power line', a: [0.6, 1.6], b: [81.4, 1.6] },
+  { name: 'the service drop to the house', a: [81.4, 1.6], b: [74.6, 47] },
+];
+const STORE_KEY = 'scottDesign.v1';
+const VIEW_KEY = 'scottDesign.v1.view';
+const WANTS = [
+  'Sidewalk to the front door',
+  'Recreation area',
+  'Outdoor sitting and entertaining area with partial shade',
+  'Privacy on the patio and from the busy street on the west side',
+  'Flower gardens, front and back',
+  'Small vegetable garden',
+  'Wood stockpile area',
+];
+const ZONES = {
+  public: { name: 'Public', tint: '#F1D9A6' },
+  private: { name: 'Private', tint: '#C9DEF0' },
+  service: { name: 'Service', tint: '#DCDCD6' },
+  recreation: { name: 'Recreation', tint: '#CBE6BD' },
+  garden: { name: 'Garden', tint: '#F2CBDB' },
+};
+const FINISHES = { stone: 'Cut stone', concrete: 'Concrete', brick: 'Brick' };
+
+/* Item types. kind: circle (x,y,r) | box (x,y,w,h,rot) | poly (pts) | text (x,y,text,size)
+ * band: drawing order within a layer, so a lawn never hides the trees on it. */
+const T = {
+  dtree:     { name: 'Deciduous tree', short: 'DECID. TREE', group: 'Plants', kind: 'circle', d: { r: 15 }, band: 4, tint: '#9CC386', op: 0.35, tree: true, sched: true, stay: true },
+  etree:     { name: 'Evergreen tree', short: 'EVERGREEN TREE', group: 'Plants', kind: 'circle', d: { r: 10 }, band: 4, tint: '#3F7F55', op: 0.4, tree: true, sched: true, stay: true },
+  bshrub:    { name: 'Broadleaf evergreen shrub', short: 'BROADLEAF EVG. SHRUB', group: 'Plants', kind: 'circle', d: { r: 3 }, band: 3, tint: '#5E9C6B', op: 0.5, sched: true, stay: true },
+  dshrub:    { name: 'Deciduous shrub', short: 'DECID. SHRUB', group: 'Plants', kind: 'circle', d: { r: 3 }, band: 3, tint: '#B5D394', op: 0.6, sched: true, stay: true },
+  perennial: { name: 'Herbaceous perennial bed', short: 'PERENNIALS', group: 'Beds', kind: 'box', d: { w: 10, h: 6 }, band: 1, tint: '#EDB9CF', op: 0.7, sched: true },
+  annual:    { name: 'Annual bed', short: 'ANNUALS', group: 'Beds', kind: 'box', d: { w: 8, h: 4 }, band: 1, tint: '#F6D57E', op: 0.75, sched: true },
+  groundcover: { name: 'Ground cover', short: 'GROUND COVER', group: 'Beds', kind: 'box', d: { w: 10, h: 6 }, band: 1, tint: '#A8CFA0', op: 0.7, sched: true },
+  patio:     { name: 'Patio', group: 'Areas', kind: 'box', d: { w: 16, h: 14, finish: 'stone' }, band: 1, tint: '#DCD6CA', op: 1 },
+  deck:      { name: 'Deck', group: 'Areas', kind: 'box', d: { w: 12, h: 12 }, band: 1, tint: '#DDBF93', op: 1 },
+  path:      { name: 'Walk / path', group: 'Areas', kind: 'poly', d: { width: 4 }, band: 2, tint: '#E6DECE', op: 1 },
+  fence:     { name: 'Fence / screen', group: 'Areas', kind: 'poly', d: {}, band: 5 },
+  veg:       { name: 'Vegetable garden', group: 'Areas', kind: 'box', d: { w: 12, h: 10 }, band: 1, tint: '#D3E5B5', op: 1 },
+  wood:      { name: 'Wood stockpile', group: 'Areas', kind: 'box', d: { w: 8, h: 4 }, band: 1, tint: '#CDAA7D', op: 1 },
+  lawn:      { name: 'Lawn / recreation area', group: 'Areas', kind: 'box', d: { w: 30, h: 20 }, band: 0, tint: '#E1F0D5', op: 1 },
+  birdbath:  { name: 'Bird bath / feeder', group: 'Areas', kind: 'circle', d: { r: 1.5 }, band: 3, tint: '#BCDDEE', op: 1 },
+  bubble:    { name: 'Use-area bubble', group: 'Diagram', kind: 'box', d: { w: 20, h: 14, zone: 'private' }, band: 0, layer: 'diagram' },
+  arrow:     { name: 'Circulation arrow', group: 'Diagram', kind: 'poly', d: {}, band: 1, layer: 'diagram' },
+  label:     { name: 'Label', group: 'Basic', kind: 'text', d: { size: 2 }, band: 6 },
+};
+const TOOL_GROUPS = [
+  ['toolsPlants', ['dtree', 'etree', 'bshrub', 'dshrub']],
+  ['toolsBeds', ['perennial', 'annual', 'groundcover']],
+  ['toolsAreas', ['patio', 'deck', 'path', 'fence', 'veg', 'wood', 'lawn', 'birdbath']],
+  ['toolsDiagram', ['bubble', 'arrow']],
+];
+const KEYS = { select: 'V', label: 'T', measure: 'M', dtree: '1', etree: '2', bshrub: '3', dshrub: '4', perennial: '5', annual: '6', groundcover: '7',
+  patio: 'P', deck: 'K', path: 'W', fence: 'F', veg: 'G', wood: 'S', lawn: 'L', birdbath: 'B', bubble: 'U', arrow: 'A' };
+const TIPS = {
+  select: 'Click to select and drag to move. Drag empty space to pan.', label: 'Click the plan to add a text label.', measure: 'Drag to measure a distance in feet.',
+  dtree: 'Shade tree, 30 ft spread. Keep 15–20 ft from the house.', etree: 'Conifer, 20 ft spread. Good for screens and windbreaks.',
+  bshrub: 'Holly, boxwood and similar. 6 ft spread.', dshrub: 'Loses its leaves in winter. 6 ft spread.',
+  perennial: 'Comes back every year. 10 × 6 ft bed.', annual: 'Replanted each year for color. 8 × 4 ft bed.', groundcover: 'Low plants instead of lawn. 10 × 6 ft.',
+  patio: '16 × 14 ft. Stone, concrete or brick.', deck: '12 × 12 ft wood deck.', path: 'Click each corner, double-click to finish. 4 ft wide.',
+  fence: 'Click each corner, double-click to finish.', veg: '12 × 10 ft garden with rows.', wood: '8 × 4 ft firewood pile.', lawn: '30 × 20 ft open lawn for play.',
+  birdbath: 'Bird bath or feeder, 3 ft. The kids birdwatch.', bubble: 'Use-area bubble for the functional diagram.', arrow: 'Click points, double-click to finish.',
+};
+const BASIC = [
+  ['select', 'Select / move', '<path d="M5 3l14 8-6 1.6L10 19z"/>'],
+  ['label', 'Label', '<path d="M5 6V4h14v2"/><path d="M12 4v16"/><path d="M9 20h6"/>'],
+  ['measure', 'Measure', '<path d="M3 17 17 3l4 4L7 21z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/>'],
+];
+
+/* ------------------------------------------------------------------ helpers */
+const n = (v) => Math.round(v * 100) / 100;
+const r1 = (v) => Math.round(v * 10) / 10;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const clone = (o) => JSON.parse(JSON.stringify(o));
+let idSeq = 0;
+const uid = () => 'i' + Date.now().toString(36) + (idSeq++).toString(36) + Math.floor(Math.random() * 1296).toString(36);
+function rngFor(id) {
+  let h = 2166136261;
+  for (const c of String(id)) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  let a = h >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+function segDist(p, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1];
+  const L = dx * dx + dy * dy;
+  let t = L ? ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L : 0;
+  t = clamp(t, 0, 1);
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+}
+function inPoly(p, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if ((yi > p[1]) !== (yj > p[1]) && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function polyDist(p, poly) {
+  if (inPoly(p, poly)) return 0;
+  let d = Infinity;
+  for (let i = 0; i < poly.length; i++) d = Math.min(d, segDist(p, poly[i], poly[(i + 1) % poly.length]));
+  return d;
+}
+function ftIn(v) {
+  const tot = Math.round(v * 12);
+  return `${Math.floor(tot / 12)}'-${tot % 12}"`;
+}
+function polyLen(pts) {
+  let L = 0;
+  for (let i = 1; i < pts.length; i++) L += dist(pts[i - 1], pts[i]);
+  return L;
+}
+function pointAlong(pts, d) {
+  for (let i = 1; i < pts.length; i++) {
+    const s = dist(pts[i - 1], pts[i]);
+    if (d <= s || i === pts.length - 1) {
+      const t = s ? clamp(d / s, 0, 1) : 0;
+      return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * t, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * t];
+    }
+    d -= s;
+  }
+  return pts[0];
+}
+const toLocal = (it, p) => {
+  const a = -(it.rot || 0) * Math.PI / 180, dx = p[0] - it.x, dy = p[1] - it.y;
+  return [dx * Math.cos(a) - dy * Math.sin(a), dx * Math.sin(a) + dy * Math.cos(a)];
+};
+const toWorldPt = (it, l) => {
+  const a = (it.rot || 0) * Math.PI / 180;
+  return [it.x + l[0] * Math.cos(a) - l[1] * Math.sin(a), it.y + l[0] * Math.sin(a) + l[1] * Math.cos(a)];
+};
+/* footprint outline points of an item (world), used by the checks */
+function footprint(it) {
+  const t = T[it.type];
+  if (t.kind === 'circle') {
+    const out = [];
+    for (let k = 0; k < 16; k++) out.push([it.x + it.r * Math.cos(k * Math.PI / 8), it.y + it.r * Math.sin(k * Math.PI / 8)]);
+    return out;
+  }
+  if (t.kind === 'box') return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => toWorldPt(it, [a * it.w / 2, b * it.h / 2]));
+  if (t.kind === 'poly') return it.pts.slice();
+  return [[it.x, it.y]];
+}
+function center(it) {
+  if (T[it.type].kind === 'poly') return pointAlong(it.pts, polyLen(it.pts) / 2);
+  return [it.x, it.y];
+}
+
+/* ------------------------------------------------------------------ symbols */
+/* Each draw returns SVG markup in feet. o = {u: ink width in ft, color: bool, icon: bool} */
+function fillOf(type, o, fallback) {
+  const t = T[type];
+  if (o.color && t.tint) return `fill="${t.tint}" fill-opacity="${t.op}"`;
+  return `fill="${fallback}"`;
+}
+function scallop(r, k, u, fill) {
+  const pts = [];
+  for (let i = 0; i < k; i++) pts.push([r * Math.cos(2 * Math.PI * i / k), r * Math.sin(2 * Math.PI * i / k)]);
+  let d = `M${n(pts[0][0])},${n(pts[0][1])}`;
+  for (let i = 0; i < k; i++) {
+    const p2 = pts[(i + 1) % k], am = 2 * Math.PI * (i + 0.5) / k;
+    d += `Q${n(r * 1.22 * Math.cos(am))},${n(r * 1.22 * Math.sin(am))} ${n(p2[0])},${n(p2[1])}`;
+  }
+  return `<path d="${d}Z" ${fill} stroke="${INK}" stroke-width="${n(u * 1.1)}" stroke-linejoin="round"/>`;
+}
+const DRAW = {
+  dtree(it, o, rng) {
+    const r = it.r, u = o.u, a0 = -80 + rng() * 72;
+    let s = `<circle r="${n(r)}" ${fillOf('dtree', o, 'transparent')} stroke="${INK}" stroke-width="${n(u * 1.15)}"/>`;
+    for (let k = 0; k < 5; k++) {
+      const a = (a0 + k * 72 + (rng() - 0.5) * 18) * Math.PI / 180;
+      s += `<line x2="${n(r * 0.92 * Math.cos(a))}" y2="${n(r * 0.92 * Math.sin(a))}" stroke="${INK}" stroke-width="${n(u * 0.7)}"/>`;
+    }
+    return s + `<circle r="${n(Math.max(u * 1.6, r * 0.04))}" fill="${INK}"/>`;
+  },
+  etree(it, o) {
+    const r = it.r, u = o.u, k = clamp(Math.round(r * 2.6), 20, 56);
+    let s = `<circle r="${n(r)}" fill="transparent"/><circle r="${n(r * 0.82)}" ${fillOf('etree', o, 'transparent')} stroke="${INK}" stroke-width="${n(u)}"/><path d="`;
+    for (let i = 0; i < k; i++) {
+      const a = 2 * Math.PI * i / k, c = Math.cos(a), sn = Math.sin(a);
+      s += `M${n(r * 0.82 * c)},${n(r * 0.82 * sn)}L${n(r * c)},${n(r * sn)}`;
+    }
+    return s + `" stroke="${INK}" stroke-width="${n(u * 0.85)}" fill="none"/><circle r="${n(Math.max(u * 1.6, r * 0.04))}" fill="${INK}"/>`;
+  },
+  bshrub(it, o) {
+    const k = clamp(Math.round(it.r * 2.6), 8, 24);
+    return scallop(it.r * 0.9, k, o.u, fillOf('bshrub', o, o.icon ? 'none' : 'transparent')) + `<circle r="${n(o.u * 1.5)}" fill="${INK}"/>`;
+  },
+  dshrub(it, o) {
+    return `<circle r="${n(it.r)}" ${fillOf('dshrub', o, o.icon ? 'none' : 'transparent')} stroke="${INK}" stroke-width="${n(o.u * 1.1)}"/>` +
+      `<circle r="${n(it.r * 0.55)}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 0.65)}"/><circle r="${n(o.u * 1.5)}" fill="${INK}"/>`;
+  },
+  birdbath(it, o) {
+    const r = it.r, u = o.u;
+    return `<circle r="${n(r)}" ${fillOf('birdbath', o, '#fff')} stroke="${INK}" stroke-width="${n(u * 1.2)}"/>` +
+      `<circle r="${n(r * 0.66)}" fill="none" stroke="${INK}" stroke-width="${n(u * 0.6)}"/>` +
+      `<circle r="${n(r * 0.33)}" fill="none" stroke="${INK}" stroke-width="${n(u * 0.6)}" stroke-dasharray="${n(u * 2)} ${n(u * 1.5)}"/>`;
+  },
+  perennial(it, o, rng) {
+    const rx = it.w / 2, ry = it.h / 2, u = o.u;
+    let s = `<ellipse rx="${n(rx)}" ry="${n(ry)}" ${fillOf('perennial', o, '#fff')} stroke="${INK}" stroke-width="${n(u * 1.15)}"/>`;
+    const step = 1.35, cr = 0.48;
+    for (let y = -ry + step * 0.6; y < ry; y += step * 0.86) {
+      for (let x = -rx + step * 0.5 + ((Math.round((y + ry) / (step * 0.86)) % 2) * step / 2); x < rx; x += step) {
+        const jx = x + (rng() - 0.5) * 0.4, jy = y + (rng() - 0.5) * 0.4;
+        if ((jx / (rx - 0.65)) ** 2 + (jy / (ry - 0.65)) ** 2 < 1)
+          s += `<circle cx="${n(jx)}" cy="${n(jy)}" r="${cr}" fill="none" stroke="${INK}" stroke-width="${n(u * 0.65)}"/>`;
+      }
+    }
+    return s;
+  },
+  annual(it, o) {
+    const rx = it.w / 2, ry = it.h / 2, u = o.u;
+    let s = `<ellipse rx="${n(rx)}" ry="${n(ry)}" ${fillOf('annual', o, '#fff')} stroke="${INK}" stroke-width="${n(u * 1.15)}"/><path d="`;
+    const st = 0.62, dr = Math.max(0.07, u * 0.75);
+    let row = 0;
+    for (let y = -ry + st; y < ry; y += st, row++) {
+      for (let x = -rx + st + (row % 2) * st / 2; x < rx; x += st) {
+        if ((x / (rx - 0.4)) ** 2 + (y / (ry - 0.4)) ** 2 < 1) s += `M${n(x - dr)},${n(y)}a${n(dr)},${n(dr)} 0 1,0 ${n(dr * 2)},0a${n(dr)},${n(dr)} 0 1,0 ${n(-dr * 2)},0`;
+      }
+    }
+    return s + `" fill="${INK}"/>`;
+  },
+  groundcover(it, o) {
+    const w = it.w, h = it.h, u = o.u, rr = Math.min(1.2, h / 4, w / 4);
+    let s = `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" rx="${n(rr)}" ${fillOf('groundcover', o, '#fff')} stroke="${INK}" stroke-width="${n(u * 1.15)}"/><path d="`;
+    const st = 0.5;
+    for (let x = -w / 2 + st; x < w / 2 - st * 0.6; x += st) {
+      const edge = Math.min(x + w / 2, w / 2 - x);
+      const inset = edge < rr ? rr - Math.sqrt(Math.max(0, rr * rr - (rr - edge) ** 2)) + 0.35 : 0.35;
+      s += `M${n(x)},${n(-h / 2 + inset)}V${n(h / 2 - inset)}`;
+    }
+    return s + `" stroke="${INK}" stroke-width="${n(u * 0.6)}" fill="none"/>`;
+  },
+  patio(it, o, rng) {
+    const w = it.w, h = it.h, u = o.u, x0 = -w / 2, y0 = -h / 2;
+    let s = `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" ${fillOf('patio', o, '#fff')}/><path d="`;
+    const f = it.finish || 'stone';
+    if (f === 'concrete') {
+      for (let x = x0 + 4; x < -x0 - 0.5; x += 4) s += `M${n(x)},${n(y0)}V${n(-y0)}`;
+      for (let y = y0 + 4; y < -y0 - 0.5; y += 4) s += `M${n(x0)},${n(y)}H${n(-x0)}`;
+      s += `" stroke="${INK}" stroke-width="${n(u * 0.55)}" fill="none"/><path d="`;
+      for (let x = x0 + 2; x < -x0; x += 4) for (let y = y0 + 2; y < -y0; y += 4) s += `M${n(x - u)},${n(y)}h${n(u * 2)}`;
+      s += `" stroke="${INK}" stroke-width="${n(u * 1.2)}" fill="none"/>`;
+    } else if (f === 'brick') {
+      const bh = 0.67, bw = 1.33;
+      let row = 0;
+      for (let y = y0; y < -y0 - 0.01; y += bh, row++) {
+        const y2 = Math.min(-y0, y + bh);
+        if (y > y0) s += `M${n(x0)},${n(y)}H${n(-x0)}`;
+        for (let x = x0 + (row % 2 ? bw / 2 : bw); x < -x0 - 0.05; x += bw) s += `M${n(x)},${n(y)}V${n(y2)}`;
+      }
+      s += `" stroke="${INK}" stroke-width="${n(u * 0.45)}" fill="none"/>`;
+    } else {
+      for (let y = y0; y < -y0 - 0.3; y += 2) {
+        const y2 = Math.min(-y0, y + 2);
+        if (y > y0) s += `M${n(x0)},${n(y)}H${n(-x0)}`;
+        let x = x0 + 1.4 + rng() * 2;
+        while (x < -x0 - 0.8) { s += `M${n(x)},${n(y)}V${n(y2)}`; x += 1.4 + rng() * 2.2; }
+      }
+      s += `" stroke="${INK}" stroke-width="${n(u * 0.6)}" fill="none"/>`;
+    }
+    return s + `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" fill="none" stroke="${INK}" stroke-width="${n(u * 1.3)}"/>`;
+  },
+  deck(it, o) {
+    const w = it.w, h = it.h, u = o.u, x0 = -w / 2, y0 = -h / 2;
+    let s = `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" ${fillOf('deck', o, '#fff')}/><path d="`;
+    for (let y = y0 + 0.6; y < -y0 - 0.2; y += 0.6) s += `M${n(x0)},${n(y)}H${n(-x0)}`;
+    s += `" stroke="${INK}" stroke-width="${n(u * 0.5)}" fill="none"/>`;
+    return s + `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" fill="none" stroke="${INK}" stroke-width="${n(u * 1.3)}"/>`;
+  },
+  veg(it, o) {
+    const w = it.w, h = it.h, u = o.u, x0 = -w / 2, y0 = -h / 2;
+    let s = `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" ${fillOf('veg', o, '#fff')} stroke="${INK}" stroke-width="${n(u * 1.2)}"/>`;
+    let lines = '', dots = '';
+    const rows = Math.max(1, Math.floor(h / 2));
+    const gap = h / rows;
+    for (let k = 0; k < rows; k++) {
+      const y = y0 + gap * (k + 0.5);
+      lines += `M${n(x0 + 0.6)},${n(y)}H${n(-x0 - 0.6)}`;
+      for (let x = x0 + 1.1; x < -x0 - 0.7; x += 1.2) dots += `<circle cx="${n(x)}" cy="${n(y)}" r="0.36"/>`;
+    }
+    s += `<path d="${lines}" stroke="${INK}" stroke-width="${n(u * 0.5)}" fill="none"/>`;
+    return s + `<g fill="${o.color ? '#8DBA62' : '#fff'}" stroke="${INK}" stroke-width="${n(u * 0.55)}">${dots}</g>`;
+  },
+  wood(it, o) {
+    const w = it.w, h = it.h, u = o.u, x0 = -w / 2, y0 = -h / 2;
+    let s = `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" ${fillOf('wood', o, '#fff')} stroke="${INK}" stroke-width="${n(u * 1.2)}"/><g fill="${o.color ? '#E9D2AE' : '#fff'}" stroke="${INK}" stroke-width="${n(u * 0.6)}">`;
+    let row = 0, dots = '';
+    for (let y = y0 + 0.5; y <= -y0 - 0.45; y += 0.74, row++) {
+      for (let x = x0 + 0.5 + (row % 2) * 0.42; x <= -x0 - 0.45; x += 0.85) {
+        s += `<circle cx="${n(x)}" cy="${n(y)}" r="0.38"/>`;
+        dots += `M${n(x - 0.07)},${n(y)}h0.14`;
+      }
+    }
+    return s + `</g><path d="${dots}" stroke="${INK}" stroke-width="${n(u * 1.1)}"/>`;
+  },
+  lawn(it, o, rng) {
+    const w = it.w, h = it.h, u = o.u, rr = Math.min(3, w / 4, h / 4);
+    let s = `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" rx="${n(rr)}" ${fillOf('lawn', o, '#fff')} stroke="${INK}" stroke-width="${n(u * 1.1)}"/><path d="`;
+    const count = Math.min(700, Math.round((w * h) / 2.2)), dr = Math.max(0.06, u * 0.6);
+    for (let i = 0; i < count; i++) {
+      const x = (rng() - 0.5) * (w - 1.2), y = (rng() - 0.5) * (h - 1.2);
+      if (Math.abs(x) > w / 2 - rr && Math.abs(y) > h / 2 - rr && Math.hypot(Math.abs(x) - (w / 2 - rr), Math.abs(y) - (h / 2 - rr)) > rr - 0.6) continue;
+      s += `M${n(x - dr)},${n(y)}h${n(dr * 2)}`;
+    }
+    return s + `" stroke="${INK}" stroke-opacity="0.65" stroke-width="${n(dr * 2)}" stroke-linecap="round"/>`;
+  },
+  bubble(it, o) {
+    const z = ZONES[it.zone] || ZONES.private, u = o.u;
+    const fill = o.color ? `fill="${z.tint}" fill-opacity="0.55"` : 'fill="transparent"';
+    let s = `<ellipse rx="${n(it.w / 2)}" ry="${n(it.h / 2)}" ${fill} stroke="${INK}" stroke-width="${n(u * 1.4)}" stroke-dasharray="${n(u * 7)} ${n(u * 4)}"/>`;
+    if (!o.icon) {
+      const fs = clamp(Math.min(it.w, it.h) * 0.12, 1.2, 2.6);
+      const txt = (it.label || z.name).toUpperCase();
+      s += `<g transform="rotate(${n(-(it.rot || 0))})"><text text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-weight="600" font-size="${n(fs)}" letter-spacing="0.06em" fill="${INK}">${esc(txt)}</text>`;
+      if (it.label) s += `<text y="${n(fs * 1.05)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-weight="500" font-size="${n(fs * 0.6)}" letter-spacing="0.08em" fill="#4A4A4A">${esc(z.name.toUpperCase())} ZONE</text>`;
+      s += '</g>';
+    }
+    return s;
+  },
+  path(it, o) {
+    const d = 'M' + it.pts.map((p) => `${n(p[0])},${n(p[1])}`).join('L'), u = o.u, w = it.width || 4;
+    return `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${n(w + u * 2.4)}" stroke-linejoin="round"/>` +
+      `<path d="${d}" fill="none" stroke="${o.color ? T.path.tint : '#fff'}" stroke-width="${n(w)}" stroke-linejoin="round" stroke-linecap="square" style="stroke-linecap:butt"/>`;
+  },
+  fence(it, o) {
+    const d = 'M' + it.pts.map((p) => `${n(p[0])},${n(p[1])}`).join('L'), u = o.u;
+    let s = `<path d="${d}" fill="none" stroke="${o.color ? '#5B4630' : INK}" stroke-width="${n(u * 1.6)}" stroke-linejoin="round"/>`;
+    const L = polyLen(it.pts), posts = [];
+    for (let k = 0; k <= Math.floor(L / 8); k++) posts.push(pointAlong(it.pts, k * 8));
+    it.pts.forEach((p) => posts.push(p));
+    const ps = Math.max(0.5, u * 4);
+    s += `<g fill="${INK}">` + posts.map((p) => `<rect x="${n(p[0] - ps / 2)}" y="${n(p[1] - ps / 2)}" width="${n(ps)}" height="${n(ps)}"/>`).join('') + '</g>';
+    return s;
+  },
+  arrow(it, o) {
+    const pts = it.pts.map((p) => p.slice()), u = o.u;
+    const a = pts[pts.length - 2], b = pts[pts.length - 1];
+    const L = Math.max(1.4, u * 10), W = L * 0.42, len = dist(a, b) || 1;
+    const ux = (b[0] - a[0]) / len, uy = (b[1] - a[1]) / len;
+    const base = [b[0] - ux * L, b[1] - uy * L];
+    pts[pts.length - 1] = [b[0] - ux * L * 0.7, b[1] - uy * L * 0.7];
+    const d = 'M' + pts.map((p) => `${n(p[0])},${n(p[1])}`).join('L');
+    const col = o.color ? '#0E3A21' : INK;
+    return `<path d="${d}" fill="none" stroke="${col}" stroke-width="${n(u * 2)}" stroke-linejoin="round" stroke-linecap="round"/>` +
+      `<path d="M${n(b[0])},${n(b[1])}L${n(base[0] - uy * W)},${n(base[1] + ux * W)}L${n(base[0] + uy * W)},${n(base[1] - ux * W)}Z" fill="${col}"/>`;
+  },
+  label(it, o) {
+    return `<text text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-weight="600" font-size="${n(it.size)}" letter-spacing="0.04em" fill="${INK}" paint-order="stroke" stroke="#fff" stroke-width="${n(it.size * 0.28)}" stroke-linejoin="round">${esc(it.text || '')}</text>`;
+  },
+};
+
+/* draw one item in world feet. opts: {u, color, types, hit} */
+function drawItem(it, opts) {
+  const t = T[it.type], rng = rngFor(it.id);
+  let inner = DRAW[it.type](it, opts, rng);
+  let g;
+  if (t.kind === 'circle' || t.kind === 'text') g = `<g transform="translate(${n(it.x)} ${n(it.y)})">${inner}</g>`;
+  else if (t.kind === 'box') g = `<g transform="translate(${n(it.x)} ${n(it.y)}) rotate(${n(it.rot || 0)})">${inner}</g>`;
+  else {
+    g = inner;
+    if (opts.hit) g += `<path d="M${it.pts.map((p) => `${n(p[0])},${n(p[1])}`).join('L')}" fill="none" stroke="transparent" stroke-width="${n(Math.max(2, (it.width || 0) + 1))}" stroke-linejoin="round"/>`;
+  }
+  g += itemLabel(it, opts);
+  return `<g${opts.hit ? ` data-id="${esc(it.id)}"` : ''}>${g}</g>`;
+}
+function itemLabel(it, opts) {
+  const t = T[it.type];
+  if (t.kind === 'text' || it.type === 'bubble') return '';
+  const lines = [];
+  if (it.label) lines.push(it.label);
+  if (opts.types && t.short) lines.push(t.short);
+  if (!lines.length) return '';
+  const fs = 1.45;
+  let x, y;
+  if (t.kind === 'circle') { x = it.x; y = it.y + it.r + fs * 0.9; }
+  else if (t.kind === 'box') { x = it.x; y = it.y - (lines.length - 1) * fs * 0.6; }
+  else { [x, y] = center(it); y -= (it.width || 0) / 2 + fs * 1.1; }
+  return lines.map((s, i) => `<text x="${n(x)}" y="${n(y + i * fs * 1.15)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-weight="${i === 0 && it.label ? 600 : 500}" font-size="${n(i === 0 && it.label ? fs : fs * 0.8)}" letter-spacing="0.05em" fill="${INK}" paint-order="stroke" stroke="#fff" stroke-width="${n(fs * 0.3)}" stroke-linejoin="round">${esc(s)}</text>`).join('');
+}
+function layerOf(it) { return T[it.type].layer === 'diagram' ? 'diagram' : 'design'; }
+function sortedItems(layer) {
+  return state.items.map((it, i) => [it, i]).filter(([it]) => layerOf(it) === layer)
+    .sort((a, b) => (T[a[0].type].band - T[b[0].type].band) || (a[1] - b[1])).map(([it]) => it);
+}
+
+/* icon for tool buttons, key and schedule */
+const ICON = {
+  circle: { r: 5, vb: [-5.6, -5.6, 11.2, 11.2] },
+  dtree: { r: 5 }, etree: { r: 5 }, bshrub: { r: 5 }, dshrub: { r: 5 }, birdbath: { r: 5 },
+  perennial: { w: 10, h: 6.5, vb: [-5.6, -4.8, 11.2, 9.6] },
+  annual: { w: 10, h: 6.5, vb: [-5.6, -4.8, 11.2, 9.6] },
+  groundcover: { w: 8, h: 5.5, vb: [-4.5, -3.8, 9, 7.6] },
+  patio: { w: 9, h: 7, finish: 'stone', vb: [-5, -4.2, 10, 8.4] },
+  deck: { w: 6, h: 5, vb: [-3.4, -2.9, 6.8, 5.8] },
+  veg: { w: 8, h: 6.5, vb: [-4.6, -3.9, 9.2, 7.8] },
+  wood: { w: 5, h: 3.6, vb: [-2.8, -2.4, 5.6, 4.8] },
+  lawn: { w: 12, h: 9, vb: [-6.6, -5.6, 13.2, 11.2] },
+  bubble: { w: 11, h: 7.4, zone: 'private', vb: [-6, -5, 12, 10] },
+  path: { pts: [[-4, 3], [-1, -0.5], [4, -2]], width: 2.2, vb: [-5.6, -4.8, 11.2, 9.6] },
+  fence: { pts: [[-5, 3], [-1, 3], [4, -3]], vb: [-5.6, -4.8, 11.2, 9.6] },
+  arrow: { pts: [[-4.5, 3], [0, -1], [4.5, -1]], vb: [-5.6, -4.8, 11.2, 9.6] },
+};
+function iconInner(type, boxW, boxH, color) {
+  const spec = ICON[type] || {};
+  const vb = spec.vb || ICON.circle.vb;
+  const it = Object.assign({ id: 'icon-' + type, type, x: 0, y: 0, rot: 0 }, spec);
+  delete it.vb;
+  const sc = Math.min(boxW / vb[2], boxH / vb[3]);
+  const o = { u: 1.15 / sc * (boxW / 40), color, icon: true };
+  return { it, vb, sc, o };
+}
+function iconSVG(type, color) {
+  const { it, vb, o } = iconInner(type, 40, 34, color);
+  o.u = vb[2] / 40 * 1.1;
+  return `<svg viewBox="${vb.join(' ')}" aria-hidden="true" focusable="false">${drawItem(it, o)}</svg>`;
+}
+/* icon placed into a sheet at (cx,cy) inside a box */
+function iconAt(type, cx, cy, bw, bh, color) {
+  const spec = ICON[type] || {};
+  const vb = spec.vb || ICON.circle.vb;
+  const it = Object.assign({ id: 'icon-' + type, type, x: 0, y: 0, rot: 0 }, spec);
+  delete it.vb;
+  const sc = Math.min(bw / vb[2], bh / vb[3]);
+  const o = { u: 1.1 / sc, color, icon: true };
+  return `<g transform="translate(${n(cx - (vb[0] + vb[2] / 2) * sc)} ${n(cy - (vb[1] + vb[3] / 2) * sc)}) scale(${n(sc * 1000) / 1000})">${drawItem(it, o)}</g>`;
+}
+
+/* ------------------------------------------------------------------ state */
+function blankState() {
+  return { version: 1, meta: { name: '', section: '', date: '' }, checklist: WANTS.map(() => false), items: [] };
+}
+let state = blankState();
+let selId = null;
+let tool = 'select';
+const view = { cx: 41, cy: 58, k: 6, site: true, grid: false, diagram: true, design: true, types: false, color: true };
+let hist = [], hIdx = -1, commitTimer = null;
+let checkRun = false;
+let draft = null;       // in-progress polyline {type, pts}
+let hover = null;       // world point under the mouse
+let measure = null;     // {a,b}
+
+function selItem() { return state.items.find((i) => i.id === selId) || null; }
+
+function snapshot() { return JSON.stringify(state); }
+function commit() {
+  clearTimeout(commitTimer); commitTimer = null;
+  const s = snapshot();
+  if (hist[hIdx] === s) return;
+  hist = hist.slice(0, hIdx + 1);
+  hist.push(s);
+  if (hist.length > 200) hist.shift();
+  hIdx = hist.length - 1;
+  autosave(s);
+  renderSide();
+}
+function commitSoon() { clearTimeout(commitTimer); commitTimer = setTimeout(commit, 450); renderSide(true); }
+function flush() { if (commitTimer) commit(); }
+function undo() {
+  flush();
+  if (hIdx <= 0) { toast('Nothing to undo'); return; }
+  hIdx--; restore(hist[hIdx]);
+}
+function redo() {
+  flush();
+  if (hIdx >= hist.length - 1) { toast('Nothing to redo'); return; }
+  hIdx++; restore(hist[hIdx]);
+}
+function restore(s) {
+  state = JSON.parse(s);
+  if (!selItem()) selId = null;
+  autosave(s);
+  syncMeta(); renderAll();
+}
+function autosave(s) {
+  try { localStorage.setItem(STORE_KEY, s); } catch (e) { /* storage blocked: autosave is a convenience only */ }
+}
+function saveView() {
+  try { localStorage.setItem(VIEW_KEY, JSON.stringify({ site: view.site, grid: view.grid, diagram: view.diagram, design: view.design, types: view.types, color: view.color })); } catch (e) { /* ignore */ }
+}
+
+/* ------------------------------------------------------------------ validation (open file / autosave) */
+function numOr(v, min, max, def) {
+  const x = typeof v === 'number' ? v : parseFloat(v);
+  if (!Number.isFinite(x)) { if (def === undefined) throw new Error('bad number'); return def; }
+  return clamp(x, min, max);
+}
+function cleanState(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error("This file isn't a Scott Residence design file.");
+  if (!Array.isArray(raw.items)) throw new Error("This file doesn't have a list of design items, so it isn't a Scott Residence design file.");
+  if (raw.items.length > 3000) throw new Error('This file has too many items to open.');
+  const st = blankState();
+  const m = raw.meta && typeof raw.meta === 'object' ? raw.meta : {};
+  for (const k of ['name', 'section', 'date']) st.meta[k] = typeof m[k] === 'string' ? m[k].slice(0, 80) : '';
+  if (Array.isArray(raw.checklist)) st.checklist = WANTS.map((_, i) => !!raw.checklist[i]);
+  const seen = new Set();
+  raw.items.forEach((r, i) => {
+    const where = `Item ${i + 1}`;
+    if (!r || typeof r !== 'object') throw new Error(`${where} in the file is damaged.`);
+    const t = T[r.type];
+    if (!t) throw new Error(`${where} has a type this tool doesn't know ("${String(r.type).slice(0, 30)}").`);
+    let id = typeof r.id === 'string' && r.id ? r.id.slice(0, 40) : uid();
+    if (seen.has(id)) id = uid();
+    seen.add(id);
+    const it = { id, type: r.type };
+    try {
+      if (t.kind === 'poly') {
+        if (!Array.isArray(r.pts) || r.pts.length < 2 || r.pts.length > 500) throw 0;
+        it.pts = r.pts.map((p) => { if (!Array.isArray(p)) throw 0; return [numOr(p[0], -200, 300), numOr(p[1], -200, 300)]; });
+        if (r.type === 'path') it.width = numOr(r.width, 1, 30, 4);
+      } else {
+        it.x = numOr(r.x, -200, 300); it.y = numOr(r.y, -200, 300);
+        if (t.kind === 'circle') it.r = numOr(r.r, 0.25, 60, t.d.r);
+        if (t.kind === 'box') { it.w = numOr(r.w, 1, 200, t.d.w); it.h = numOr(r.h, 1, 200, t.d.h); it.rot = numOr(r.rot, -360, 360, 0); }
+        if (t.kind === 'text') { it.text = typeof r.text === 'string' ? r.text.slice(0, 200) : 'Label'; it.size = numOr(r.size, 0.5, 20, 2); }
+      }
+    } catch (e) { throw new Error(`${where} (${t.name.toLowerCase()}) has a missing or bad position or size.`); }
+    if (typeof r.label === 'string' && r.label && t.kind !== 'text') it.label = r.label.slice(0, 120);
+    if (r.type === 'bubble') it.zone = ZONES[r.zone] ? r.zone : 'private';
+    if (r.type === 'patio') it.finish = FINISHES[r.finish] ? r.finish : 'stone';
+    st.items.push(it);
+  });
+  return st;
+}
+
+/* ------------------------------------------------------------------ DOM refs */
+const svg = $('plan');
+const stage = $('stage');
+const NS = 'http://www.w3.org/2000/svg';
+svg.setAttribute('xmlns', NS);
+svg.innerHTML =
+  `<defs><filter id="sheetShadow" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="0.6" stdDeviation="1.2" flood-color="#000" flood-opacity="0.5"/></filter></defs>` +
+  `<rect x="${FIT.x - 2}" y="${FIT.y - 2}" width="${FIT.w + 4}" height="${FIT.h + 4}" fill="#fff" filter="url(#sheetShadow)"/>` +
+  `<g id="gBase" transform="${CORE_T}">${CORE.base.join('')}</g>` +
+  `<g id="gGrid"></g>` +
+  `<g id="gSite" transform="${CORE_T}">${CORE.site.join('')}</g>` +
+  `<g id="gDesign"></g><g id="gDiagram"></g><g id="gOver"></g>`;
+const gGrid = $('gGrid'), gSite = $('gSite'), gDesign = $('gDesign'), gDiagram = $('gDiagram'), gOver = $('gOver');
+const css = document.createElement('style');
+css.textContent = `
+#plan.sel [data-id]{cursor:move}
+#plan.sel [data-h]{cursor:grab}
+#plan.place{cursor:crosshair}
+#plan.space,#plan.space [data-id]{cursor:grab}
+#plan.panning,#plan.panning [data-id]{cursor:grabbing}
+.tool .tlabel{display:block}
+.dlg .btnrow{margin-top:12px}
+.dlg .warn{background:#3A3320;border:1px solid #8A7428;color:#F5E3A3;padding:8px 10px;border-radius:3px;font-size:14px}
+.dlg .err{background:#3D2320;border:1px solid #8E4338;color:#F6C2B9;padding:8px 10px;border-radius:3px}
+.dlg .fmt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}
+.dlg .fmt .btn{flex-direction:column;justify-content:center;min-height:64px;text-align:center}
+.dlg .fmt .btn small{font-weight:400;color:var(--muted);font-size:12px}
+.dlg .fmt .btn.gold small{color:#3D3300}
+.dlg .preview{background:#1A1B19;border:1px solid #000;padding:12px;border-radius:2px;margin-bottom:10px}
+.dlg .preview img{max-height:46vh;background:#fff;margin:0 auto}
+.sched td.ic{width:34px}.sched td.ic .chip{display:grid;place-items:center;width:28px;height:24px;border-radius:2px;background:#ECECE6}.sched td.ic svg{width:26px;height:22px;display:block}
+.sched td small{display:block;color:var(--muted);font-size:12px}
+.props-h{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:500;font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.05em}
+.props-h .chip{width:28px;height:24px;border-radius:2px;background:#ECECE6;display:grid;place-items:center}.props-h .chip svg{width:26px;height:22px}
+.issues li.ok{color:#BFE8CB}
+.issues li.note .dot{background:var(--gold)}
+@media (max-width:560px){.dlg .fmt{grid-template-columns:1fr}}
+`;
+document.head.appendChild(css);
+
+/* ------------------------------------------------------------------ view / zoom */
+function size() { const r = svg.getBoundingClientRect(); return { W: Math.max(1, r.width), H: Math.max(1, r.height), L: r.left, T: r.top }; }
+function applyView() {
+  const { W, H } = size();
+  svg.setAttribute('viewBox', `${n(view.cx - W / 2 / view.k)} ${n(view.cy - H / 2 / view.k)} ${n(W / view.k)} ${n(H / view.k)}`);
+  renderOverlay();
+  renderRulers();
+  $('sbZoom').innerHTML = `Zoom <b>${Math.round(view.k / PX * 100)}%</b>`;
+}
+function rulerMarks(len, w0, k, vertical) {
+  const major = [1, 2, 5, 10, 20, 50].find((s) => s * k >= 56) || 50;
+  const minor = major / (major % 5 === 0 ? 5 : 2);
+  let d = '', txt = '';
+  const start = Math.ceil(w0 / minor) * minor;
+  for (let v = start; (v - w0) * k <= len; v += minor) {
+    const px = n((v - w0) * k) + 0.5;
+    const isMaj = Math.abs(v / major - Math.round(v / major)) < 1e-6;
+    const L = isMaj ? 20 : (Math.abs(v / (major / 2) - Math.round(v / (major / 2))) < 1e-6 ? 8 : 5);
+    d += vertical ? `M${20 - L},${px}H20` : `M${px},${20 - L}V20`;
+    if (isMaj) {
+      const lab = Math.round(v * 10) / 10;
+      txt += vertical ? `<text x="9" y="${px + 3}" transform="rotate(-90 9 ${px + 3})" text-anchor="start">${lab}</text>` : `<text x="${px + 3}" y="9">${lab}</text>`;
+    }
+  }
+  return `<path d="${d}" stroke="#7D8077" stroke-width="1" fill="none"/><g fill="#A9ACA2" font-size="9" font-family="'Source Sans 3',Arial,sans-serif">${txt}</g>` +
+    `<line id="${vertical ? 'rlCur' : 'rtCur'}" ${vertical ? 'x1="0" x2="20"' : 'y1="0" y2="20"'} stroke="#FFCE00" stroke-width="1" visibility="hidden"/>`;
+}
+function renderRulers() {
+  const top = $('rulerTop'), left = $('rulerLeft');
+  if (!top || !top.clientWidth) return;
+  const { W, H } = size();
+  top.innerHTML = rulerMarks(W, view.cx - W / 2 / view.k, view.k, false);
+  left.innerHTML = rulerMarks(H, view.cy - H / 2 / view.k, view.k, true);
+}
+function trackCursor(p) {
+  const { W, H } = size();
+  const rt = $('rtCur'), rl = $('rlCur');
+  if (p) {
+    $('sbXY').innerHTML = `X <b>${p[0].toFixed(1)}</b> ft &nbsp; Y <b>${p[1].toFixed(1)}</b> ft`;
+    const x = n((p[0] - (view.cx - W / 2 / view.k)) * view.k) + 0.5, y = n((p[1] - (view.cy - H / 2 / view.k)) * view.k) + 0.5;
+    if (rt) { rt.setAttribute('x1', x); rt.setAttribute('x2', x); rt.setAttribute('visibility', 'visible'); }
+    if (rl) { rl.setAttribute('y1', y); rl.setAttribute('y2', y); rl.setAttribute('visibility', 'visible'); }
+  } else {
+    $('sbXY').innerHTML = 'X <b>—</b> &nbsp; Y <b>—</b>';
+    if (rt) rt.setAttribute('visibility', 'hidden');
+    if (rl) rl.setAttribute('visibility', 'hidden');
+  }
+}
+function statusSel() {
+  const it = selItem(), el = $('sbSel');
+  if (!el) return;
+  if (!it) { el.textContent = draft ? `Drawing ${T[draft.type].name.toLowerCase()} · ${draft.pts.length} point${draft.pts.length === 1 ? '' : 's'}` : 'Nothing selected'; return; }
+  const t = T[it.type];
+  let s = T[it.type].name + (it.label ? ` “${it.label}”` : '');
+  if (t.kind === 'circle') s += ` · ${n(it.r * 2)} ft spread · at ${it.x.toFixed(1)}, ${it.y.toFixed(1)}`;
+  if (t.kind === 'box') s += ` · ${n(it.w)} × ${n(it.h)} ft · ${Math.round(it.type === 'perennial' || it.type === 'annual' || it.type === 'bubble' ? Math.PI * it.w * it.h / 4 : it.w * it.h)} sq ft${it.rot ? ` · ${it.rot}°` : ''}`;
+  if (t.kind === 'poly') s += ` · ${polyLen(it.pts).toFixed(1)} ft long${it.type === 'path' ? ` · ${Math.round(polyLen(it.pts) * it.width)} sq ft` : ''}`;
+  if (t.kind === 'text') s += ` · “${it.text}”`;
+  el.textContent = s;
+}
+function fitK() { const { W, H } = size(); return Math.min(W / FIT.w, H / FIT.h) * 0.96; }
+function fit() { view.k = fitK(); view.cx = FIT.x + FIT.w / 2; view.cy = FIT.y + FIT.h / 2; applyView(); }
+function toWorld(cx, cy) {
+  const { W, H, L, T: Tp } = size();
+  return [view.cx + (cx - L - W / 2) / view.k, view.cy + (cy - Tp - H / 2) / view.k];
+}
+function zoomAt(sx, sy, f) {
+  const p = toWorld(sx, sy);
+  const { W, H, L, T: Tp } = size();
+  view.k = clamp(view.k * f, fitK() * 0.5, 90);
+  view.cx = p[0] - (sx - L - W / 2) / view.k;
+  view.cy = p[1] - (sy - Tp - H / 2) / view.k;
+  applyView();
+}
+function zoomCenter(f) { const { W, H, L, T: Tp } = size(); zoomAt(L + W / 2, Tp + H / 2, f); }
+function centerOn(p) { view.cx = p[0]; view.cy = p[1]; if (view.k < fitK() * 1.6) view.k = fitK() * 1.6; applyView(); }
+
+/* ------------------------------------------------------------------ rendering */
+function gridMarkup() {
+  let d = '';
+  for (let x = 0; x <= LOT.w; x += 10) d += `M${x},0V${LOT.h}`;
+  for (let y = 0; y <= LOT.h; y += 10) d += `M0,${y}H${LOT.w}`;
+  return `<path d="${d}" stroke="#6E9FC2" stroke-opacity="0.55" stroke-width="0.07" fill="none"/>`;
+}
+const PLAN_U = 0.125;
+function renderPlan() {
+  const o = { u: PLAN_U, color: view.color, types: view.types, hit: true };
+  gDesign.innerHTML = sortedItems('design').map((it) => drawItem(it, o)).join('');
+  gDiagram.innerHTML = sortedItems('diagram').map((it) => drawItem(it, o)).join('');
+  gSite.style.display = view.site ? '' : 'none';
+  gGrid.innerHTML = view.grid ? gridMarkup() : '';
+  gDesign.style.display = view.design ? '' : 'none';
+  gDiagram.style.display = view.diagram ? '' : 'none';
+  svg.style.filter = view.color ? '' : 'grayscale(1)';
+  renderOverlay();
+}
+function handle(x, y, h, k, fill) {
+  return `<circle data-h="${h}" cx="${n(x)}" cy="${n(y)}" r="${n(7 / k)}" fill="${fill || '#fff'}" stroke="${GREEN}" stroke-width="${n(2 / k)}"/>`;
+}
+function renderOverlay() {
+  const k = view.k, sw = n(1.5 / k);
+  let s = '';
+  const it = selItem();
+  if (it && (layerOf(it) === 'design' ? view.design : view.diagram)) {
+    const t = T[it.type], dash = `stroke-dasharray="${n(5 / k)} ${n(4 / k)}"`;
+    if (t.kind === 'circle') {
+      s += `<circle cx="${n(it.x)}" cy="${n(it.y)}" r="${n(it.r + 4 / k)}" fill="none" stroke="${GREEN}" stroke-width="${sw}" ${dash}/>`;
+      const a = -Math.PI / 4;
+      s += `<line x1="${n(it.x)}" y1="${n(it.y)}" x2="${n(it.x + it.r * Math.cos(a))}" y2="${n(it.y + it.r * Math.sin(a))}" stroke="${GREEN}" stroke-width="${sw}" ${dash}/>`;
+      s += handle(it.x + it.r * Math.cos(a), it.y + it.r * Math.sin(a), 'r', k);
+    } else if (t.kind === 'box') {
+      const pad = 4 / k, w = it.w / 2 + pad, h = it.h / 2 + pad;
+      const c = [[-w, -h], [w, -h], [w, h], [-w, h]].map((p) => toWorldPt(it, p));
+      s += `<path d="M${c.map((p) => `${n(p[0])},${n(p[1])}`).join('L')}Z" fill="none" stroke="${GREEN}" stroke-width="${sw}" ${dash}/>`;
+      const top = toWorldPt(it, [0, -h]), rh = toWorldPt(it, [0, -h - 26 / k]);
+      s += `<line x1="${n(top[0])}" y1="${n(top[1])}" x2="${n(rh[0])}" y2="${n(rh[1])}" stroke="${GREEN}" stroke-width="${sw}"/>`;
+      const sz = toWorldPt(it, [it.w / 2, it.h / 2]);
+      s += handle(sz[0], sz[1], 'size', k) + handle(rh[0], rh[1], 'rot', k, '#FFCE00');
+    } else if (t.kind === 'poly') {
+      s += `<path d="M${it.pts.map((p) => `${n(p[0])},${n(p[1])}`).join('L')}" fill="none" stroke="${GREEN}" stroke-width="${sw}" ${dash}/>`;
+      it.pts.forEach((p, i) => { s += handle(p[0], p[1], 'v' + i, k); });
+    } else {
+      const w = Math.max(2, (it.text || '').length * it.size * 0.33) + 4 / k, h = it.size * 0.65 + 4 / k;
+      s += `<rect x="${n(it.x - w)}" y="${n(it.y - h)}" width="${n(w * 2)}" height="${n(h * 2)}" fill="none" stroke="${GREEN}" stroke-width="${sw}" ${dash}/>`;
+    }
+  }
+  // ghost preview
+  if (hover && T[tool] && T[tool].kind !== 'poly' && !draft) {
+    const g = newItem(tool, hover);
+    s += `<g opacity="0.5" pointer-events="none">${drawItem(g, { u: PLAN_U, color: view.color, types: false })}</g>`;
+  }
+  // polyline draft
+  if (draft) {
+    const pts = draft.pts.concat(hover ? [hover] : []);
+    if (pts.length >= 2) {
+      const g = { id: 'draft', type: draft.type, pts, width: T[draft.type].d.width };
+      s += `<g opacity="0.6" pointer-events="none">${drawItem(g, { u: PLAN_U, color: view.color })}</g>`;
+    }
+    draft.pts.forEach((p) => { s += `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${n(4 / k)}" fill="${GREEN}" pointer-events="none"/>`; });
+  }
+  // measure
+  if (measure) {
+    const { a, b } = measure, d = dist(a, b), fs = 13 / k;
+    s += `<g pointer-events="none"><line x1="${n(a[0])}" y1="${n(a[1])}" x2="${n(b[0])}" y2="${n(b[1])}" stroke="#B23A2B" stroke-width="${n(2 / k)}" stroke-dasharray="${n(6 / k)} ${n(3 / k)}"/>`;
+    s += `<circle cx="${n(a[0])}" cy="${n(a[1])}" r="${n(3.5 / k)}" fill="#B23A2B"/><circle cx="${n(b[0])}" cy="${n(b[1])}" r="${n(3.5 / k)}" fill="#B23A2B"/>`;
+    if (d > 0.2) {
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      s += `<text x="${n(mx)}" y="${n(my - 8 / k)}" text-anchor="middle" font-family="${FONT}" font-weight="600" font-size="${n(fs)}" fill="#7D251A" paint-order="stroke" stroke="#fff" stroke-width="${n(4 / k)}" stroke-linejoin="round">${n(r1(d))} FT (${ftIn(d)})</text>`;
+    }
+    s += '</g>';
+  }
+  gOver.innerHTML = s;
+  statusSel();
+}
+
+/* ------------------------------------------------------------------ side panels */
+function toolName(tl) { return T[tl] ? T[tl].name : BASIC.find((b) => b[0] === tl)[1]; }
+function toolIcon(tl) {
+  const b = BASIC.find((x) => x[0] === tl);
+  if (b) return `<svg viewBox="0 0 24 24" aria-hidden="true">${b[2]}</svg>`;
+  return iconSVG(tl, view.color);
+}
+function renderTools() {
+  $('toolsBasic').innerHTML = BASIC.map(([id, name, ico]) =>
+    `<button type="button" class="tool line" data-tool="${id}" aria-pressed="false" aria-label="${name} (${KEYS[id]})" aria-keyshortcuts="${KEYS[id]}"><svg viewBox="0 0 24 24" aria-hidden="true">${ico}</svg><span class="key" aria-hidden="true">${KEYS[id]}</span><span class="tlabel">${name}</span></button>`).join('');
+  for (const [el, types] of TOOL_GROUPS) {
+    $(el).innerHTML = types.map((t) => `<button type="button" class="tool" data-tool="${t}" aria-pressed="false" aria-label="${esc(T[t].name)} (${KEYS[t]})" aria-keyshortcuts="${KEYS[t]}"><span class="chip">${iconSVG(t, view.color)}</span><span class="key" aria-hidden="true">${KEYS[t]}</span><span class="tlabel">${esc(T[t].name)}</span></button>`).join('');
+  }
+  document.querySelectorAll('[data-tool]').forEach((b) => {
+    b.addEventListener('click', () => setTool(b.dataset.tool));
+    b.addEventListener('mouseenter', () => showTip(b));
+    b.addEventListener('focus', () => showTip(b));
+    b.addEventListener('mouseleave', hideTip);
+    b.addEventListener('blur', hideTip);
+  });
+}
+const tipEl = $('tip');
+function showTip(b) {
+  if (matchMedia('(pointer: coarse)').matches) return;
+  const tl = b.dataset.tool, r = b.getBoundingClientRect();
+  tipEl.innerHTML = `<b>${esc(toolName(tl))}</b> &nbsp;<kbd>${KEYS[tl]}</kbd><small>${esc(TIPS[tl] || '')}</small>`;
+  const below = innerWidth <= 1000;
+  tipEl.style.left = (below ? Math.min(r.left, innerWidth - 250) : r.right + 8) + 'px';
+  tipEl.style.top = (below ? r.bottom + 6 : r.top) + 'px';
+  tipEl.classList.add('show');
+}
+function hideTip() { tipEl.classList.remove('show'); }
+function hintFor(tl) {
+  const t = T[tl];
+  const touch = matchMedia('(pointer: coarse)').matches;
+  const click = touch ? 'Tap' : 'Click';
+  if (tl === 'select') return state.items.length ? (touch ? 'Drag to pan, pinch to zoom. Tap anything you placed to edit it.' : '') : `Pick a tool, then ${click.toLowerCase()} the plan to place it.`;
+  if (tl === 'measure') return 'Drag between two points to measure the distance in feet.';
+  if (tl === 'label') return `${click} where the label should go, then type it in the panel on the right.`;
+  if (t.kind === 'poly') {
+    if (draft && draft.pts.length) return `${click} to add the next point. ${touch ? 'Double-tap' : 'Double-click or press Enter'} to finish. Esc cancels.`;
+    return `${click} the plan to start the ${t.name.toLowerCase()}, then ${click.toLowerCase()} each corner.`;
+  }
+  if (t.stay) return `${click} the plan to place a ${t.name.toLowerCase()}. Keep ${touch ? 'tapping' : 'clicking'} to add more. Press Esc when you're done.`;
+  return `${click} the plan to place the ${t.name.toLowerCase()}. Then drag its corner dot to resize it.`;
+}
+function setTool(tl) {
+  if (draft && tl !== tool) finishDraft();
+  tool = tl;
+  measure = tl === 'measure' ? measure : null;
+  if (T[tl] && T[tl].kind !== 'text') {
+    const L = layerOf({ type: tl });
+    if (L === 'design' && !view.design) { view.design = true; $('tDesign').checked = true; renderPlan(); toast('Design layer turned on'); }
+    if (L === 'diagram' && !view.diagram) { view.diagram = true; $('tDiagram').checked = true; renderPlan(); toast('Functional diagram turned on'); }
+  }
+  document.querySelectorAll('[data-tool]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.tool === tl ? 'true' : 'false'));
+  svg.classList.toggle('sel', tl === 'select');
+  svg.classList.toggle('place', tl !== 'select');
+  $('hint').textContent = hintFor(tl);
+  const line = !T[tl];
+  $('optTool').innerHTML = `<span class="chip${line ? ' line' : ''}">${toolIcon(tl)}</span>${esc(toolName(tl))}`;
+  if (!T[tl]) hover = null;
+  renderOverlay();
+}
+
+function renderClient() {
+  $('clientList').innerHTML = WANTS.map((w, i) =>
+    `<label class="check"><input type="checkbox" data-want="${i}" ${state.checklist[i] ? 'checked' : ''}> <span>${esc(w)}</span></label>`).join('');
+}
+function renderSched() {
+  const counts = {}, labels = {};
+  for (const it of state.items) {
+    if (!T[it.type].sched) continue;
+    counts[it.type] = (counts[it.type] || 0) + 1;
+    if (it.label) { labels[it.type] = labels[it.type] || {}; labels[it.type][it.label] = (labels[it.type][it.label] || 0) + 1; }
+  }
+  const keys = Object.keys(T).filter((t) => counts[t]);
+  if (!keys.length) { $('sched').innerHTML = '<tr><td class="muted">No plants or beds placed yet.</td></tr>'; return; }
+  let total = 0;
+  $('sched').innerHTML = keys.map((t) => {
+    total += counts[t];
+    const sub = labels[t] ? `<small>${Object.entries(labels[t]).map(([l, c]) => esc(l) + (c > 1 ? ' ×' + c : '')).join(', ')}</small>` : '';
+    return `<tr><td class="ic"><span class="chip">${iconSVG(t, view.color)}</span></td><td>${esc(T[t].name)}${sub}</td><td class="n">${counts[t]}</td></tr>`;
+  }).join('') + `<tr><td></td><td><strong>Total</strong></td><td class="n">${total}</td></tr>`;
+}
+function renderSide(light) {
+  if (!light) renderSched();
+  $('sbCount').textContent = `${state.items.length} item${state.items.length === 1 ? '' : 's'}`;
+  $('wantsBadge').textContent = `${state.checklist.filter(Boolean).length}/${WANTS.length}`;
+  if (checkRun) runCheck();
+  $('bUndo').disabled = hIdx <= 0;
+  $('bRedo').disabled = hIdx >= hist.length - 1;
+}
+
+/* properties panel */
+function nameOf(it) {
+  const same = state.items.filter((i) => i.type === it.type);
+  const base = T[it.type].name;
+  if (it.label) return `${base} “${it.label}”`;
+  return same.length > 1 ? `${base} ${same.indexOf(it) + 1}` : base;
+}
+function fld(label, input) { return `<div class="field"><label>${label}${input}</label></div>`; }
+function numInput(f, v, min, max, step) {
+  return `<input type="number" data-f="${f}" value="${n(v)}" min="${min}" max="${max}" step="${step}" inputmode="decimal">`;
+}
+function renderProps() {
+  const it = selItem(), P = $('props');
+  if (!it) {
+    P.innerHTML = '<p class="muted">Pick a tool on the left and click the plan to place it. Click anything you placed to move, resize or label it.</p><p class="muted" style="margin-top:8px">Hover a tool to see its shortcut key.</p>';
+    return;
+  }
+  const t = T[it.type];
+  let h = `<p class="props-h"><span class="chip">${iconSVG(it.type, view.color)}</span>${esc(t.name)}</p>`;
+  const lab = (txt) => `<span style="display:block;margin-bottom:4px">${txt}</span>`;
+  if (t.kind === 'circle') h += fld(lab(it.type === 'birdbath' ? 'Size (ft)' : 'Spread (ft)'), numInput('spread', it.r * 2, 0.5, 120, 0.5));
+  if (t.kind === 'box') {
+    h += `<div class="row2">${fld(lab('Width (ft)'), numInput('w', it.w, 1, 200, 0.5))}${fld(lab('Length (ft)'), numInput('h', it.h, 1, 200, 0.5))}</div>`;
+    h += fld(lab('Rotation (°)'), numInput('rot', it.rot || 0, -360, 360, 5));
+  }
+  if (it.type === 'bubble') h += fld(lab('Zone'), `<select data-f="zone">${Object.entries(ZONES).map(([k, z]) => `<option value="${k}" ${it.zone === k ? 'selected' : ''}>${z.name}</option>`).join('')}</select>`);
+  if (it.type === 'patio') h += fld(lab('Surface'), `<select data-f="finish">${Object.entries(FINISHES).map(([k, z]) => `<option value="${k}" ${(it.finish || 'stone') === k ? 'selected' : ''}>${z}</option>`).join('')}</select>`);
+  if (it.type === 'path') h += fld(lab('Path width (ft)'), numInput('width', it.width || 4, 1, 30, 0.5));
+  if (t.kind === 'text') {
+    h += fld(lab('Text'), `<input type="text" data-f="text" value="${esc(it.text || '')}" maxlength="200">`);
+    h += fld(lab('Text size (ft)'), numInput('size', it.size, 0.5, 20, 0.25));
+  } else {
+    const ph = t.tree ? 'e.g. Red maple' : t.sched ? 'e.g. Daylilies' : it.type === 'bubble' ? 'e.g. Cookouts' : 'Optional';
+    h += fld(lab(it.type === 'bubble' ? 'Label (blank shows the zone)' : 'Label'), `<input type="text" data-f="label" value="${esc(it.label || '')}" placeholder="${ph}" maxlength="120">`);
+  }
+  if (t.kind === 'poly') h += `<p class="muted" style="margin-bottom:10px">Drag a corner dot to reshape. ${polyLen(it.pts).toFixed(1)} ft long.</p>`;
+  h += `<div class="btnrow"><button type="button" class="btn" data-act="dup">Duplicate</button><button type="button" class="btn danger" data-act="del">Delete</button></div>`;
+  h += `<div class="btnrow" style="margin-top:6px"><button type="button" class="btn" data-act="front">Bring to front</button><button type="button" class="btn" data-act="back">Send to back</button></div>`;
+  P.innerHTML = h;
+}
+function syncPropsValues() {
+  const it = selItem();
+  if (!it) return;
+  const set = (f, v) => { const el = $('props').querySelector(`[data-f="${f}"]`); if (el && document.activeElement !== el) el.value = n(v); };
+  if (T[it.type].kind === 'circle') set('spread', it.r * 2);
+  if (T[it.type].kind === 'box') { set('w', it.w); set('h', it.h); set('rot', it.rot || 0); }
+}
+$('props').addEventListener('input', (e) => {
+  const f = e.target.dataset.f, it = selItem();
+  if (!f || !it) return;
+  const v = e.target.value;
+  const num = parseFloat(v);
+  const okNum = Number.isFinite(num);
+  switch (f) {
+    case 'spread': if (okNum) it.r = clamp(num / 2, 0.25, 60); break;
+    case 'w': if (okNum) it.w = clamp(num, 1, 200); break;
+    case 'h': if (okNum) it.h = clamp(num, 1, 200); break;
+    case 'rot': if (okNum) it.rot = num % 360; break;
+    case 'width': if (okNum) it.width = clamp(num, 1, 30); break;
+    case 'size': if (okNum) it.size = clamp(num, 0.5, 20); break;
+    case 'text': it.text = v.slice(0, 200); break;
+    case 'label': if (v) it.label = v.slice(0, 120); else delete it.label; break;
+    case 'zone': it.zone = ZONES[v] ? v : 'private'; break;
+    case 'finish': it.finish = FINISHES[v] ? v : 'stone'; break;
+  }
+  renderPlan();
+  commitSoon();
+  if (f === 'label') renderSched();
+});
+$('props').addEventListener('change', (e) => { if (e.target.dataset.f) commit(); });
+$('props').addEventListener('click', (e) => {
+  const a = e.target.closest('[data-act]');
+  if (!a) return;
+  ({ dup: duplicate, del: removeSel, front: () => reorder(1), back: () => reorder(-1) })[a.dataset.act]();
+});
+
+function select(id) {
+  if (selId === id) return;
+  flush();
+  selId = id;
+  renderProps();
+  renderOverlay();
+}
+function removeSel() {
+  const it = selItem();
+  if (!it) return;
+  state.items = state.items.filter((i) => i !== it);
+  selId = null;
+  renderProps(); renderPlan(); commit();
+  toast(`${T[it.type].name} deleted`);
+}
+function duplicate() {
+  const it = selItem();
+  if (!it) return;
+  const c = clone(it);
+  c.id = uid();
+  moveItem(c, 3, 3);
+  state.items.push(c);
+  selId = c.id;
+  renderProps(); renderPlan(); commit();
+}
+function reorder(dir) {
+  const it = selItem();
+  if (!it) return;
+  state.items = state.items.filter((i) => i !== it);
+  if (dir > 0) state.items.push(it); else state.items.unshift(it);
+  renderPlan(); commit();
+  toast(dir > 0 ? 'Brought to front' : 'Sent to back');
+}
+function moveItem(it, dx, dy) {
+  if (T[it.type].kind === 'poly') it.pts = it.pts.map((p) => [r1(p[0] + dx), r1(p[1] + dy)]);
+  else { it.x = r1(it.x + dx); it.y = r1(it.y + dy); }
+}
+
+/* ------------------------------------------------------------------ placing */
+function newItem(type, p) {
+  const t = T[type];
+  const it = Object.assign({ id: uid(), type }, clone(t.d));
+  if (t.kind === 'poly') return it;
+  it.x = r1(p[0]); it.y = r1(p[1]);
+  if (t.kind === 'box') it.rot = 0;
+  if (t.kind === 'text') it.text = 'Label';
+  return it;
+}
+function placeAt(p) {
+  const t = T[tool];
+  if (!t) return;
+  if (t.kind === 'poly') { polyClick(p); return; }
+  const it = newItem(tool, p);
+  state.items.push(it);
+  if (t.stay) {
+    selId = it.id; renderProps(); renderPlan(); commit();
+    return;
+  }
+  selId = it.id;
+  setTool('select');
+  renderProps(); renderPlan(); commit();
+  if (t.kind === 'text') {
+    const inp = $('props').querySelector('[data-f="text"]');
+    if (inp) { inp.focus(); inp.select(); }
+  }
+}
+let lastTap = { t: 0, x: 0, y: 0 };
+function polyClick(p, sx, sy) {
+  const now = performance.now();
+  const dbl = draft && now - lastTap.t < 380 && Math.hypot(sx - lastTap.x, sy - lastTap.y) < 12;
+  lastTap = { t: now, x: sx, y: sy };
+  if (dbl) { finishDraft(); return; }
+  if (!draft) draft = { type: tool, pts: [] };
+  const last = draft.pts[draft.pts.length - 1];
+  if (!last || dist(last, p) > 0.3) draft.pts.push([r1(p[0]), r1(p[1])]);
+  $('hint').textContent = hintFor(tool);
+  renderOverlay();
+}
+function finishDraft() {
+  const d = draft;
+  draft = null;
+  if (!d || d.pts.length < 2) { renderOverlay(); $('hint').textContent = hintFor(tool); if (d) toast('A line needs at least two points'); return; }
+  const it = newItem(d.type, null);
+  it.pts = d.pts;
+  state.items.push(it);
+  selId = it.id;
+  setTool('select');
+  renderProps(); renderPlan(); commit();
+}
+function cancelDraft() { draft = null; $('hint').textContent = hintFor(tool); renderOverlay(); }
+
+/* ------------------------------------------------------------------ pointer input */
+const pointers = new Map();
+let spaceDown = false;
+let drag = null, pinch = null;
+svg.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
+  try { svg.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  pointers.set(e.pointerId, [e.clientX, e.clientY]);
+  if (pointers.size === 2) {
+    if (drag && (drag.mode === 'move' || drag.mode === 'handle') && drag.moved) commit();
+    drag = null;
+    const [a, b] = [...pointers.values()];
+    pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
+    return;
+  }
+  if (pointers.size > 2) return;
+  e.preventDefault();
+  const p = toWorld(e.clientX, e.clientY);
+  const startPan = () => ({ mode: 'pan', sx: e.clientX, sy: e.clientY, cx: view.cx, cy: view.cy });
+  if (e.button === 1 || spaceDown) { drag = startPan(); svg.classList.add('panning'); return; }
+  if (tool === 'select') {
+    const hEl = e.target.closest('[data-h]');
+    const iEl = e.target.closest('[data-id]');
+    if (hEl && selItem()) { drag = { mode: 'handle', h: hEl.getAttribute('data-h'), orig: clone(selItem()), moved: false }; return; }
+    if (iEl) {
+      select(iEl.getAttribute('data-id'));
+      drag = { mode: 'move', start: p, orig: clone(selItem()), moved: false, sx: e.clientX, sy: e.clientY };
+      return;
+    }
+    select(null);
+    drag = startPan();
+    return;
+  }
+  if (tool === 'measure') { measure = { a: p, b: p }; drag = { mode: 'measure' }; renderOverlay(); return; }
+  drag = Object.assign(startPan(), { mode: 'tap', p });
+});
+svg.addEventListener('pointermove', (e) => {
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, [e.clientX, e.clientY]);
+  if (pinch && pointers.size >= 2) {
+    const [a, b] = [...pointers.values()];
+    const d = Math.hypot(a[0] - b[0], a[1] - b[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    view.cx -= (m[0] - pinch.m[0]) / view.k; view.cy -= (m[1] - pinch.m[1]) / view.k;
+    if (pinch.d > 0) zoomAt(m[0], m[1], d / pinch.d); else applyView();
+    pinch = { d, m };
+    return;
+  }
+  const p = toWorld(e.clientX, e.clientY);
+  trackCursor(p);
+  if (!drag) {
+    if (e.pointerType === 'mouse' && (T[tool] || draft)) { hover = p; renderOverlay(); }
+    return;
+  }
+  const it = selItem();
+  switch (drag.mode) {
+    case 'pan':
+      view.cx = drag.cx - (e.clientX - drag.sx) / view.k;
+      view.cy = drag.cy - (e.clientY - drag.sy) / view.k;
+      svg.classList.add('panning');
+      applyView();
+      break;
+    case 'tap':
+      if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 8) { drag.mode = 'pan'; }
+      else if (e.pointerType === 'mouse') { hover = p; renderOverlay(); }
+      break;
+    case 'move': {
+      if (!it) break;
+      if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 3) break;
+      drag.moved = true;
+      const dx = p[0] - drag.start[0], dy = p[1] - drag.start[1];
+      const o = drag.orig;
+      if (T[it.type].kind === 'poly') it.pts = o.pts.map((q) => [r1(q[0] + dx), r1(q[1] + dy)]);
+      else { it.x = r1(o.x + dx); it.y = r1(o.y + dy); }
+      renderPlan();
+      break;
+    }
+    case 'handle': {
+      if (!it) break;
+      drag.moved = true;
+      const h = drag.h;
+      if (h === 'r') it.r = clamp(r1(dist([it.x, it.y], p)), 0.25, 60);
+      else if (h === 'size') { const l = toLocal(it, p); it.w = clamp(r1(Math.abs(l[0]) * 2), 1, 200); it.h = clamp(r1(Math.abs(l[1]) * 2), 1, 200); }
+      else if (h === 'rot') {
+        let a = Math.atan2(p[1] - it.y, p[0] - it.x) * 180 / Math.PI + 90;
+        a = e.shiftKey ? Math.round(a / 15) * 15 : Math.round(a);
+        if (a > 180) a -= 360;
+        it.rot = a;
+      } else if (h[0] === 'v') { const i = +h.slice(1); if (it.pts[i]) it.pts[i] = [r1(p[0]), r1(p[1])]; }
+      renderPlan(); syncPropsValues();
+      break;
+    }
+    case 'measure': measure.b = p; renderOverlay(); break;
+  }
+});
+function endPointer(e, cancelled) {
+  pointers.delete(e.pointerId);
+  try { svg.releasePointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  if (pinch) { if (pointers.size < 2) pinch = null; drag = null; return; }
+  const d = drag;
+  drag = null;
+  svg.classList.remove('panning');
+  if (!d) return;
+  if ((d.mode === 'move' || d.mode === 'handle') && d.moved) { commit(); renderProps(); }
+  if (d.mode === 'tap' && !cancelled) polyOrPlace(d.p, e.clientX, e.clientY);
+}
+function polyOrPlace(p, sx, sy) {
+  if (T[tool] && T[tool].kind === 'poly') polyClick(p, sx, sy); else placeAt(p);
+}
+svg.addEventListener('pointerup', (e) => endPointer(e, false));
+svg.addEventListener('pointercancel', (e) => endPointer(e, true));
+svg.addEventListener('pointerleave', (e) => { trackCursor(null); if (e.pointerType === 'mouse' && !drag) { hover = null; renderOverlay(); } });
+svg.addEventListener('dblclick', (e) => { e.preventDefault(); if (draft) finishDraft(); });
+svg.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+  zoomAt(e.clientX, e.clientY, Math.exp(-dy * 0.0015));
+}, { passive: false });
+svg.addEventListener('contextmenu', (e) => e.preventDefault());
+$('zIn').addEventListener('click', () => zoomCenter(1.3));
+$('zOut').addEventListener('click', () => zoomCenter(1 / 1.3));
+$('zFit').addEventListener('click', fit);
+if (window.ResizeObserver) new ResizeObserver(() => applyView()).observe(svg);
+else window.addEventListener('resize', applyView);
+
+/* ------------------------------------------------------------------ keyboard */
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  const typing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable;
+  if ($('dlg').open) return;
+  const mod = e.ctrlKey || e.metaKey;
+  if (e.key === 'Escape') {
+    if (typing) { e.target.blur(); return; }
+    if (draft) cancelDraft();
+    else if (tool !== 'select') setTool('select');
+    else if (measure) { measure = null; renderOverlay(); }
+    else select(null);
+    return;
+  }
+  if (typing) return;
+  if (e.key === ' ' && !(e.target.closest && e.target.closest('button,a,summary,label'))) {
+    e.preventDefault();
+    if (!spaceDown) { spaceDown = true; svg.classList.add('space'); }
+    return;
+  }
+  if (!mod && !e.altKey && e.key.length === 1) {
+    const k = e.key.toUpperCase();
+    const hit = Object.entries(KEYS).find(([, v]) => v === k);
+    if (hit) { e.preventDefault(); setTool(hit[0]); return; }
+  }
+  if (mod && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
+  if (mod && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); return; }
+  if (mod && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); duplicate(); return; }
+  if (e.key === 'Enter' && draft) { e.preventDefault(); finishDraft(); return; }
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (draft) { e.preventDefault(); draft.pts.pop(); if (!draft.pts.length) draft = null; renderOverlay(); return; }
+    if (selItem()) { e.preventDefault(); removeSel(); }
+    return;
+  }
+  const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+  if (arrows[e.key] && selItem()) {
+    e.preventDefault();
+    const s = e.shiftKey ? 5 : 1;
+    moveItem(selItem(), arrows[e.key][0] * s, arrows[e.key][1] * s);
+    renderPlan(); commitSoon();
+  }
+});
+
+document.addEventListener('keyup', (e) => { if (e.key === ' ') { spaceDown = false; svg.classList.remove('space'); } });
+window.addEventListener('blur', () => { spaceDown = false; svg.classList.remove('space'); });
+
+/* ------------------------------------------------------------------ design check */
+function runCheck() {
+  checkRun = true;
+  const issues = [];
+  const bldg = [{ poly: HOUSE, name: 'house' }, { poly: GARAGE, name: 'garage' }];
+  const tooClose = new Set();
+  for (const it of state.items) {
+    const t = T[it.type];
+    if (t.tree) {
+      const p = [it.x, it.y];
+      for (const b of bldg) {
+        if (polyDist(p, b.poly) < it.r) issues.push({ id: it.id, msg: `${nameOf(it)}: the canopy hangs over the ${b.name} roof. Move it out or choose a smaller tree.` });
+      }
+      const dh = Math.min(polyDist(p, HOUSE), polyDist(p, GARAGE));
+      if (dh < 15) { tooClose.add(it.id); issues.push({ id: it.id, msg: `${nameOf(it)}: the trunk is only ${dh.toFixed(1)} ft from the house. Keep trees 15–20 ft from the side and 12–15 ft from a corner.` }); }
+      for (const w of WIRES) {
+        if (segDist(p, w.a, w.b) < it.r) issues.push({ id: it.id, msg: `${nameOf(it)}: the canopy reaches ${w.name}. Move it or use a small tree that stays under the wires.` });
+      }
+    }
+    if (layerOf(it) !== 'design' || t.kind === 'text') continue;
+    const fp = footprint(it);
+    if (fp.some(([x, y]) => x < -0.05 || y < -0.05 || x > LOT.w + 0.05 || y > LOT.h + 0.05)) {
+      issues.push({ id: it.id, msg: `${nameOf(it)} goes outside the property line.` });
+    }
+    if (t.kind !== 'poly') {
+      const [cx, cy] = center(it);
+      if (cx > DRIVE.x1 && cx < DRIVE.x2 && cy > DRIVE.y1 && cy < DRIVE.y2) issues.push({ id: it.id, msg: `${nameOf(it)} sits on the driveway.` });
+      else if (!t.tree && (inPoly([cx, cy], HOUSE) || inPoly([cx, cy], GARAGE))) issues.push({ id: it.id, msg: `${nameOf(it)} sits on top of the house or garage.` });
+    }
+  }
+  state.checklist.forEach((v, i) => { if (!v) issues.push({ want: i, msg: `Client wants: “${WANTS[i]}” isn't checked off yet.` }); });
+  const ul = $('issues');
+  if (!issues.length) { ul.innerHTML = '<li class="ok"><span class="dot"></span><span>No problems found. Nice work.</span></li>'; return; }
+  ul.innerHTML = issues.map((s, i) =>
+    `<li class="${s.want !== undefined ? 'note' : ''}"><span class="dot"></span><span>${esc(s.msg)}</span><button type="button" data-issue="${i}">Show</button></li>`).join('');
+  ul.querySelectorAll('[data-issue]').forEach((b) => b.addEventListener('click', () => {
+    const s = issues[+b.dataset.issue];
+    if (s.id) {
+      const it = state.items.find((x) => x.id === s.id);
+      if (!it) return;
+      if (tool !== 'select') setTool('select');
+      if (layerOf(it) === 'design' && !view.design) { view.design = true; $('tDesign').checked = true; renderPlan(); }
+      select(it.id); centerOn(center(it));
+    } else {
+      const cb = $('clientList').querySelector(`[data-want="${s.want}"]`);
+      if (cb) { cb.scrollIntoView({ block: 'center', behavior: 'smooth' }); cb.focus(); }
+    }
+  }));
+}
+$('bCheck').addEventListener('click', () => { flush(); runCheck(); });
+
+/* ------------------------------------------------------------------ toggles, meta, client list */
+const TOGGLES = { tSite: 'site', tGrid: 'grid', tDiagram: 'diagram', tDesign: 'design', tTypes: 'types', tColor: 'color' };
+for (const [id, key] of Object.entries(TOGGLES)) {
+  $(id).addEventListener('change', (e) => {
+    view[key] = e.target.checked;
+    if ((key === 'design' || key === 'diagram') && !view[key]) { const it = selItem(); if (it && layerOf(it) === key) select(null); }
+    renderPlan(); saveView();
+    if (key === 'color') { renderTools(); setTool(tool); renderSched(); }
+  });
+}
+const META = { fName: 'name', fSection: 'section', fDate: 'date' };
+function syncMeta() {
+  for (const [id, k] of Object.entries(META)) $(id).value = state.meta[k] || '';
+  renderClient();
+}
+for (const [id, k] of Object.entries(META)) {
+  $(id).setAttribute('maxlength', 80);
+  $(id).addEventListener('input', (e) => { state.meta[k] = e.target.value.slice(0, 80); commitSoon(); });
+}
+$('clientList').addEventListener('change', (e) => {
+  const i = e.target.dataset.want;
+  if (i === undefined) return;
+  state.checklist[+i] = e.target.checked;
+  commit();
+});
+
+/* ------------------------------------------------------------------ dialog, toast */
+const dlg = $('dlg');
+function openDialog(html) {
+  $('dlgBody').innerHTML = html;
+  if (!dlg.open) { try { dlg.showModal(); } catch (e) { dlg.setAttribute('open', ''); } }
+  const first = $('dlgBody').querySelector('[autofocus]') || $('dlgBody').querySelector('button');
+  if (first) first.focus();
+}
+function closeDialog() { try { dlg.close(); } catch (e) { dlg.removeAttribute('open'); } }
+dlg.addEventListener('click', (e) => {
+  if (e.target === dlg) closeDialog();
+  if (e.target.closest('[data-close]')) closeDialog();
+});
+let toastTimer;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ------------------------------------------------------------------ files: save / open */
+function slug() {
+  const s = (state.meta.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return 'scott-design' + (s ? '-' + s : '');
+}
+let dlCap;
+async function downloadsCap() {
+  if (dlCap !== undefined) return dlCap;
+  dlCap = null;
+  try { if (window.claude && window.claude.use) dlCap = (await window.claude.use('downloads')) || null; } catch (e) { dlCap = null; }
+  return dlCap;
+}
+/* returns 'saved' | 'declined' | 'fallback' */
+async function saveBlob(filename, blob) {
+  const dl = await downloadsCap();
+  if (dl) {
+    try { await dl.save({ filename, data: blob }); return 'saved'; } catch (e) {
+      if (e && e.code === 'declined') return 'declined';
+      return 'fallback';
+    }
+  }
+  if (window.claude) return 'fallback';           // sandboxed artifact frame: <a download> is refused
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    return 'saved';
+  } catch (e) { return 'fallback'; }
+}
+function designJSON() { return JSON.stringify(state, null, 1); }
+function jsonFallback(note) {
+  openDialog(`<h3>Copy your design file</h3><p>${note || "Your browser didn't let this page save a file."} Copy the text below and paste it into a new file named <strong>${esc(slug())}.json</strong>. To reopen it later, use Open file and paste it back in.</p>
+    <textarea id="jsonOut" readonly aria-label="Design file text">${esc(designJSON())}</textarea>
+    <div class="btnrow"><button type="button" class="btn gold" id="bCopy">Copy</button><button type="button" class="btn" data-close>Close</button></div>`);
+  $('bCopy').addEventListener('click', () => copyText($('jsonOut')));
+}
+async function copyText(ta) {
+  try { await navigator.clipboard.writeText(ta.value); toast('Copied'); return; } catch (e) { /* fall through */ }
+  ta.focus(); ta.select();
+  try { document.execCommand('copy'); toast('Copied'); } catch (e) { toast('Select the text and copy it'); }
+}
+async function saveDesign() {
+  flush();
+  const r = await saveBlob(slug() + '.json', new Blob([designJSON()], { type: 'application/json' }));
+  if (r === 'saved') toast('Design file saved');
+  else if (r === 'declined') toast('Save canceled');
+  else jsonFallback();
+}
+$('bSave').addEventListener('click', saveDesign);
+
+function loadState(st, msg) {
+  state = st;
+  selId = null; draft = null; measure = null;
+  syncMeta(); renderAll(); commit();
+  toast(msg);
+}
+function openFromText(text) {
+  let raw;
+  try { raw = JSON.parse(text); } catch (e) { throw new Error("This doesn't look like a design file. Design files end in .json and come from Save file."); }
+  return cleanState(raw);
+}
+function showOpen(err) {
+  openDialog(`<h3>Open a design file</h3>
+    ${err ? `<p class="err" role="alert">${esc(err)}</p>` : ''}
+    <p>Choose a <strong>.json</strong> design file you saved earlier. Opening it replaces the plan on screen (you can undo).</p>
+    <div class="btnrow" style="margin-bottom:12px"><button type="button" class="btn gold" id="bPick" autofocus>Choose file…</button></div>
+    <p class="muted">Or paste the design file text here:</p>
+    <textarea id="jsonIn" aria-label="Paste design file text"></textarea>
+    <div class="btnrow"><button type="button" class="btn dark" id="bPaste">Open pasted text</button><button type="button" class="btn" data-close>Cancel</button></div>`);
+  $('bPick').addEventListener('click', () => { $('fileIn').value = ''; $('fileIn').click(); });
+  $('bPaste').addEventListener('click', () => {
+    const v = $('jsonIn').value.trim();
+    if (!v) { showOpen('Paste the design file text first.'); return; }
+    try { const st = openFromText(v); closeDialog(); loadState(st, 'Design opened'); } catch (e) { showOpen(e.message); }
+  });
+}
+$('bOpen').addEventListener('click', () => showOpen());
+$('fileIn').addEventListener('change', async (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  try {
+    if (f.size > 5e6) throw new Error('That file is too big to be a design file.');
+    const st = openFromText(await f.text());
+    closeDialog(); loadState(st, `Opened ${f.name}`);
+  } catch (err) { showOpen(err.message); }
+});
+
+$('bClear').addEventListener('click', () => {
+  openDialog(`<h3>Start over?</h3><p>This removes everything you placed and clears the client checklist. Your name, section and date stay. You can undo it.</p>
+    <div class="btnrow"><button type="button" class="btn" data-close autofocus>Keep my design</button><button type="button" class="btn danger" id="bClearYes">Clear the plan</button></div>`);
+  $('bClearYes').addEventListener('click', () => {
+    closeDialog();
+    state.items = []; state.checklist = WANTS.map(() => false);
+    selId = null; draft = null;
+    renderAll(); commit(); toast('Plan cleared. Undo brings it back.');
+  });
+});
+$('bUndo').addEventListener('click', undo);
+$('bRedo').addEventListener('click', redo);
+
+/* ------------------------------------------------------------------ export sheet (11x17 at 96 px/in) */
+function sheetSVG() {
+  const o = { u: PLAN_U, color: view.color, types: view.types };
+  const SW = 1056, SH = 1632;
+  let s = `<svg xmlns="${NS}" width="${SW}" height="${SH}" viewBox="0 0 ${SW} ${SH}"><rect width="${SW}" height="${SH}" fill="#fff"/>`;
+  s += `<defs><clipPath id="planClip"><rect x="40" y="78" width="976" height="1222"/></clipPath></defs>`;
+  s += `<text x="48" y="66" font-family="${FONT}" font-weight="700" font-size="26" fill="${GREEN}">SCOTT RESIDENCE — DESIGN PLAN<tspan dx="14" font-weight="500" font-size="14" fill="#4A4A4A" letter-spacing="0.08em">· CLIENT: THE SCOTT FAMILY</tspan></text>`;
+  s += `<g clip-path="url(#planClip)"${view.color ? '' : ' filter="url(#gray)"'}>`;
+  s += CORE.base.join('');
+  s += `<g transform="translate(${X0} ${Y0}) scale(${PX})">${view.grid ? gridMarkup() : ''}</g>`;
+  if (view.site) s += CORE.site.join('');
+  s += `<g transform="translate(${X0} ${Y0}) scale(${PX})">`;
+  if (view.design) s += sortedItems('design').map((it) => drawItem(it, o)).join('');
+  if (view.diagram) s += sortedItems('diagram').map((it) => drawItem(it, o)).join('');
+  s += '</g></g>';
+  if (!view.color) s = s.replace('<defs>', '<defs><filter id="gray"><feColorMatrix type="saturate" values="0"/></filter>');
+
+  // symbol key: only the types used, with counts
+  const KY = 1312;
+  s += `<text x="48" y="${KY}" font-family="${FONT}" font-size="14" font-weight="600" letter-spacing="0.1em" fill="${INK}">SYMBOL KEY</text>`;
+  s += `<line x1="48" y1="${KY + 10}" x2="1008" y2="${KY + 10}" stroke="${INK}" stroke-width="1"/>`;
+  const counts = {};
+  for (const it of state.items) {
+    if (it.type === 'label') continue;
+    if (layerOf(it) === 'design' ? !view.design : !view.diagram) continue;
+    counts[it.type] = (counts[it.type] || 0) + 1;
+  }
+  const used = Object.keys(T).filter((t) => counts[t]);
+  if (!used.length) s += `<text x="48" y="${KY + 40}" font-family="${FONT}" font-size="12" fill="#4A4A4A">NO SYMBOLS PLACED YET</text>`;
+  const cols = 5, cw = 192, rh = 34;
+  used.forEach((t, i) => {
+    const x = 48 + (i % cols) * cw, y = KY + 22 + Math.floor(i / cols) * rh;
+    const nm = T[t].name.toUpperCase();
+    s += iconAt(t, x + 16, y + 14, 30, 26, view.color);
+    s += `<text x="${x + 38}" y="${y + 12}" font-family="${FONT}" font-size="${nm.length > 20 ? 10 : 11.5}" font-weight="500" letter-spacing="0.03em" fill="${INK}">${esc(nm)}</text>`;
+    s += `<text x="${x + 38}" y="${y + 26}" font-family="${FONT}" font-size="10.5" letter-spacing="0.06em" fill="#4A4A4A">QTY ${counts[t]}</text>`;
+  });
+
+  // title block
+  const TY = 1476, TH = 108;
+  const tx = (x, y, str, size, extra) => `<text x="${x}" y="${y}" font-family="${FONT}" font-size="${size}" ${extra || ''}>${esc(str)}</text>`;
+  s += `<rect x="48" y="${TY}" width="960" height="${TH}" fill="#fff" stroke="${INK}" stroke-width="1.5"/>`;
+  s += `<rect x="48" y="${TY}" width="320" height="${TH}" fill="${GREEN}"/>`;
+  s += tx(68, TY + 42, 'SCOTT RESIDENCE', 30, 'font-weight="700" fill="#fff"');
+  s += tx(68, TY + 64, 'DESIGN PLAN', 14, 'font-weight="600" fill="#FFCE00" letter-spacing="0.12em"');
+  s += `<rect x="68" y="${TY + 74}" width="56" height="3" fill="#FFCE00"/>`;
+  s += tx(68, TY + 96, 'AGPS 1024 · ARKANSAS TECH UNIVERSITY', 11, 'fill="#fff" letter-spacing="0.06em"');
+  const FX2 = 648, half = (FX2 - 388 - 20) / 2;
+  const lab = (x, y, str) => tx(x, y, str, 11, 'fill="#4A4A4A" letter-spacing="0.08em"');
+  const val = (x, y, str, max) => `<text x="${x}" y="${y}" font-family="'Source Sans 3', Arial, sans-serif" font-size="17" font-weight="600" fill="${INK}"${String(str).length > max ? ` textLength="${Math.round(max * 8.2)}" lengthAdjust="spacingAndGlyphs"` : ''}>${esc(str)}</text>`;
+  s += lab(388, TY + 22, 'DESIGNER') + `<line x1="388" y1="${TY + 48}" x2="${FX2}" y2="${TY + 48}" stroke="${INK}"/>`;
+  s += lab(388, TY + 70, 'LAB SECTION') + `<line x1="388" y1="${TY + 96}" x2="${388 + half}" y2="${TY + 96}" stroke="${INK}"/>`;
+  s += lab(408 + half, TY + 70, 'DATE') + `<line x1="${408 + half}" y1="${TY + 96}" x2="${FX2}" y2="${TY + 96}" stroke="${INK}"/>`;
+  if (state.meta.name) s += val(392, TY + 43, state.meta.name, 30);
+  if (state.meta.section) s += val(392, TY + 91, state.meta.section, 13);
+  if (state.meta.date) s += val(412 + half, TY + 91, state.meta.date, 13);
+  s += `<line x1="668" y1="${TY}" x2="668" y2="${TY + TH}" stroke="${INK}" stroke-width="1.2"/><line x1="888" y1="${TY}" x2="888" y2="${TY + TH}" stroke="${INK}" stroke-width="1.2"/>`;
+  const gx = 688;
+  s += lab(gx, TY + 22, 'SCALE IN FEET');
+  for (const [a, b, fl] of [[0, 5, 1], [5, 10, 0], [10, 20, 1]]) s += `<rect x="${n(gx + a * PX)}" y="${TY + 46}" width="${n((b - a) * PX)}" height="8" fill="${fl ? INK : '#fff'}" stroke="${INK}"/>`;
+  for (const v of [0, 5, 10, 20]) s += tx(n(gx + v * PX), TY + 40, String(v), 11, `text-anchor="middle" fill="${INK}"`);
+  s += tx(gx, TY + 78, '1 IN = 10 FT', 13, `font-weight="600" fill="${INK}"`);
+  s += tx(gx, TY + 96, 'WHEN PRINTED ON 11×17', 11, 'fill="#4A4A4A"');
+  const nx = 948, ny = TY + 62;
+  s += tx(nx, TY + 22, 'NORTH', 11, 'text-anchor="middle" fill="#4A4A4A" letter-spacing="0.08em"');
+  s += `<circle cx="${nx}" cy="${ny}" r="30" fill="none" stroke="${INK}" stroke-width="1.2"/>`;
+  s += `<path d="M${nx - 26},${ny} L${nx + 20},${ny - 10} L${nx + 11},${ny} Z" fill="${INK}"/>`;
+  s += `<path d="M${nx - 26},${ny} L${nx + 20},${ny + 10} L${nx + 11},${ny} Z" fill="#fff" stroke="${INK}"/>`;
+  return s + '</svg>';
+}
+const SHEET_SCALE = 3;  // 3168 x 4896 px (~288 dpi); stays under the iOS canvas pixel limit
+async function sheetCanvas() {
+  const src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(sheetSVG());
+  const img = new Image();
+  img.decoding = 'sync';
+  await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('The sheet could not be drawn.')); img.src = src; });
+  const c = document.createElement('canvas');
+  c.width = 1056 * SHEET_SCALE; c.height = 1632 * SHEET_SCALE;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
+const canvasBlob = (c, type, q) => new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('The image could not be made.'))), type, q));
+let jspdfP;
+function loadJsPDF() {
+  if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+  if (!jspdfP) {
+    jspdfP = new Promise((res, rej) => {
+      const sc = document.createElement('script');
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      sc.onload = () => (window.jspdf && window.jspdf.jsPDF ? res(window.jspdf.jsPDF) : rej(new Error('PDF maker did not load')));
+      sc.onerror = () => { jspdfP = null; rej(new Error('PDF maker did not load')); };
+      document.head.appendChild(sc);
+    });
+  }
+  return jspdfP;
+}
+function pngFallback(dataUrl, note) {
+  openDialog(`<h3>Save your sheet</h3><p>${esc(note || "This page isn't allowed to save files here.")} Right-click the sheet and choose <strong>Save image as</strong> (on a phone or tablet, press and hold it).</p>
+    <img src="${dataUrl}" alt="Your design plan sheet">
+    <div class="btnrow"><button type="button" class="btn" id="bJsonFb">Copy design file instead</button><button type="button" class="btn" data-close>Close</button></div>`);
+  $('bJsonFb').addEventListener('click', () => jsonFallback());
+}
+async function doExport(fmt, btn) {
+  flush();
+  const old = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Working…'; }
+  try {
+    if (fmt === 'json') {
+      const r = await saveBlob(slug() + '.json', new Blob([designJSON()], { type: 'application/json' }));
+      if (r === 'saved') toast('Design file saved'); else if (r === 'declined') toast('Save canceled'); else jsonFallback();
+      return;
+    }
+    const c = await sheetCanvas();
+    if (fmt === 'png') {
+      const blob = await canvasBlob(c, 'image/png');
+      const r = await saveBlob(slug() + '.png', blob);
+      if (r === 'saved') toast('PNG saved'); else if (r === 'declined') toast('Save canceled'); else pngFallback(c.toDataURL('image/png'));
+      return;
+    }
+    let jsPDF;
+    try { jsPDF = await loadJsPDF(); } catch (e) {
+      pngFallback(c.toDataURL('image/png'), "The PDF maker couldn't load (are you offline?). You can turn in the PNG instead.");
+      return;
+    }
+    const pdf = new jsPDF({ unit: 'in', format: [11, 17], orientation: 'portrait', compress: true });
+    pdf.setProperties({ title: 'Scott Residence — Design Plan', subject: 'AGPS 1024 design project', author: state.meta.name || '' });
+    pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, 11, 17, undefined, 'FAST');
+    const r = await saveBlob(slug() + '.pdf', pdf.output('blob'));
+    if (r === 'saved') toast('PDF saved'); else if (r === 'declined') toast('Save canceled');
+    else pngFallback(c.toDataURL('image/png'), "This page can't save a PDF here.");
+  } catch (e) {
+    openDialog(`<h3>Export didn't work</h3><p class="err">${esc(e.message || 'Something went wrong.')}</p><p>Try again, or save the design file and ask your instructor.</p><div class="btnrow"><button type="button" class="btn" data-close>Close</button></div>`);
+  } finally {
+    if (btn && btn.isConnected) { btn.disabled = false; btn.innerHTML = old; }
+  }
+}
+$('bExport').addEventListener('click', () => {
+  flush();
+  const src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(sheetSVG());
+  const warn = [];
+  if (!state.meta.name.trim()) warn.push('your name');
+  if (!state.meta.section.trim()) warn.push('your lab section');
+  if (!state.meta.date.trim()) warn.push('the date');
+  const open = state.checklist.filter((v) => !v).length;
+  openDialog(`<h3>Export to turn in</h3>
+    ${warn.length ? `<p class="warn">Add ${warn.join(', ').replace(/, ([^,]*)$/, ' and $1')} in the header so they print in the title block.</p>` : ''}
+    ${open ? `<p class="warn">${open} client want${open > 1 ? 's are' : ' is'} not checked off yet. Run the design check before you turn it in.</p>` : ''}
+    <div class="preview"><img src="${src}" alt="Preview of your 11 by 17 design plan sheet"></div>
+    <p class="muted">The sheet prints at 1 in = 10 ft on 11×17 paper and uses the layers you have turned on under Show.</p>
+    <div class="fmt">
+      <button type="button" class="btn gold" data-fmt="pdf" autofocus>PDF<small>11×17 sheet to turn in</small></button>
+      <button type="button" class="btn" data-fmt="png">PNG image<small>3168×4896 px</small></button>
+      <button type="button" class="btn" data-fmt="json">Design file<small>.json to reopen later</small></button>
+    </div>
+    <div class="btnrow"><button type="button" class="btn" data-close>Close</button></div>`);
+  $('dlgBody').querySelectorAll('[data-fmt]').forEach((b) => b.addEventListener('click', () => doExport(b.dataset.fmt, b)));
+});
+
+/* ------------------------------------------------------------------ boot */
+function renderAll() {
+  renderClient(); renderProps(); renderPlan(); renderSched(); renderSide(true);
+  $('hint').textContent = hintFor(tool);
+}
+(function boot() {
+  try {
+    const v = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null');
+    if (v) for (const k of Object.values(TOGGLES)) if (typeof v[k] === 'boolean') view[k] = v[k];
+  } catch (e) { /* ignore */ }
+  for (const [id, key] of Object.entries(TOGGLES)) $(id).checked = view[key];
+  let restored = false;
+  try {
+    const s = localStorage.getItem(STORE_KEY);
+    if (s) { state = cleanState(JSON.parse(s)); restored = state.items.length > 0; }
+  } catch (e) { state = blankState(); }
+  if (!state.meta.date) {
+    const d = new Date();
+    state.meta.date = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+  }
+  renderTools();
+  syncMeta();
+  setTool('select');
+  renderAll();
+  hist = [snapshot()]; hIdx = 0;
+  renderSide();
+  requestAnimationFrame(fit);
+  if (restored) toast('Your last design was restored');
+})();
+})();

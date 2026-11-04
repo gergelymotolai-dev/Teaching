@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scott Residence Landscape Designer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --green:#1B5633; --green-deep:#0E3A21; --green-hi:#3F9463; --gold:#FFCE00; --brick:#E0705F;
+  --chrome:#1E1F1C; --chrome-2:#252623; --panel:#2B2C29; --panel-h:#232421; --well:#191A18;
+  --pasteboard:#3A3B37; --line:#3B3D38; --line-2:#4A4C46;
+  --text:#E6E7E1; --muted:#A9ACA2; --dim:#868980;
+  --display:'Oswald','Arial Narrow',sans-serif; --body:'Source Sans 3',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font-family:var(--body);color:var(--text);background:var(--chrome);font-size:14px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{cursor:default}
+:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#45473F;border-radius:5px;border:2px solid var(--panel)}
+::-webkit-scrollbar-track{background:transparent}
+
+.app{display:grid;grid-template-rows:auto auto 1fr auto;height:100vh;height:100dvh}
+
+/* ---------- app bar ---------- */
+header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:6px 10px;background:var(--chrome);border-bottom:1px solid #000}
+.brand{display:flex;align-items:center;gap:10px;white-space:nowrap}
+.brand .mark{width:26px;height:26px;border-radius:3px;background:var(--green);display:grid;place-items:center;box-shadow:inset 0 -2px 0 var(--gold)}
+.brand .mark svg{width:16px;height:16px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+header.top h1{font-family:var(--display);font-weight:600;font-size:15px;letter-spacing:.04em;text-transform:uppercase;margin:0}
+header.top h1 span{color:var(--muted);font-weight:500;margin-left:6px}
+.who{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding-left:12px;border-left:1px solid var(--line)}
+.who label{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:5px}
+.who input{width:140px;height:26px;padding:3px 7px;border:1px solid var(--line-2);border-radius:2px;background:var(--well);color:var(--text)}
+.who input.short{width:62px}
+.who input::placeholder{color:#6F7268}
+.actions{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto;align-items:center}
+.actions .sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+.btn{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:3px 10px;border-radius:2px;border:1px solid var(--line-2);background:#30312D;color:var(--text);font-weight:600;font-size:13px}
+.btn:hover:not(:disabled){background:#3A3B36;border-color:#5A5D55}
+.btn:disabled{opacity:.45}
+.btn.dark{background:transparent;border-color:transparent}
+.btn.dark:hover:not(:disabled){background:#33352F;border-color:var(--line-2)}
+.btn.gold{background:var(--gold);border-color:var(--gold);color:#1A1A1A}
+.btn.gold:hover:not(:disabled){background:#FFD93D;border-color:#FFD93D}
+.btn.danger{color:#F0A497}
+.btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* ---------- options bar ---------- */
+.optbar{display:flex;align-items:center;gap:12px;min-height:34px;padding:4px 10px;background:var(--chrome-2);border-bottom:1px solid #000;font-size:13px;overflow:hidden}
+.optbar .cur{display:flex;align-items:center;gap:8px;padding-right:12px;border-right:1px solid var(--line);font-family:var(--display);font-weight:500;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;color:var(--text)}
+.optbar .cur .chip{width:24px;height:22px;border-radius:2px;background:#ECECE6;display:grid;place-items:center;overflow:hidden}
+.optbar .cur .chip svg{width:20px;height:18px}
+.optbar .cur .chip.line{background:transparent}
+.optbar .cur .chip.line svg{stroke:var(--text);fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.hint{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.hint:empty::before{content:"Hold Space and drag to pan from any tool. Scroll to zoom.";color:var(--dim)}
+.optbar .kbd{font-size:12px;color:var(--dim);white-space:nowrap}
+kbd{font-family:var(--body);font-size:11px;border:1px solid var(--line-2);border-bottom-width:2px;border-radius:2px;padding:0 4px;color:var(--text);background:#30312D}
+
+/* ---------- work area ---------- */
+.work{display:grid;grid-template-columns:100px minmax(0,1fr) 300px;min-height:0}
+aside{background:var(--panel);overflow-y:auto;min-height:0}
+aside.left{border-right:1px solid #000;background:var(--chrome-2)}
+aside.right{border-left:1px solid #000}
+
+/* tool rail */
+aside.left .panel{padding:8px 8px 6px;border-bottom:1px solid var(--line)}
+aside.left .panel h2{font-family:var(--display);font-weight:500;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:0 0 6px 2px}
+.tools{display:grid;grid-template-columns:repeat(2,40px);gap:4px;justify-content:center}
+.tool{position:relative;display:grid;place-items:center;width:40px;height:40px;padding:0;border:1px solid transparent;border-radius:3px;background:transparent;color:var(--text)}
+.tool:hover{background:#34362F;border-color:var(--line-2)}
+.tool[aria-pressed="true"]{background:#45483F;border-color:#6B6F64;box-shadow:inset 0 0 0 1px #1C1D1A}
+.tool .chip{width:32px;height:30px;border-radius:2px;background:#ECECE6;display:grid;place-items:center;overflow:hidden}
+.tool .chip svg{width:30px;height:27px}
+.tool.line svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.tool .tlabel{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.tool .key{position:absolute;right:2px;bottom:1px;font-size:9px;font-weight:700;color:var(--muted);line-height:1}
+.tool:not(.line) .key{right:-1px;bottom:-1px;background:var(--chrome-2);border-radius:2px;padding:1px 2px}
+.tip{position:fixed;z-index:50;pointer-events:none;background:#111210;color:var(--text);border:1px solid #4A4C46;border-radius:3px;padding:6px 9px;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.45);max-width:240px;opacity:0;transition:opacity .12s}
+.tip.show{opacity:1}
+.tip b{font-weight:700}
+.tip small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+
+/* stage with rulers */
+.stage{position:relative;min-width:0;min-height:0;display:grid;grid-template-columns:20px minmax(0,1fr);grid-template-rows:20px minmax(0,1fr);background:var(--pasteboard)}
+.ruler{background:#2A2B28;overflow:hidden;position:relative}
+.ruler svg{position:absolute;inset:0;width:100%;height:100%}
+.ruler.top{border-bottom:1px solid #000}
+.ruler.left{border-right:1px solid #000}
+.corner{background:#2A2B28;border-right:1px solid #000;border-bottom:1px solid #000;display:grid;place-items:center;font-size:9px;color:var(--dim);font-weight:700}
+.canvas{position:relative;min-width:0;min-height:0;overflow:hidden;grid-column:2;grid-row:2}
+.corner{grid-column:1;grid-row:1}.ruler.top{grid-column:2;grid-row:1}.ruler.left{grid-column:1;grid-row:2}
+#plan{width:100%;height:100%;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+.zoom{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:1px;background:#000;border:1px solid #000;border-radius:3px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.35)}
+.zoom .btn{width:34px;min-height:32px;justify-content:center;padding:0;border:0;border-radius:0;background:#2B2C29}
+.zoom .btn:hover{background:#3A3B36}
+.toast{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:#111210;border:1px solid #4A4C46;color:#fff;padding:7px 14px;border-radius:3px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+.toast.show{opacity:1}
+
+/* dock panels */
+aside.right details{border-bottom:1px solid #000}
+aside.right summary{list-style:none;display:flex;align-items:center;gap:8px;padding:0 10px;height:30px;background:var(--panel-h);cursor:pointer;user-select:none}
+aside.right summary::-webkit-details-marker{display:none}
+aside.right summary::before{content:"";width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--muted);transform:rotate(-90deg);transition:transform .12s}
+aside.right details[open]>summary::before{transform:none}
+aside.right summary h2{font-family:var(--display);font-weight:500;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--text);margin:0}
+aside.right summary .badge{margin-left:auto;font-size:11px;color:var(--muted);font-weight:600}
+aside.right .panel{padding:10px 12px 12px;border-bottom:0}
+
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:9px}
+.field label,.fieldlabel{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.field input,.field select{height:28px;padding:3px 7px;border:1px solid var(--line-2);border-radius:2px;background:var(--well);color:var(--text);width:100%;text-transform:none;letter-spacing:0;font-weight:400;font-size:14px}
+.field input:hover,.field select:hover{border-color:#5E6158}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.btnrow{display:flex;gap:4px;flex-wrap:wrap}
+.btnrow .btn{flex:1 1 auto;justify-content:center;min-height:28px;font-size:12px;padding:3px 8px}
+.muted{color:var(--muted);font-size:13px;margin:0}
+.check{display:flex;align-items:flex-start;gap:8px;padding:3px 0;font-size:13px;line-height:1.3;cursor:pointer}
+.check input{width:15px;height:15px;margin-top:1px;accent-color:var(--green-hi);flex:none}
+
+/* layers panel */
+.layers{margin:-10px -12px -12px}
+.layer{display:flex;align-items:center;gap:10px;height:32px;padding:0 12px;border-bottom:1px solid #22231F;cursor:pointer;font-size:13px}
+.layer:hover{background:#31332E}
+.layer input{position:absolute;opacity:0;width:1px;height:1px}
+.layer .eye{width:22px;height:22px;display:grid;place-items:center;border:1px solid var(--line-2);border-radius:2px;background:var(--well);flex:none}
+.layer .eye svg{width:14px;height:14px;stroke:var(--text);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+.layer input:checked+.eye svg{opacity:1}
+.layer input:focus-visible+.eye{outline:2px solid var(--gold);outline-offset:1px}
+.layer .sw{width:28px;height:20px;border-radius:2px;border:1px solid #000;flex:none}
+.layer input:not(:checked)~.lname{color:var(--dim)}
+
+table.sched{width:100%;border-collapse:collapse;font-size:13px}
+table.sched td{padding:4px 2px;border-bottom:1px solid #22231F;vertical-align:middle}
+table.sched td.n{text-align:right;font-weight:700;width:36px;font-variant-numeric:tabular-nums}
+.issues{list-style:none;margin:0;padding:0;font-size:13px}
+.issues li{padding:7px 0;border-bottom:1px solid #22231F;display:flex;gap:8px;align-items:flex-start;line-height:1.35}
+.issues li .dot{flex:none;width:9px;height:9px;border-radius:50%;margin-top:4px;background:var(--brick)}
+.issues li.ok .dot{background:#5BC07F}
+.issues li button{margin-left:auto;flex:none;border:1px solid var(--line-2);border-radius:2px;background:#30312D;color:var(--text);font-weight:600;font-size:12px;padding:1px 7px}
+.issues li button:hover{background:#3A3B36}
+
+/* status bar */
+.status{display:flex;align-items:center;gap:0;height:24px;background:var(--chrome);border-top:1px solid #000;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;overflow:hidden;white-space:nowrap}
+.status>span{padding:0 12px;border-right:1px solid var(--line);line-height:24px}
+.status>span b{color:var(--text);font-weight:600}
+.status .grow{flex:1;border-right:0}
+
+dialog{border:1px solid #4A4C46;border-radius:4px;padding:0;max-width:min(720px,94vw);background:var(--panel);color:var(--text);box-shadow:0 18px 50px rgba(0,0,0,.55)}
+dialog::backdrop{background:rgba(10,12,10,.55)}
+.dlg{padding:16px 18px}
+.dlg h3{font-family:var(--display);font-weight:500;text-transform:uppercase;letter-spacing:.06em;font-size:16px;margin:-16px -18px 14px;padding:10px 18px;background:var(--panel-h);border-bottom:1px solid #000;color:var(--text)}
+.dlg p{margin:0 0 10px}
+.dlg img{max-width:100%;max-height:55vh;display:block;margin:0 auto 10px;border:1px solid #000}
+.dlg textarea{width:100%;height:160px;font-family:ui-monospace,monospace;font-size:12px;background:var(--well);color:var(--text);border:1px solid var(--line-2);border-radius:2px;padding:6px}
+.dlg ol{margin:0 0 12px;padding-left:20px}
+.dlg li{margin-bottom:6px}
+
+@media (max-width:1000px){
+  .app{height:auto;min-height:100vh}
+  .work{grid-template-columns:1fr;grid-template-rows:auto minmax(440px,64vh) auto}
+  aside.left{border-right:0;border-bottom:1px solid #000;display:flex;overflow-x:auto;overflow-y:hidden}
+  aside.left .panel{border-bottom:0;border-right:1px solid var(--line);flex:none}
+  aside.left .tools{grid-template-columns:none;grid-auto-flow:column;grid-template-rows:40px}
+  aside.right{border-left:0;border-top:1px solid #000}
+  .stage{grid-template-columns:0 minmax(0,1fr);grid-template-rows:0 minmax(0,1fr)}
+  .ruler,.corner{display:none}
+  .who{border-left:0;padding-left:0}
+  .optbar .kbd,.status .hide-sm{display:none}
+}
+@media (max-width:560px){
+  .actions .btn .bl{display:none}
+  .actions .btn.gold .bl{display:inline}
+  .who input{width:110px}
+}
+@media (prefers-reduced-motion:reduce){.toast,.tip{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top">
+  <div class="brand">
+    <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21V11"/><path d="M12 11c0-4 3-7 7-7 0 4-3 7-7 7z"/><path d="M12 14c0-3-2.5-5.5-6-5.5 0 3 2.5 5.5 6 5.5z"/></svg></div>
+    <h1>Scott Residence<span>Landscape Designer</span></h1>
+  </div>
+  <div class="who">
+    <label>Designer <input id="fName" placeholder="Your name" autocomplete="name"></label>
+    <label>Section <input id="fSection" class="short" placeholder="Lab"></label>
+    <label>Date <input id="fDate" class="short" placeholder="mm/dd"></label>
+  </div>
+  <div class="actions">
+    <button class="btn dark" id="bUndo" title="Undo (Ctrl+Z)" aria-label="Undo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+    <button class="btn dark" id="bRedo" title="Redo (Ctrl+Y)" aria-label="Redo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+    <span class="sep" aria-hidden="true"></span>
+    <button class="btn dark" id="bOpen" title="Open a saved design file"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="bl">Open</span></button>
+    <button class="btn dark" id="bSave" title="Save the design file (.json)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v5h8V3"/><path d="M7 21v-7h10v7"/></svg><span class="bl">Save</span></button>
+    <span class="sep" aria-hidden="true"></span>
+    <button class="btn gold" id="bExport"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span class="bl">Export to turn in</span></button>
+    <input type="file" id="fileIn" accept=".json,application/json" hidden>
+  </div>
+</header>
+
+<div class="optbar" role="toolbar" aria-label="Tool options">
+  <div class="cur" id="optTool"></div>
+  <div class="hint" id="hint" aria-live="polite"></div>
+  <div class="kbd"><kbd>Space</kbd> pan &nbsp; <kbd>Esc</kbd> done &nbsp; <kbd>Del</kbd> delete &nbsp; <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicate</div>
+</div>
+
+<div class="work">
+<aside class="left" aria-label="Tools">
+  <div class="panel"><h2>Tools</h2><div class="tools" id="toolsBasic"></div></div>
+  <div class="panel"><h2>Plants</h2><div class="tools" id="toolsPlants"></div></div>
+  <div class="panel"><h2>Beds</h2><div class="tools" id="toolsBeds"></div></div>
+  <div class="panel"><h2>Hardscape</h2><div class="tools" id="toolsAreas"></div></div>
+  <div class="panel"><h2>Diagram</h2><div class="tools" id="toolsDiagram"></div></div>
+</aside>
+
+<main class="stage" id="stage">
+  <div class="corner" aria-hidden="true">FT</div>
+  <div class="ruler top" aria-hidden="true"><svg id="rulerTop"></svg></div>
+  <div class="ruler left" aria-hidden="true"><svg id="rulerLeft"></svg></div>
+  <div class="canvas">
+    <svg id="plan" role="application" aria-label="Scott residence site plan. Use the tools to place plants and features."></svg>
+    <div class="zoom">
+      <button class="btn" id="zIn" aria-label="Zoom in" title="Zoom in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button class="btn" id="zOut" aria-label="Zoom out" title="Zoom out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+      <button class="btn" id="zFit" aria-label="Fit plan to screen" title="Fit plan to screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+</main>
+
+<aside class="right" aria-label="Panels">
+  <details open id="propsPanel"><summary><h2>Properties</h2></summary>
+    <div class="panel"><div id="props"></div></div>
+  </details>
+  <details open><summary><h2>Layers</h2></summary>
+    <div class="panel"><div class="layers">
+      <label class="layer"><input type="checkbox" id="tDiagram" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:repeating-linear-gradient(135deg,#C9DEF0 0 4px,#F1D9A6 4px 8px)"></span><span class="lname">Functional diagram</span></label>
+      <label class="layer"><input type="checkbox" id="tDesign" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#9CC386"></span><span class="lname">Design (plants &amp; hardscape)</span></label>
+      <label class="layer"><input type="checkbox" id="tTypes"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#ECECE6;color:#1A1A1A;font:700 9px/18px var(--display);text-align:center">ABC</span><span class="lname">Plant type labels</span></label>
+      <label class="layer"><input type="checkbox" id="tSite" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#fff;border-style:dashed"></span><span class="lname">Site info (dims, utilities)</span></label>
+      <label class="layer"><input type="checkbox" id="tGrid"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#fff linear-gradient(#6E9FC2 1px,transparent 1px) 0 0/7px 7px,linear-gradient(90deg,#6E9FC2 1px,#fff 1px) 0 0/7px 7px"></span><span class="lname">10 ft grid</span></label>
+      <label class="layer"><input type="checkbox" id="tColor" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:linear-gradient(90deg,#9CC386 0 33%,#EDB9CF 33% 66%,#DDBF93 66%)"></span><span class="lname">Color (off = black &amp; white)</span></label>
+    </div></div>
+  </details>
+  <details open><summary><h2>Client wants</h2><span class="badge" id="wantsBadge"></span></summary>
+    <div class="panel"><div id="clientList"></div></div>
+  </details>
+  <details open><summary><h2>Design check</h2></summary>
+    <div class="panel">
+      <p class="muted" style="margin-bottom:8px">Checks your plants against the house, the power lines and the property line.</p>
+      <button class="btn" id="bCheck" style="width:100%;justify-content:center">Check my design</button>
+      <ul class="issues" id="issues" style="margin-top:6px"></ul>
+    </div>
+  </details>
+  <details open><summary><h2>Plant schedule</h2></summary>
+    <div class="panel"><table class="sched" id="sched"></table></div>
+  </details>
+  <div class="panel" style="padding:12px">
+    <button class="btn danger" id="bClear" style="width:100%;justify-content:center">Start over</button>
+  </div>
+</aside>
+</div>
+
+<footer class="status" aria-label="Status">
+  <span id="sbXY">X <b>—</b> &nbsp; Y <b>—</b></span>
+  <span id="sbZoom">Zoom <b>100%</b></span>
+  <span id="sbSel" class="grow">Nothing selected</span>
+  <span id="sbCount" class="hide-sm">0 items</span>
+  <span class="hide-sm">1 in = 10 ft on 11×17</span>
+</footer>
+</div>
+
+<div class="tip" id="tip" role="tooltip"></div>
+<dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>
+
+<script>
+const CORE = __CORE__;
+</script>
+<script>
+__APP__
+</script>
+</body>
+</html>
