@@ -361,8 +361,8 @@ dialog::backdrop{background:rgba(10,12,10,.55)}
     <div class="tabpane" id="pNav" role="tabpanel"><div class="nav" id="nav" aria-label="Navigator: click or drag to move the view"></div></div>
   </div>
   <div class="dgroup" data-tabs>
-    <div class="tabs" role="tablist"><button role="tab" data-pane="pLayers" aria-selected="true">Layers</button><button role="tab" data-pane="pObjects" aria-selected="false">Objects<span class="badge" id="objBadge"></span></button></div>
-    <div class="tabpane" id="pLayers" role="tabpanel"><div class="list">
+    <div class="tabs" role="tablist"><button role="tab" data-pane="pObjects" aria-selected="true">Layers<span class="badge" id="objBadge"></span></button><button role="tab" data-pane="pLayers" aria-selected="false">Show</button></div>
+    <div class="tabpane" id="pLayers" role="tabpanel" hidden><div class="list">
       <label class="layer"><input type="checkbox" id="tDiagram" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:repeating-linear-gradient(135deg,#C9DEF0 0 4px,#F1D9A6 4px 8px)"></span><span class="lname">Functional diagram</span></label>
       <label class="layer"><input type="checkbox" id="tTypes"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#ECECE6;color:#1A1A1A;font:700 9px/16px var(--display);text-align:center">AR</span><span class="lname">Plant tags (key codes)</span></label>
       <label class="layer"><input type="checkbox" id="tDesign" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:radial-gradient(circle at 40% 40%,#8DB862,#4F7E36)"></span><span class="lname">Design (plants &amp; hardscape)</span></label>
@@ -373,7 +373,7 @@ dialog::backdrop{background:rgba(10,12,10,.55)}
       <label class="layer" id="tFloorRow"><input type="checkbox" id="tFloor"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#F1F1EE;border-width:2px"></span><span class="lname">House floor plan (rooms, windows)</span></label>
       <label class="layer" id="tImgRow" hidden><input type="checkbox" id="tImg" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:linear-gradient(135deg,#9DB27A,#C9C1A8)"></span><span class="lname">Trace image</span></label>
     </div></div>
-    <div class="tabpane" id="pObjects" role="tabpanel" hidden><div class="list" id="objList"></div></div>
+    <div class="tabpane" id="pObjects" role="tabpanel"><div class="list" id="objList"></div></div>
   </div>
   <div class="dgroup" data-tabs>
     <div class="tabs" role="tablist"><button role="tab" data-pane="pWants" aria-selected="true">Client<span class="badge" id="wantsBadge"></span></button><button role="tab" data-pane="pCheck" aria-selected="false">Check<span class="badge" id="checkBadge"></span></button><button role="tab" data-pane="pSched" aria-selected="false">Schedule</button></div>
@@ -1579,8 +1579,26 @@ function bedSpots(mix, insideF, bb, rng) {
   }
   return { spc, pts: pts.map((p) => [p[0], p[1], mix[0] && mix[0].sp]) };
 }
-/* a planted bed of any outline d (local coords); insideF(pad) gives a point test */
-function plantedBed(d, insideF, bb, mix, o, rng, type) {
+/* bed edges: raised walls (with a shadow) or flat steel edging */
+const EDGES = { wood: 'Raised: wood timbers', stone: 'Raised: stone wall', brick: 'Raised: brick', steel: 'Steel edging (flat)' };
+function edgeUnder(d, edge, o) {
+  if (!EDGES[edge] || edge === 'steel' || o.icon || !o.render) return '';
+  return `<path d="${d}" transform="translate(-0.5 0.5)" fill="#0E1408" fill-opacity="0.35" stroke="#0E1408" stroke-opacity="0.35" stroke-width="0.9" filter="url(#ld-soft)"/>`;
+}
+function edgeOver(d, edge, o) {
+  if (!EDGES[edge]) return '';
+  const P = (stroke, w, extra) => `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${w}" stroke-linejoin="round"${extra || ''}/>`;
+  if (!o.render) return edge === 'steel' ? P(INK, n(o.u * 2.2)) : P(INK, 0.8) + P(o.color ? '#F4F1EA' : '#fff', 0.55);
+  if (edge === 'wood') return P('#4E3622', 0.9) + P('#A57A4E', 0.62, ' stroke-dasharray="4 0.14"') + P('#C79B69', 0.12, ' stroke-opacity="0.6"');
+  if (edge === 'stone') return P('#5E564C', 1) + P('url(#ld-flagstone)', 0.8);
+  if (edge === 'brick') return P('#4A1F14', 0.82) + P('url(#ld-brick)', 0.64);
+  return P('#6B3F25', 0.24);
+}
+/* a planted bed of any outline d (local coords), with an optional raised edge */
+function plantedBed(d, insideF, bb, mix, o, rng, type, edge) {
+  return edgeUnder(d, edge, o) + plantedBedInner(d, insideF, bb, mix, o, rng, type) + edgeOver(d, edge, o);
+}
+function plantedBedInner(d, insideF, bb, mix, o, rng, type) {
   const carpet = mix.length === 1 && mix[0].sp.t === 'groundcover';
   if (!o.render) {
     const tint = o.color ? (mix.length ? T[mix[0].sp.t].tint : T.bedShape.tint) : '#fff';
@@ -1623,7 +1641,7 @@ function bedOutlinePts(it) {
 function bedRender(it, o, rng) {
   const rx = it.w / 2, ry = it.h / 2, oval = bedForm(it) === 'oval';
   const insideF = (pad) => (oval ? (x, y) => (x / Math.max(0.1, rx - pad)) ** 2 + (y / Math.max(0.1, ry - pad)) ** 2 < 1 : (x, y) => Math.abs(x) < rx - pad && Math.abs(y) < ry - pad);
-  return plantedBed(bedPathD(it), insideF, [-rx, -ry, rx, ry], bedMix(it), o, rng, it.type);
+  return plantedBed(bedPathD(it), insideF, [-rx, -ry, rx, ry], bedMix(it), o, rng, it.type, it.edge);
 }
 function shapeRender(it, o, rng) {
   const d = shapeD(it.pts, it.smooth);
@@ -1646,7 +1664,7 @@ function shapeRender(it, o, rng) {
   const poly = shapePoly(it.pts, it.smooth);
   const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
   const bb = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
-  return plantedBed(d, (pad) => (x, y) => inPoly([x, y], poly) && segMin([x, y], poly) > pad, bb, bedMix(it), o, rng, it.type);
+  return plantedBed(d, (pad) => (x, y) => inPoly([x, y], poly) && segMin([x, y], poly) > pad, bb, bedMix(it), o, rng, it.type, it.edge);
 }
 function segMin(p, poly) { let d = Infinity; for (let i = 0; i < poly.length; i++) d = Math.min(d, segDist(p, poly[i], poly[(i + 1) % poly.length])); return d; }
 
@@ -1963,7 +1981,7 @@ const RAIL = [
 let idSeq = 0;
 const uid = () => 'i' + Date.now().toString(36) + (idSeq++).toString(36) + Math.floor(Math.random() * 1296).toString(36);
 const scottWants = () => WANTS.map((t) => ({ t, d: false }));
-function blankState() { return { version: 2, pid: uid(), meta: { name: '', section: '', date: '' }, wants: scottWants(), items: [] }; }
+function blankState() { return { version: 3, pid: uid(), meta: { name: '', section: '', date: '' }, wants: scottWants(), items: [] }; }
 const isScott = () => !state.site;
 const lot = () => (isScott() ? LOT : { w: state.site.w, h: state.site.h });
 const projName = () => (isScott() ? 'Scott Residence' : (state.site.name || 'My yard'));
@@ -2137,10 +2155,12 @@ function cleanState(raw) {
       }
     }
     if (['perennial', 'annual', 'groundcover'].includes(r.type) && ['oval', 'rect', 'round'].includes(r.form)) it.form = r.form;
+    if (isBedType(r.type) && EDGES[r.edge]) it.edge = r.edge;
     if (r.locked) it.locked = true;
     if (r.hidden) it.hidden = true;
     st.items.push(it);
   });
+  if (!(raw.version >= 3)) st.items = st.items.map((it, i) => [it, i]).sort((a, b) => (T[a[0].type].band - T[b[0].type].band) || (a[1] - b[1])).map(([it]) => it);
   return st;
 }
 
@@ -2176,6 +2196,14 @@ css.textContent = `
 .props-h{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:500;font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.05em}
 .props-h .chip{width:28px;height:24px}.props-h .chip svg{width:26px;height:22px}
 .mixrow{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.obj .grip{display:grid;place-items:center;width:14px;color:var(--dim)}
+.obj .grip svg{width:14px;height:14px;stroke:currentColor;stroke-width:3;stroke-linecap:round}
+.obj{touch-action:none;cursor:grab}
+.obj.dragging{opacity:.5}
+.obj.dropline{box-shadow:inset 0 2px 0 var(--gold)}
+.obj.dropline.below{box-shadow:inset 0 -2px 0 var(--gold)}
+.objhead{display:flex;justify-content:space-between;gap:8px;padding:6px 10px 4px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);background:#262724}
+.objhead span{font-weight:400;letter-spacing:0;text-transform:none}
 .dlg .northrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .dlg .northrow>input{width:76px;height:30px;padding:3px 7px;border:1px solid var(--line-2);border-radius:2px;background:var(--well);color:var(--text);font-size:15px}
 .dlg .northpick{display:flex;align-items:center;gap:10px;flex:1 1 100%}
@@ -2189,6 +2217,7 @@ css.textContent = `
 .shapeseg button{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;white-space:nowrap}
 .shapeseg svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 #optCtx{display:flex;align-items:center;gap:8px;flex:none}
+#optCtx .edgesel{height:24px;padding:0 6px;border:1px solid var(--line-2);border-radius:3px;background:#2B2C29;color:var(--text);font-size:12px}
 @media (min-width:1001px){#optCtx[hidden]{display:none}}
 .optnote{font-size:12px;color:var(--dim);white-space:nowrap}
 .dragghost{position:fixed;z-index:80;pointer-events:none;display:none;align-items:center;gap:8px;padding:4px 10px 4px 4px;background:#111210;border:1px solid #4A4C46;border-radius:3px;color:var(--text);font-size:13px;transform:translate(-20%,-50%);box-shadow:0 6px 18px rgba(0,0,0,.45);opacity:.92}
@@ -2423,9 +2452,22 @@ function gridMarkup() {
   for (let y = 0; y <= L.h; y += 10) d += `M0,${y}H${L.w}`;
   return `<path d="${d}" stroke="#4F86B3" stroke-opacity="0.6" stroke-width="0.07" fill="none"/>`;
 }
-function sortedItems(layer) {
-  return state.items.map((it, i) => [it, i]).filter(([it]) => layerOf(it) === layer)
-    .sort((a, b) => (T[a[0].type].band - T[b[0].type].band) || (a[1] - b[1])).map(([it]) => it);
+/* the items array is the stacking order, bottom first; students can restack freely */
+function sortedItems(layer) { return state.items.filter((it) => layerOf(it) === layer); }
+/* a new item starts at a sensible height: above everything of its own kind or lower (a lawn stays under trees) */
+function addItem(it) {
+  const b = T[it.type].band, L = layerOf(it);
+  let at = 0;
+  state.items.forEach((x, i) => { if (layerOf(x) !== L || T[x.type].band <= b) at = i + 1; });
+  state.items.splice(at, 0, it);
+  return it;
+}
+/* copies go right above their originals */
+function addCopies(copies, originals) {
+  copies.forEach((c, i) => {
+    const o = originals[i] ? state.items.indexOf(originals[i]) : -1;
+    if (o >= 0) state.items.splice(o + 1, 0, c); else addItem(c);
+  });
 }
 function renderPlan() {
   const o = drawOpts({ hit: true });
@@ -2711,7 +2753,7 @@ function dropPlant(id, cx, cy) {
   curSp[type] = id;
   if (tool !== 'select') setTool('select');
   const it = newItem(type, view.snap ? [Math.round(p[0] * 2) / 2, Math.round(p[1] * 2) / 2] : p);
-  state.items.push(it); sel = [it.id];
+  addItem(it); sel = [it.id];
   renderProps(); renderPlan(); renderLib(); commit('Place ' + sp.cn);
   toast(`${sp.cn} planted`);
 }
@@ -2846,6 +2888,7 @@ function renderProps() {
     h += `<div class="btnrow" style="margin-bottom:6px"><button type="button" class="btn" data-act="mixadd"${dis}>+ Add a plant to this bed</button></div>`;
     h += `<p class="muted" style="margin-bottom:10px">${mix.length > 1 ? 'Plants are set out in natural drifts by their share. ' : ''}Tip: drag a plant from the library onto this bed to add it.</p>`;
     if (mix.length === 1) h += speciesCard(mix[0].sp);
+    h += fld('Edge', `<select data-f="edge" aria-label="Bed edge"${dis}><option value="">None (flat bed)</option>${Object.entries(EDGES).map(([k, l]) => `<option value="${k}" ${it.edge === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`);
     if (it.type !== 'bedShape') h += fld('Bed shape', `<select data-f="form" aria-label="Bed shape"${dis}>${[['oval', 'Oval'], ['rect', 'Rectangle (square corners)'], ['round', 'Rounded rectangle']].map(([k, l]) => `<option value="${k}" ${bedForm(it) === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`);
   } else if (cats.length) {
     if (sp) h += speciesCard(sp);
@@ -2871,7 +2914,7 @@ function renderProps() {
   if (t.kind === 'text') { h += fld('Text', `<input type="text" data-f="text" value="${esc(it.text || '')}" maxlength="200" aria-label="Label text"${dis}>`); h += fld('Text size ft', numIn('size', it.size, 0.5, 20, 0.25, 'Text size')); }
   else h += fld(it.type === 'bubble' ? 'Label (blank shows the zone)' : 'Label', `<input type="text" data-f="label" value="${esc(it.label || '')}" placeholder="${t.tree ? 'e.g. Shade for patio' : 'Optional'}" maxlength="120" aria-label="Label"${dis}>`);
   h += `<label class="check" style="margin:2px 0 10px"><input type="checkbox" data-f="locked" ${it.locked ? 'checked' : ''}> Lock (can't be moved or changed)</label>`;
-  h += `<div class="btnrow"><button type="button" class="btn" data-act="dup">Duplicate</button><button type="button" class="btn" data-act="front">To front</button><button type="button" class="btn" data-act="back">To back</button><button type="button" class="btn danger" data-act="del"${dis}>Delete</button></div>`;
+  h += `<div class="btnrow"><button type="button" class="btn" data-act="dup">Duplicate</button><button type="button" class="btn" data-act="fwd" title="Bring forward (Ctrl+])">Forward</button><button type="button" class="btn" data-act="bwd" title="Send backward (Ctrl+[)">Backward</button><button type="button" class="btn" data-act="front" title="Bring to front (Ctrl+Shift+])">To front</button><button type="button" class="btn" data-act="back" title="Send to back (Ctrl+Shift+[)">To back</button><button type="button" class="btn danger" data-act="del"${dis}>Delete</button></div>`;
   P.innerHTML = h;
   if (it.locked) P.querySelectorAll('input[type="number"]').forEach((i) => { i.disabled = true; });
 }
@@ -2924,6 +2967,7 @@ $('props').addEventListener('change', (e) => {
   if (f === 'zone') { it.zone = ZONES[v] ? v : 'private'; renderItems([it.id]); commit('Change zone'); return; }
   if (f === 'finish') { it.finish = v; renderItems([it.id]); commit('Change surface'); return; }
   if (f === 'form') { it.form = v; renderItems([it.id]); commit('Change bed shape'); return; }
+  if (f === 'edge') { if (EDGES[v]) it.edge = v; else delete it.edge; renderItems([it.id]); renderOptCtx(); commit(v ? 'Raise bed' : 'Remove bed edge'); return; }
   if (f === 'fstyle') { it.style = FENCE_STYLES[v] ? v : 'privacy'; it.height = FENCE_HEIGHT[it.style]; Object.assign(lastFence, { style: it.style, height: it.height }); renderItems([it.id]); renderProps(); commit('Change fence style'); return; }
   if (f === 'fheight') { it.height = +v || 6; lastFence.height = it.height; renderItems([it.id]); commit('Change fence height'); return; }
   flush();
@@ -2935,7 +2979,7 @@ $('props').addEventListener('click', (e) => {
   if (al) { align(al.dataset.align); return; }
   const a = e.target.closest('[data-act]');
   if (!a) return;
-  ({ dup: duplicate, del: removeSel, front: () => reorder(1), back: () => reorder(-1), lock: toggleLock, mixadd: mixAdd, freeform: makeFreeform })[a.dataset.act]();
+  ({ dup: duplicate, del: removeSel, front: () => reorder(2), fwd: () => reorder(1), bwd: () => reorder(-1), back: () => reorder(-2), lock: toggleLock, mixadd: mixAdd, freeform: makeFreeform })[a.dataset.act]();
 });
 
 /* ------------------------------------------------------------------ selection and edits */
@@ -2965,7 +3009,7 @@ function duplicate() {
   const items = selItems();
   if (!items.length) return;
   const copies = cloneItems(items, 3, 3);
-  state.items.push(...copies);
+  addCopies(copies, items);
   sel = copies.map((c) => c.id);
   renderProps(); renderPlan(); commit('Duplicate');
 }
@@ -2979,18 +3023,32 @@ function paste() {
   if (!clip.length) { toast('Nothing to paste'); return; }
   pasteN++;
   const copies = cloneItems(clip, 2 * pasteN, 2 * pasteN);
-  state.items.push(...copies);
+  addCopies(copies, clip.map((c) => byId(c.id)));
   sel = copies.map((c) => c.id);
   renderProps(); renderPlan(); commit('Paste');
 }
 function selectAll() { setSel(state.items.filter((i) => !i.locked && !i.hidden && (layerOf(i) === 'design' ? view.design : view.diagram)).map((i) => i.id)); }
+/* dir: 2 to front, 1 forward, -1 backward, -2 to back. Forward/backward step past the next item that overlaps it */
 function reorder(dir) {
-  const items = selItems();
+  const items = selItems().filter((i) => !i.locked);
   if (!items.length) return;
   const ids = new Set(items.map((i) => i.id));
-  const rest = state.items.filter((i) => !ids.has(i.id));
-  state.items = dir > 0 ? rest.concat(items) : items.concat(rest);
-  renderPlan(); commit(dir > 0 ? 'Bring to front' : 'Send to back');
+  const overlaps = (a2, b2) => { const p2 = bbox(a2), q = bbox(b2); return p2.x1 < q.x2 && p2.x2 > q.x1 && p2.y1 < q.y2 && p2.y2 > q.y1; };
+  if (Math.abs(dir) === 2) {
+    const rest = state.items.filter((i) => !ids.has(i.id));
+    state.items = dir > 0 ? rest.concat(items) : items.concat(rest);
+  } else {
+    const order = items.slice().sort((x, y) => (state.items.indexOf(y) - state.items.indexOf(x)) * dir);
+    for (const it of order) {
+      const arr = state.items, i = arr.indexOf(it);
+      let j = i + dir;
+      while (j >= 0 && j < arr.length && (ids.has(arr[j].id) || layerOf(arr[j]) !== layerOf(it) || !overlaps(arr[j], it))) j += dir;
+      if (j < 0 || j >= arr.length) { j = dir > 0 ? arr.length - 1 : 0; while (j !== i && layerOf(arr[j]) !== layerOf(it)) j -= dir; }
+      if (j === i) continue;
+      arr.splice(i, 1); arr.splice(j, 0, it);
+    }
+  }
+  renderPlan(); renderObjects(); commit({ 2: 'Bring to front', 1: 'Bring forward', '-1': 'Send backward', '-2': 'Send to back' }[dir]);
 }
 function toggleLock() {
   const items = selItems();
@@ -3068,7 +3126,7 @@ function placeAt(p) {
   if (!t || t.kind === 'line' || t.kind === 'shape') return;
   if (view.snap) p = [Math.round(p[0] * 2) / 2, Math.round(p[1] * 2) / 2];
   const it = newItem(tool, p);
-  state.items.push(it);
+  addItem(it);
   sel = [it.id];
   const label = 'Place ' + (spOf(it) && t.plant ? spOf(it).cn : t.name.toLowerCase());
   if (!t.stay) setTool('select');
@@ -3098,7 +3156,7 @@ function finishDraft() {
   if (d.pts.length < min) { renderOverlay(); $('hint').textContent = hintFor(tool); toast(`Needs at least ${min} points`); return; }
   const it = newItem(d.type, null);
   it.pts = d.pts;
-  state.items.push(it);
+  addItem(it);
   sel = [it.id];
   setTool('select');
   renderProps(); renderPlan(); commit('Draw ' + t.name.replace(' (draw)', '').toLowerCase());
@@ -3142,8 +3200,7 @@ svg.addEventListener('pointerdown', (e) => {
       if (!sel.includes(it.id)) select(it.id);
       let moving = editable(), copied = false;
       if (e.altKey) {   // Alt-drag copies
-        moving = cloneItems(moving, 0, 0);
-        state.items.push(...moving); sel = moving.map((c) => c.id); copied = true; renderPlan(); renderProps();
+        const origs = moving; moving = cloneItems(origs, 0, 0); addCopies(moving, origs); sel = moving.map((c) => c.id); copied = true; renderPlan(); renderProps();
       }
       const a0 = moving[0] ? (moving[0].pts ? moving[0].pts[0] : [moving[0].x, moving[0].y]) : p;
       drag = { mode: 'move', start: p, orig: moving.map((m) => clone(m)), moved: false, copied, sx: e.clientX, sy: e.clientY, label: copied ? 'Copy' : 'Move', anchor: a0 };
@@ -3283,7 +3340,8 @@ const MENUS = [
     mi('vgrid', '10 ft grid', () => toggleView('tGrid'), { ck: () => view.grid }), mi('vsite', 'Notes & labels', () => toggleView('tSite'), { ck: () => view.site }), mi('vutil', 'Utility lines', () => toggleView('tUtil'), { ck: () => view.util, en: isScott }), mi('vtags', 'Plant tags', () => toggleView('tTypes'), { ck: () => view.tags }), mi('vdiag', 'Functional diagram', () => toggleView('tDiagram'), { ck: () => view.diagram }),
     mi('vfloor', 'House floor plan detail', () => toggleView('tFloor'), { ck: () => view.floor, en: isScott }),
     mi('vsnap', 'Snap', () => { $('optSnap').checked = !view.snap; $('optSnap').dispatchEvent(new Event('change')); }, { ck: () => view.snap }), mi('vlib', 'Plant library', () => toggleLib(), { ck: () => view.lib })]],
-  ['Arrange', [mi('front', 'Bring to front', () => reorder(1), { k: 'Ctrl+]', en: hasSel }), mi('back', 'Send to back', () => reorder(-1), { k: 'Ctrl+[', en: hasSel }), '-',
+  ['Arrange', [mi('front', 'Bring to front', () => reorder(2), { k: 'Ctrl+Shift+]', en: hasSel }), mi('fwd', 'Bring forward', () => reorder(1), { k: 'Ctrl+]', en: hasSel }),
+    mi('bwd', 'Send backward', () => reorder(-1), { k: 'Ctrl+[', en: hasSel }), mi('back', 'Send to back', () => reorder(-2), { k: 'Ctrl+Shift+[', en: hasSel }), '-',
     ...Object.keys(ALIGN_NAMES).map((k) => mi('al-' + k, ALIGN_NAMES[k], () => align(k), { en: () => editable().length > (k.startsWith('dist') ? 2 : 1) })), '-',
     mi('fencelot', 'Fence the property line', () => fenceLot(), {}), '-',
     mi('rot90', 'Rotate 90°', rotate90, { en: hasSel }), mi('lock', 'Lock / unlock', toggleLock, { k: 'Ctrl+L', en: hasSel })]],
@@ -3330,7 +3388,7 @@ svg.addEventListener('contextmenu', (e) => {
     const s = single();
     CTX_EXTRA.smooth = { id: 'smooth', l: 'Smooth curved edge', ck: () => !!(s && s.smooth), act: () => { const x = single(); if (x) { x.smooth = !x.smooth; renderItems([x.id]); renderProps(); commit(x.smooth ? 'Smooth edge' : 'Straight edge'); } } };
     CTX_EXTRA.hide = { id: 'hide', l: 'Hide', act: () => { selItems().forEach((i) => { i.hidden = true; }); setSel([]); renderPlan(); commit('Hide'); toast('Hidden. Show it again from the Objects tab.'); } };
-    items = [MI.cut, MI.copy, MI.paste, MI.dup, MI.del, '-', MI.front, MI.back, '-', MI.rot90, MI.lock, CTX_EXTRA.hide];
+    items = [MI.cut, MI.copy, MI.paste, MI.dup, MI.del, '-', MI.front, MI.fwd, MI.bwd, MI.back, '-', MI.rot90, MI.lock, CTX_EXTRA.hide];
     if (s && T[s.type].kind === 'shape') items.push('-', CTX_EXTRA.smooth);
   } else {
     items = [MI.paste, MI.all, '-', MI.zfit, MI.z100];
@@ -3369,7 +3427,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (mod) {
     const acts = { z: () => (e.shiftKey ? redo() : undo()), y: redo, d: duplicate, c: () => copySel(false), x: () => copySel(true), v: paste, a: selectAll, l: toggleLock,
-      '=': () => zoomCenter(1.3), '+': () => zoomCenter(1.3), '-': () => zoomCenter(1 / 1.3), 0: fit, 1: zoomActual, ']': () => reorder(1), '[': () => reorder(-1) };
+      '=': () => zoomCenter(1.3), '+': () => zoomCenter(1.3), '-': () => zoomCenter(1 / 1.3), 0: fit, 1: zoomActual, ']': () => reorder(e.shiftKey ? 2 : 1), '[': () => reorder(e.shiftKey ? -2 : -1), '}': () => reorder(2), '{': () => reorder(-2) };
     if (acts[k]) { e.preventDefault(); acts[k](); }
     return;
   }
@@ -3468,6 +3526,7 @@ function takeoff() {
       if (t.kind === 'circle') row.qty += 1;
       else { row.area += a; if (sp.t !== 'turf') { row.qty += Math.max(1, Math.round(a / ((sp.spc || 1.5) ** 2 * 0.866))); row.approx = true; } }
     }
+    if (isBedType(it.type) && EDGES[it.edge]) addM('edge-' + it.edge, EDGES[it.edge].replace('Raised: ', 'Raised bed wall, ').replace(' (flat)', ''), 'bedShape', bedPerimeter(it), 'lin ft');
     if (isBedType(it.type) && !(bedMix(it).length === 1 && bedMix(it)[0].sp.t === 'groundcover')) addM('mulch', 'Hardwood mulch, 3 in. deep', 'bedShape', a, 'sq ft', a * 0.25 / 27);
     if (it.type === 'patio' || it.type === 'paveShape') addM('pave-' + it.finish, `${FINISHES[it.finish] || 'Paving'} paving`, 'paveShape', a, 'sq ft');
     if (it.type === 'deck') addM('deck', 'Wood deck', 'deck', a, 'sq ft');
@@ -3507,14 +3566,59 @@ const UNLOCK = '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="1
 function renderObjects() {
   $('objBadge').textContent = state.items.length || '';
   if (!tabOpen('pObjects')) return;
-  const rows = [...sortedItems('diagram').reverse(), ...sortedItems('design').reverse()];
-  $('objList').innerHTML = rows.length ? rows.map((it) => `<div class="obj" data-obj="${esc(it.id)}" aria-selected="${sel.includes(it.id)}" role="option" tabindex="0">
+  const rowHtml = (it) => `<div class="obj" data-obj="${esc(it.id)}" aria-selected="${sel.includes(it.id)}" role="option" tabindex="0" title="Drag up or down to restack. Alt+arrow keys also move it.">
+    <span class="grip" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01"/></svg></span>
     <span class="chip">${iconSVG(it.type, view.style, it.sp)}</span><span class="on">${esc(nameOf(it))}</span>
     <button type="button" class="ob${it.locked ? ' on1' : ''}" data-olock="${esc(it.id)}" aria-label="${it.locked ? 'Unlock' : 'Lock'}">${it.locked ? LOCK : UNLOCK}</button>
-    <button type="button" class="ob" data-ohide="${esc(it.id)}" aria-label="${it.hidden ? 'Show' : 'Hide'}">${it.hidden ? EYE_OFF : EYE}</button></div>`).join('')
+    <button type="button" class="ob" data-ohide="${esc(it.id)}" aria-label="${it.hidden ? 'Show' : 'Hide'}">${it.hidden ? EYE_OFF : EYE}</button></div>`;
+  const dia = sortedItems('diagram').reverse(), des = sortedItems('design').reverse();
+  const head = (t) => `<div class="objhead">${t}<span>top of the list = drawn on top</span></div>`;
+  $('objList').innerHTML = dia.length + des.length
+    ? (dia.length ? head('Functional diagram') + dia.map(rowHtml).join('') : '') + (des.length ? head('Design') + des.map(rowHtml).join('') : '') + '<p class="muted" style="padding:6px 12px 10px">Drag a row up or down to put it over or under other things.</p>'
     : '<p class="muted" style="padding:12px">Nothing placed yet.</p>';
 }
+/* drag a row in the Layers list to restack it */
+let rowDrag = null, objNoClick = false;
+$('objList').addEventListener('pointerdown', (e) => {
+  const r = e.target.closest('[data-obj]');
+  if (!r || e.target.closest('button') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  rowDrag = { id: r.dataset.obj, y: e.clientY, on: false, el: r, pid: e.pointerId };
+});
+document.addEventListener('pointermove', (e) => {
+  const d = rowDrag;
+  if (!d || e.pointerId !== d.pid) return;
+  if (!d.on && Math.abs(e.clientY - d.y) < 6) return;
+  if (!d.on) d.el.classList.add('dragging');
+  d.on = true;
+  e.preventDefault();
+  const it = byId(d.id);
+  const rows = [...$('objList').querySelectorAll('[data-obj]')].filter((x) => x !== d.el && layerOf(byId(x.dataset.obj)) === layerOf(it));
+  $('objList').querySelectorAll('.dropline').forEach((x) => x.classList.remove('dropline', 'below'));
+  let target = null, below = false;
+  for (const x of rows) { const bb = x.getBoundingClientRect(); if (e.clientY < bb.top + bb.height / 2) { target = x; break; } }
+  if (!target && rows.length) { target = rows[rows.length - 1]; below = true; }
+  if (target) { target.classList.add('dropline'); if (below) target.classList.add('below'); }
+  d.target = target && target.dataset.obj; d.below = below;
+});
+function endRowDrag(e, cancel) {
+  const d = rowDrag;
+  if (!d || e.pointerId !== d.pid) return;
+  rowDrag = null;
+  if (!d.on) return;
+  objNoClick = true; setTimeout(() => { objNoClick = false; }, 50);
+  if (cancel || !d.target) { renderObjects(); return; }
+  const it = byId(d.id), arr = state.items;
+  arr.splice(arr.indexOf(it), 1);
+  const t = arr.indexOf(byId(d.target));
+  /* the list is top-first and the array bottom-first: dropping above row X puts it just after X in the array */
+  arr.splice(d.below ? t : t + 1, 0, it);
+  sel = [it.id];
+  renderPlan(); renderProps(); renderObjects(); commit('Restack');
+}
+document.addEventListener('pointerup', (e) => endRowDrag(e, false));
+document.addEventListener('pointercancel', (e) => endRowDrag(e, true));
 $('objList').addEventListener('click', (e) => {
+  if (objNoClick) return;
   const lk = e.target.closest('[data-olock]'), hd = e.target.closest('[data-ohide]'), row = e.target.closest('[data-obj]');
   if (lk) { const it = byId(lk.dataset.olock); if (it.locked) delete it.locked; else it.locked = true; renderPlan(); renderObjects(); renderProps(); commit(it.locked ? 'Lock' : 'Unlock'); return; }
   if (hd) { const it = byId(hd.dataset.ohide); if (it.hidden) delete it.hidden; else it.hidden = true; renderPlan(); renderObjects(); commit(it.hidden ? 'Hide' : 'Show'); return; }
@@ -3525,7 +3629,16 @@ $('objList').addEventListener('click', (e) => {
     if (it && !it.hidden) centerOn(itemCenter(it));
   }
 });
-$('objList').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.dataset.obj) e.target.click(); });
+$('objList').addEventListener('keydown', (e) => {
+  if (!e.target.dataset || !e.target.dataset.obj) return;
+  if (e.key === 'Enter') e.target.click();
+  if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    e.preventDefault();
+    const id = e.target.dataset.obj;
+    select(id); reorder(e.key === 'ArrowUp' ? 1 : -1);
+    const again = $('objList').querySelector(`[data-obj="${CSS.escape(id)}"]`); if (again) again.focus();
+  }
+});
 function renderHist() {
   if (!tabOpen('pHist')) return;
   $('histList').innerHTML = hist.map((h, i) => `<button type="button" class="hist${i === hIdx ? ' cur' : ''}${i > hIdx ? ' future' : ''}" data-hist="${i}"><span class="hn">${i + 1}</span>${esc(i === 0 ? 'Open' : h.label)}</button>`).reverse().join('');
@@ -3652,7 +3765,7 @@ function showKeys() {
   const rows = [['Select / move', 'V'], ['Hand (pan)', 'H or hold Space'], ['Text label', 'T'], ['Measure', 'M'], ['Trees and shrubs', '1 2 3 4'], ['Beds', '5 6 7, B to draw'],
     ['Lawn', 'L, N to draw'], ['Patio / paving', 'P, O to draw'], ['Deck · walk · fence', 'K · W · F'], ['Veg garden · wood · bird bath', 'G · S · Y'], ['Bubble · arrow', 'U · A'],
     ['Undo / redo', 'Ctrl+Z / Ctrl+Y'], ['Cut / copy / paste', 'Ctrl+X / C / V'], ['Duplicate', 'Ctrl+D or Alt-drag'], ['Select all', 'Ctrl+A'], ['Lock', 'Ctrl+L'],
-    ['Front / back', 'Ctrl+] / Ctrl+['], ['Nudge', 'Arrows (Shift 5 ft, Alt 0.1 ft)'], ['Constrain drag', 'Shift while dragging'], ['Finish a line or shape', 'Enter or double-click'],
+    ['Forward / backward', 'Ctrl+] / Ctrl+['], ['To front / to back', 'Ctrl+Shift+] / ['], ['Restack', 'drag rows in the Layers tab'], ['Nudge', 'Arrows (Shift 5 ft, Alt 0.1 ft)'], ['Constrain drag', 'Shift while dragging'], ['Finish a line or shape', 'Enter or double-click'],
     ['Zoom', 'Wheel, Ctrl + / −'], ['Fit / print size', 'Ctrl+0 / Ctrl+1'], ['Save / open / export', 'Ctrl+S / O / E']];
   openDialog(`<h3>Keyboard shortcuts</h3><div class="keys">${rows.map(([a, b]) => `<div><span>${a}</span><kbd>${b}</kbd></div>`).join('')}</div><div class="btnrow"><button type="button" class="btn" data-close autofocus>Close</button></div>`);
 }
@@ -4173,7 +4286,7 @@ function fenceLot(style) {
   const pts = scott ? [[0, 107], [0, 0], [82, 0], [82, 107]] : fenceLotPts(state.site.street, lot());
   const it = Object.assign({ id: uid(), type: 'fence', pts: pts.map((p) => [r1(p[0]), r1(p[1])]) }, lastFence, style ? { style, height: FENCE_HEIGHT[style] } : {});
   if (!view.design) { view.design = true; $('tDesign').checked = true; }
-  state.items.push(it); sel = [it.id];
+  addItem(it); sel = [it.id];
   setTool('select'); renderPlan(); renderProps(); showTab('pProps'); commit('Fence the property line');
   toast('Fence added along the property line. Pick its style under Properties.');
 }
@@ -4213,7 +4326,7 @@ function makeFreeform() {
     ? (() => { const rx = it.w / 2, ry = it.h / 2, r = Math.min(3, it.w / 4, it.h / 4); return { pts: [[-rx + r, -ry], [rx - r, -ry], [rx, -ry + r], [rx, ry - r], [rx - r, ry], [-rx + r, ry], [-rx, ry - r], [-rx, -ry + r]], smooth: false }; })()
     : { pts: [[-it.w / 2, -it.h / 2], [it.w / 2, -it.h / 2], [it.w / 2, it.h / 2], [-it.w / 2, it.h / 2]], smooth: false });
   const nu = { id: it.id, type: FREEFORM[it.type], pts: out.pts.map((p) => toWorldPt(it, p).map(r1)), smooth: out.smooth };
-  for (const k of ['sp', 'mix', 'label', 'finish', 'locked']) if (it[k] !== undefined) nu[k] = clone(it[k]);
+  for (const k of ['sp', 'mix', 'label', 'finish', 'locked', 'edge']) if (it[k] !== undefined) nu[k] = clone(it[k]);
   if (nu.type === 'paveShape' && !nu.finish) nu.finish = 'stone';
   state.items[state.items.indexOf(it)] = nu;
   renderPlan(); renderProps(); commit('Make freeform');
@@ -4299,11 +4412,11 @@ function renderOptCtx() {
   const one = single();
   let h = '';
   if (one && !one.locked && ['perennial', 'annual', 'groundcover'].includes(one.type) && tool === 'select') {
-    h = `<span class="optlabel">Bed shape</span><div class="seg shapeseg">${['oval', 'rect', 'round'].map((k) => segBtn(k, { oval: 'Oval', rect: 'Rectangle', round: 'Rounded' }[k], bedForm(one) === k, 'data-setform')).join('')}${segBtn('free', 'Freeform', false, 'data-freeform')}</div>`;
+    h = `<span class="optlabel">Bed shape</span><div class="seg shapeseg">${['oval', 'rect', 'round'].map((k) => segBtn(k, { oval: 'Oval', rect: 'Rectangle', round: 'Rounded' }[k], bedForm(one) === k, 'data-setform')).join('')}${segBtn('free', 'Freeform', false, 'data-freeform')}</div>` + edgePick(one);
   } else if (one && !one.locked && FREEFORM[one.type] && tool === 'select') {
     h = `<span class="optlabel">Shape</span><div class="seg shapeseg">${segBtn('free', 'Make freeform', false, 'data-freeform')}</div>`;
   } else if (one && !one.locked && T[one.type].kind === 'shape' && tool === 'select') {
-    h = `<span class="optlabel">Edges</span><div class="seg shapeseg">${segBtn('curved', 'Curved', !!one.smooth, 'data-setsmooth')}${segBtn('straight', 'Straight', !one.smooth, 'data-setsmooth')}</div><span class="optnote">Drag the white dots to reshape · blue dots add a corner</span>`;
+    h = (one.type === 'bedShape' ? edgePick(one) : '') + `<span class="optlabel">Edges</span><div class="seg shapeseg">${segBtn('curved', 'Curved', !!one.smooth, 'data-setsmooth')}${segBtn('straight', 'Straight', !one.smooth, 'data-setsmooth')}</div><span class="optnote">Drag the white dots to reshape · blue dots add a corner</span>`;
   } else if (['perennial', 'annual', 'groundcover'].includes(tool)) {
     h = `<span class="optlabel">Bed shape</span><div class="seg shapeseg">${['oval', 'rect', 'round'].map((k) => segBtn(k, { oval: 'Oval', rect: 'Rectangle', round: 'Rounded' }[k], bedFormPref[tool] === k, 'data-prefform')).join('')}${segBtn('draw', 'Draw any shape', false, 'data-drawbed')}</div>`;
   } else if (drawSmooth[tool] !== undefined) {
@@ -4312,6 +4425,15 @@ function renderOptCtx() {
   box.innerHTML = h;
   box.hidden = !h;
 }
+function edgePick(it) {
+  return `<span class="optlabel">Edge</span><select class="edgesel" data-setedge aria-label="Bed edge"><option value="">Flat</option>${Object.entries(EDGES).map(([k, l]) => `<option value="${k}" ${it.edge === k ? 'selected' : ''}>${l.replace('Raised: ', 'Raised ')}</option>`).join('')}</select>`;
+}
+$('optCtx').addEventListener('change', (e) => {
+  const one = single();
+  if (e.target.dataset.setedge === undefined || !one || one.locked) return;
+  if (EDGES[e.target.value]) one.edge = e.target.value; else delete one.edge;
+  renderItems([one.id]); renderProps(); commit(one.edge ? 'Raise bed' : 'Remove bed edge');
+});
 $('optCtx').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
@@ -4346,6 +4468,15 @@ document.addEventListener('click', (e) => {
   if (inp) { inp.value = b.dataset.nq; inp.dispatchEvent(new Event('input', { bubbles: true })); }
 });
 document.addEventListener('input', (e) => { if (e.target.id && /North$/.test(e.target.id) && e.target.type === 'number') syncNorthPreview(e.target); });
+
+
+
+function bedPerimeter(it) {
+  if (it.pts) return polyLen(shapePoly(it.pts, it.smooth), true);
+  const a = it.w / 2, b = it.h / 2;
+  if (bedForm(it) === 'oval') return Math.PI * (3 * (a + b) - Math.sqrt((3 * a + b) * (a + 3 * b)));
+  return 2 * (it.w + it.h);
+}
 
 (function boot() {
   try {

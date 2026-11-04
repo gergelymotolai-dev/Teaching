@@ -359,8 +359,8 @@ dialog::backdrop{background:rgba(10,12,10,.55)}
     <div class="tabpane" id="pNav" role="tabpanel"><div class="nav" id="nav" aria-label="Navigator: click or drag to move the view"></div></div>
   </div>
   <div class="dgroup" data-tabs>
-    <div class="tabs" role="tablist"><button role="tab" data-pane="pLayers" aria-selected="true">Layers</button><button role="tab" data-pane="pObjects" aria-selected="false">Objects<span class="badge" id="objBadge"></span></button></div>
-    <div class="tabpane" id="pLayers" role="tabpanel"><div class="list">
+    <div class="tabs" role="tablist"><button role="tab" data-pane="pObjects" aria-selected="true">Layers<span class="badge" id="objBadge"></span></button><button role="tab" data-pane="pLayers" aria-selected="false">Show</button></div>
+    <div class="tabpane" id="pLayers" role="tabpanel" hidden><div class="list">
       <label class="layer"><input type="checkbox" id="tDiagram" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:repeating-linear-gradient(135deg,#C9DEF0 0 4px,#F1D9A6 4px 8px)"></span><span class="lname">Functional diagram</span></label>
       <label class="layer"><input type="checkbox" id="tTypes"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#ECECE6;color:#1A1A1A;font:700 9px/16px var(--display);text-align:center">AR</span><span class="lname">Plant tags (key codes)</span></label>
       <label class="layer"><input type="checkbox" id="tDesign" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:radial-gradient(circle at 40% 40%,#8DB862,#4F7E36)"></span><span class="lname">Design (plants &amp; hardscape)</span></label>
@@ -371,7 +371,7 @@ dialog::backdrop{background:rgba(10,12,10,.55)}
       <label class="layer" id="tFloorRow"><input type="checkbox" id="tFloor"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#F1F1EE;border-width:2px"></span><span class="lname">House floor plan (rooms, windows)</span></label>
       <label class="layer" id="tImgRow" hidden><input type="checkbox" id="tImg" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:linear-gradient(135deg,#9DB27A,#C9C1A8)"></span><span class="lname">Trace image</span></label>
     </div></div>
-    <div class="tabpane" id="pObjects" role="tabpanel" hidden><div class="list" id="objList"></div></div>
+    <div class="tabpane" id="pObjects" role="tabpanel"><div class="list" id="objList"></div></div>
   </div>
   <div class="dgroup" data-tabs>
     <div class="tabs" role="tablist"><button role="tab" data-pane="pWants" aria-selected="true">Client<span class="badge" id="wantsBadge"></span></button><button role="tab" data-pane="pCheck" aria-selected="false">Check<span class="badge" id="checkBadge"></span></button><button role="tab" data-pane="pSched" aria-selected="false">Schedule</button></div>

@@ -87,8 +87,37 @@ fs.mkdirSync(D, { recursive: true });
   await p.click('[data-pane="pSched"]');
   const sched = await p.textContent('#sched');
   ok(/Coral bells/.test(sched) && /Pawpaw/.test(sched) && /Black-eyed Susan/.test(sched) && /Liriope/.test(sched), 'schedule lists mixed and custom plants');
-  await p.click('#zFit'); await p.click('label:has(#tTypes)');
+  await p.click('#zFit'); await p.click('[data-pane="pLayers"]'); await p.click('label:has(#tTypes)'); await p.click('[data-pane="pObjects"]');
   await p.screenshot({ path: D + 'beds-ui.png' });
+  // 6b. stacking: a raised bed placed in the middle of a flower bed, brought to the front
+  await p.keyboard.press('Escape');
+  const newest = async (before) => (await items()).find((i) => !before.includes(i.id));
+  let ids0 = (await items()).map((i) => i.id);
+  await p.click('[data-tool="annual"]'); await p.click('#optCtx [data-prefform="rect"]'); await click(60, 80);
+  const raised = await newest(ids0);
+  await p.selectOption('#optCtx [data-setedge]', 'wood');
+  ok((await items()).find((i) => i.id === raised.id).edge === 'wood', 'raised wood edge from the top bar');
+  ids0 = (await items()).map((i) => i.id);
+  await p.click('[data-tool="perennial"]'); await p.click('#optCtx [data-prefform="oval"]'); await click(60, 80);
+  const big = await newest(ids0);
+  await p.fill('[data-f="w"]', '24'); await p.press('[data-f="w"]', 'Tab'); await p.fill('[data-f="h"]', '14'); await p.press('[data-f="h"]', 'Tab'); await p.waitForTimeout(600);
+  let order = (await items()).map((i) => i.id);
+  ok(order.indexOf(big.id) > order.indexOf(raised.id), 'the newer flower bed starts on top of the raised bed');
+  // pick the raised bed in the Layers list and bring it forward
+  await p.click(`[data-obj="${raised.id}"]`); await p.click('[data-act="fwd"]');
+  order = (await items()).map((i) => i.id);
+  ok(order.indexOf(raised.id) > order.indexOf(big.id), 'Bring forward puts the raised bed over the flower bed');
+  await p.keyboard.press('Control+['); order = (await items()).map((i) => i.id);
+  ok(order.indexOf(raised.id) < order.indexOf(big.id), 'Ctrl+[ sends it back under');
+  // drag it above the flower bed in the Layers list
+  const from = await (await p.$(`[data-obj="${raised.id}"]`)).boundingBox(), to = await (await p.$(`[data-obj="${big.id}"]`)).boundingBox();
+  await p.mouse.move(from.x + 40, from.y + from.height / 2); await p.mouse.down();
+  await p.mouse.move(to.x + 40, to.y + 4, { steps: 10 }); await p.mouse.up(); await p.waitForTimeout(200);
+  order = (await items()).map((i) => i.id);
+  ok(order.indexOf(raised.id) > order.indexOf(big.id), 'drag in the Layers list restacks it on top');
+  await p.click('[data-pane="pSched"]');
+  ok(/Raised bed wall, wood timbers/.test(await p.textContent('#sched')), 'takeoff lists the raised bed wall');
+  await p.click('#zFit'); await p.screenshot({ path: D + 'raised-ui.png' });
   // 7. save and reopen: custom plants and mixed beds come back
   const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#bSave')]);
   const jp = D + 'beds.json'; await dl.saveAs(jp);

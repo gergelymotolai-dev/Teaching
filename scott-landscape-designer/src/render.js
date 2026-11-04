@@ -671,8 +671,26 @@ function bedSpots(mix, insideF, bb, rng) {
   }
   return { spc, pts: pts.map((p) => [p[0], p[1], mix[0] && mix[0].sp]) };
 }
-/* a planted bed of any outline d (local coords); insideF(pad) gives a point test */
-function plantedBed(d, insideF, bb, mix, o, rng, type) {
+/* bed edges: raised walls (with a shadow) or flat steel edging */
+const EDGES = { wood: 'Raised: wood timbers', stone: 'Raised: stone wall', brick: 'Raised: brick', steel: 'Steel edging (flat)' };
+function edgeUnder(d, edge, o) {
+  if (!EDGES[edge] || edge === 'steel' || o.icon || !o.render) return '';
+  return `<path d="${d}" transform="translate(-0.5 0.5)" fill="#0E1408" fill-opacity="0.35" stroke="#0E1408" stroke-opacity="0.35" stroke-width="0.9" filter="url(#ld-soft)"/>`;
+}
+function edgeOver(d, edge, o) {
+  if (!EDGES[edge]) return '';
+  const P = (stroke, w, extra) => `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${w}" stroke-linejoin="round"${extra || ''}/>`;
+  if (!o.render) return edge === 'steel' ? P(INK, n(o.u * 2.2)) : P(INK, 0.8) + P(o.color ? '#F4F1EA' : '#fff', 0.55);
+  if (edge === 'wood') return P('#4E3622', 0.9) + P('#A57A4E', 0.62, ' stroke-dasharray="4 0.14"') + P('#C79B69', 0.12, ' stroke-opacity="0.6"');
+  if (edge === 'stone') return P('#5E564C', 1) + P('url(#ld-flagstone)', 0.8);
+  if (edge === 'brick') return P('#4A1F14', 0.82) + P('url(#ld-brick)', 0.64);
+  return P('#6B3F25', 0.24);
+}
+/* a planted bed of any outline d (local coords), with an optional raised edge */
+function plantedBed(d, insideF, bb, mix, o, rng, type, edge) {
+  return edgeUnder(d, edge, o) + plantedBedInner(d, insideF, bb, mix, o, rng, type) + edgeOver(d, edge, o);
+}
+function plantedBedInner(d, insideF, bb, mix, o, rng, type) {
   const carpet = mix.length === 1 && mix[0].sp.t === 'groundcover';
   if (!o.render) {
     const tint = o.color ? (mix.length ? T[mix[0].sp.t].tint : T.bedShape.tint) : '#fff';
@@ -715,7 +733,7 @@ function bedOutlinePts(it) {
 function bedRender(it, o, rng) {
   const rx = it.w / 2, ry = it.h / 2, oval = bedForm(it) === 'oval';
   const insideF = (pad) => (oval ? (x, y) => (x / Math.max(0.1, rx - pad)) ** 2 + (y / Math.max(0.1, ry - pad)) ** 2 < 1 : (x, y) => Math.abs(x) < rx - pad && Math.abs(y) < ry - pad);
-  return plantedBed(bedPathD(it), insideF, [-rx, -ry, rx, ry], bedMix(it), o, rng, it.type);
+  return plantedBed(bedPathD(it), insideF, [-rx, -ry, rx, ry], bedMix(it), o, rng, it.type, it.edge);
 }
 function shapeRender(it, o, rng) {
   const d = shapeD(it.pts, it.smooth);
@@ -738,7 +756,7 @@ function shapeRender(it, o, rng) {
   const poly = shapePoly(it.pts, it.smooth);
   const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
   const bb = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
-  return plantedBed(d, (pad) => (x, y) => inPoly([x, y], poly) && segMin([x, y], poly) > pad, bb, bedMix(it), o, rng, it.type);
+  return plantedBed(d, (pad) => (x, y) => inPoly([x, y], poly) && segMin([x, y], poly) > pad, bb, bedMix(it), o, rng, it.type, it.edge);
 }
 function segMin(p, poly) { let d = Infinity; for (let i = 0; i < poly.length; i++) d = Math.min(d, segDist(p, poly[i], poly[(i + 1) % poly.length])); return d; }
 
