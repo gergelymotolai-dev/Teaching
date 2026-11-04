@@ -1,4 +1,4 @@
-/* Scott Residence Landscape Designer — app: state, tools, panels, export.
+/* Verdant Studio — landscape design app (Scott Residence lab, AGPS 1024): state, tools, panels, export.
  * World units are FEET: x runs right from the north property line, y runs down from the back (east) line.
  * Concatenated after plants.js and render.js by scripts/build.py. CORE comes from data/core.json. */
 
@@ -494,8 +494,8 @@ function renderBase() {
   $('tFloorRow').hidden = !isScott();
   $('tUtilRow').hidden = !isScott();
   const t = esc(projName());
-  document.querySelector('header.top h1').innerHTML = `${t}<span>Landscape Designer</span>`;
-  document.title = `${projName()} · Landscape Designer`;
+  document.querySelector('header.top h1').innerHTML = `Verdant Studio<span>${t}</span>`;
+  document.title = `${projName()} · Verdant Studio`;
 }
 
 /* ------------------------------------------------------------------ rendering */
@@ -1756,7 +1756,7 @@ function showBrief() {
     <div class="btnrow"><button type="button" class="btn" data-close autofocus>Close</button></div>`);
 }
 function showAbout() {
-  openDialog(`<h3>Scott Residence Landscape Designer</h3><p>For AGPS 1024 Principles of Plant Science, Arkansas Tech University. Design the Scott family's yard on the real base plan at true scale, then export an 11×17 design plan to turn in.</p>
+  openDialog(`<h3>Verdant Studio</h3><p>Landscape design software for AGPS 1024 Principles of Plant Science, Arkansas Tech University. Design the Scott family's yard on the real base plan at true scale, then export an 11×17 design plan to turn in.</p>
     <p class="muted">${PLANTS.length} plants in the library, chosen for central Arkansas. Your work saves in this browser automatically; use Save to keep a file.</p><div class="btnrow"><button type="button" class="btn" data-close autofocus>Close</button></div>`);
 }
 
@@ -1995,7 +1995,7 @@ async function doExport(fmt, btn) {
     let jsPDF;
     try { jsPDF = await loadJsPDF(); } catch (e) { pngFallback(c.toDataURL('image/png'), "The PDF maker couldn't load (are you offline?). You can turn in the PNG instead."); return; }
     const pdf = new jsPDF({ unit: 'in', format: [11, 17], orientation: 'portrait', compress: true });
-    pdf.setProperties({ title: projName() + ' — Design Plan', subject: isScott() ? 'AGPS 1024 design project' : 'Landscape design plan', author: state.meta.name || '' });
+    pdf.setProperties({ creator: 'Verdant Studio', title: projName() + ' — Design Plan', subject: isScott() ? 'AGPS 1024 design project' : 'Landscape design plan', author: state.meta.name || '' });
     pdf.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 11, 17, undefined, 'FAST');
     const r = await saveBlob(slug() + '.pdf', pdf.output('blob'));
     if (r === 'saved') toast('PDF saved'); else if (r === 'declined') toast('Save canceled'); else pngFallback(c.toDataURL('image/png'), r === 'framed' ? FRAMED_NOTE : "This page can't save a PDF here.");

@@ -1,4 +1,6 @@
-# Scott Residence Landscape Designer
+# Verdant Studio (Scott Residence Landscape Designer)
+
+The app's name is **Verdant Studio**; the built file is `dist/verdant-studio.html`. localStorage keys keep their old `scottDesign.*` / `ldProject*` names so students' saved work survives.
 
 A browser-based landscape design tool for Gary Motolai's **AGPS 1024 Principles of Plant Science** lab at Arkansas Tech University. Students act as landscape designers for a fictional client, the Scott family. They design the yard, turn in the design, and present it to the class, who play the client.
 
@@ -13,7 +15,7 @@ Right now students do this on paper. This tool lets them do it online too: place
 | `src/render.js` | **Done.** Species canopy forms (`FORMS`: maple, oak, ginkgo, birch, redbud, dogwood, crape, jmaple, fruit, multistem, pine, column, deodar, magnolia; shrubs fine, spiky, mophead, rose, berry, shrub), item types, shared SVG patterns/filters, rendered presentation symbols (textured canopies with sun shadows, mowing stripes, mulch beds, stone/brick/paver/deck textures) and the lab's drafting symbols. |
 | `src/app.js` | **Done.** State, undo history with named steps, multi-select/marquee, copy/paste, align/distribute, lock/hide, grid and corner snapping, freeform curved/straight shapes with point editing, design check (incl. tree crowding and mature height under wires), plant schedule and material takeoff, 11×17 export (PNG/PDF/JSON), open/save. |
 | `data/core.json` | **Done.** Base plan geometry as SVG element strings (see Geometry). |
-| `scripts/build.py` | **Done.** Bundles plants.js + render.js + app.js into one script scope and inlines it, core.json, the fonts and jsPDF (from `src/vendor/`) into the template → `dist/landscape-designer.html`. Fails the build if any external `<link>`/`<script src>` is left. |
+| `scripts/build.py` | **Done.** Bundles plants.js + render.js + app.js into one script scope and inlines it, core.json, the fonts and jsPDF (from `src/vendor/`) into the template → `dist/verdant-studio.html`. Fails the build if any external `<link>`/`<script src>` is left. |
 | `src/vendor/` | Bundled jsPDF 2.5.1 (MIT) and Oswald / Source Sans 3 variable fonts (SIL OFL), with their licenses. The fonts are also embedded in the exported sheet, so PNG/PDF use the real typefaces. |
 | `scripts/e2e_test.js` | Playwright check at 1440×900 and 390×844 (`node scripts/e2e_test.js`). |
 | `scripts/e2e_custom.js` | Playwright check of the own-yard flow (`node scripts/e2e_custom.js`). |
@@ -36,7 +38,7 @@ Build with `python3 scripts/build.py`. Test with Playwright: Chromium and Playwr
 
 ## Deliverable
 
-One self-contained HTML file, `dist/landscape-designer.html`. No build tools beyond `build.py`, no frameworks, vanilla JS and inline SVG. It must work in two places:
+One self-contained HTML file, `dist/verdant-studio.html`. No build tools beyond `build.py`, no frameworks, vanilla JS and inline SVG. It must work in two places:
 
 1. **As a Claude artifact (claude.ai page).** It runs in a sandboxed frame:
    - `window.print`, `alert`, `confirm` and `prompt` are refused. Build in-page dialogs (`<dialog id="dlg">` is already in the template).

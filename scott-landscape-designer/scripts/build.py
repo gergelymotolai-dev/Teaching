@@ -1,4 +1,4 @@
-"""Build dist/landscape-designer.html: one self-contained page that works offline
+"""Build dist/verdant-studio.html: one self-contained page that works offline
 (USB drive, Blackboard, any web server). Everything is inlined: fonts, jsPDF, data.
 
 Bundles src/plants.js (plant library), src/render.js (symbols and rendering) and
@@ -37,5 +37,5 @@ import re
 assert not re.search(r'<link[^>]+href="https?:|<script[^>]+src="https?:', out), "external resource left in the page"
 dist = ROOT / "dist"
 dist.mkdir(exist_ok=True)
-(dist / "landscape-designer.html").write_text(out)
-print(f"wrote {dist / 'landscape-designer.html'} ({len(out):,} bytes)")
+(dist / "verdant-studio.html").write_text(out)
+print(f"wrote {dist / 'verdant-studio.html'} ({len(out):,} bytes)")

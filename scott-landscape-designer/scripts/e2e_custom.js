@@ -8,7 +8,7 @@ fs.mkdirSync(D, { recursive: true });
   const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1600, height: 1000 }, offline: true, acceptDownloads: true });
   const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(String(e))); p.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   const ok = (c, m) => { if (!c) process.exitCode = 1; console.log((c ? '[yard] ok: ' : '[yard] FAIL: ') + m); };
-  await p.goto('file://' + path.resolve(__dirname, '../dist/landscape-designer.html') + ''); await p.waitForTimeout(500);
+  await p.goto('file://' + path.resolve(__dirname, '../dist/verdant-studio.html') + ''); await p.waitForTimeout(500);
   const scr = (x, y) => p.evaluate(([x, y]) => { const s = document.getElementById('plan'), r = s.getBoundingClientRect(), vb = s.getAttribute('viewBox').split(' ').map(Number); return [r.left + (x - vb[0]) / vb[2] * r.width, r.top + (y - vb[1]) / vb[3] * r.height]; }, [x, y]);
   const st = () => p.evaluate(() => JSON.parse(localStorage.getItem('scottDesign.v1')));
   await p.click('[data-tool="dtree"]'); let [x, y] = await scr(20, 24); await p.mouse.click(x, y); await p.keyboard.press('Escape');

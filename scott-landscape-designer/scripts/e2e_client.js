@@ -9,7 +9,7 @@ fs.mkdirSync(D, { recursive: true });
   const p = await ctx.newPage(); const errs = [];
   p.on('pageerror', (e) => errs.push(String(e))); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
   const ok = (c, m) => { if (!c) process.exitCode = 1; console.log((c ? '[client] ok: ' : '[client] FAIL: ') + m); };
-  await p.goto('file://' + path.resolve(__dirname, '../dist/landscape-designer.html')); await p.waitForTimeout(500);
+  await p.goto('file://' + path.resolve(__dirname, '../dist/verdant-studio.html')); await p.waitForTimeout(500);
   const wants = async () => (await p.evaluate(() => JSON.parse(localStorage.getItem('scottDesign.v1')))).wants;
   await p.click('[data-pane="pWants"]');
   ok((await p.$$('[data-want]')).length === 7, 'Scott lab starts with the seven wishes from the brief');

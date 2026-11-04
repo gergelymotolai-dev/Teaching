@@ -1,10 +1,10 @@
-/* End-to-end check of dist/landscape-designer.html at desktop and phone sizes.
+/* End-to-end check of dist/verdant-studio.html at desktop and phone sizes.
  *   node scripts/e2e_test.js [output-dir]
  * Needs Playwright with Chromium. Writes screenshots, a saved design and the exported sheet. */
 const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
-const FILE = 'file://' + path.resolve(__dirname, '../dist/landscape-designer.html');
+const FILE = 'file://' + path.resolve(__dirname, '../dist/verdant-studio.html');
 const OUT = process.argv[2] || path.resolve(__dirname, '../test-output');
 fs.mkdirSync(OUT, { recursive: true });
 
