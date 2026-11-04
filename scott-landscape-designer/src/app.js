@@ -52,7 +52,7 @@ const NS = 'http://www.w3.org/2000/svg';
 const KEYS = {
   select: 'V', hand: 'H', label: 'T', measure: 'M',
   dtree: '1', etree: '2', bshrub: '3', dshrub: '4', perennial: '5', annual: '6', groundcover: '7', bedShape: 'B',
-  lawn: 'L', lawnShape: 'N', patio: 'P', paveShape: 'O', deck: 'K', path: 'W', fence: 'F', veg: 'G', wood: 'S', birdbath: 'Y',
+  lawn: 'L', lawnShape: 'N', patio: 'P', paveShape: 'O', deck: 'K', path: 'W', fence: 'F', wall: 'R', veg: 'G', wood: 'S', birdbath: 'Y',
   bubble: 'U', arrow: 'A', building: 'Q',
 };
 const LINE_ICO = {
@@ -78,6 +78,9 @@ const TIPS = {
   lawn: 'Rectangle of lawn. Pick the grass in the library.', lawnShape: 'Draw a curved lawn edge point by point.',
   patio: 'Rectangle patio. Choose stone, pavers, brick or concrete.', paveShape: 'Draw any paved shape point by point.',
   deck: 'Wood deck.', path: 'Click each corner of the walk, double-click to finish.', fence: 'Click each corner of the fence, double-click to finish. Pick the style (privacy, picket, split rail, chain link, metal) under Properties, or use Arrange → Fence the property line.',
+  pondShape: 'Draw a natural pond: click around the edge, then the first dot to close.', stream: 'Click along the course of the stream, double-click to finish. Set its width under Properties.',
+  wall: 'Click each corner of the wall, double-click to finish. Pick retaining block, fieldstone, seat wall, brick or timber at the top; Curved makes a smooth arc.',
+  lights: 'String lights: click each pole or hook, double-click to finish. Bistro or fairy bulbs at the top.',
   veg: 'Raised vegetable garden.', wood: 'Firewood stockpile.', birdbath: 'Bird bath or feeder. The kids birdwatch.',
   bubble: 'Use-area bubble for the functional diagram.', arrow: 'Circulation arrow: click points, double-click to finish.',
   building: 'Draw a house, garage or shed outline: click each corner, then click the first corner to close.',
@@ -86,7 +89,7 @@ const RAIL = [
   ['select', 'hand', 'label', 'measure'],
   ['dtree', 'etree', 'bshrub', 'dshrub'],
   ['perennial', 'annual', 'groundcover', 'bedShape'],
-  ['building', 'lawn', 'lawnShape', 'patio', 'paveShape', 'deck', 'path', 'fence'],
+  ['building', 'lawn', 'lawnShape', 'patio', 'paveShape', 'path', 'fence', 'wall'],
   ['bubble', 'arrow'],
 ];
 
@@ -152,9 +155,9 @@ let hist = [], hIdx = -1, commitTimer = null, pendingLabel = 'Edit';
 let checkRun = false;
 let draft = null, hover = null, measure = null, marquee = null, snapMark = null;
 let clip = [], pasteN = 0;
-const toolPreset = {};
+const toolPreset = { wall: { style: 'seat', height: 1.5, width: 1.5 } };
 const bedFormPref = { perennial: 'oval', annual: 'oval', groundcover: 'round' };
-const drawSmooth = { bedShape: true, lawnShape: true, paveShape: false };
+const drawSmooth = { bedShape: true, lawnShape: true, paveShape: false, wall: false, lights: false, pondShape: true, stream: true };
 const lastFence = { style: 'privacy', height: 6 };
 const byId = (id) => state.items.find((i) => i.id === id);
 const selItems = () => sel.map(byId).filter(Boolean);
@@ -260,6 +263,7 @@ function cleanState(raw) {
         if (!Array.isArray(r.pts) || r.pts.length < min || r.pts.length > 500) throw 0;
         it.pts = r.pts.map((p) => { if (!Array.isArray(p)) throw 0; return [numOr(p[0], -200, 300), numOr(p[1], -200, 300)]; });
         if (r.type === 'path') it.width = numOr(r.width, 1, 30, 4);
+        if (r.type === 'stream') { it.width = numOr(r.width, 1, 20, 3); it.smooth = r.smooth === undefined ? true : !!r.smooth; }
         if (t.kind === 'shape') it.smooth = r.smooth === undefined ? !!t.d.smooth : !!r.smooth;
       } else {
         it.x = numOr(r.x, -200, 300); it.y = numOr(r.y, -200, 300);
@@ -273,6 +277,8 @@ function cleanState(raw) {
     if (r.type === 'patio' || r.type === 'paveShape') it.finish = FINISHES[r.finish] ? r.finish : t.d.finish;
     if (r.type === 'path') it.finish = PATH_FINISHES[r.finish] ? r.finish : 'concrete';
     if (r.type === 'fence') { it.style = FENCE_STYLES[r.style] ? r.style : 'privacy'; it.height = numOr(r.height, 2, 12, FENCE_HEIGHT[it.style]); }
+    if (r.type === 'wall') { it.style = WALL_STYLES[r.style] ? r.style : 'seat'; it.height = numOr(r.height, 0.5, 12, WALL_HEIGHT[it.style]); it.width = WALL_W[it.style]; it.smooth = !!r.smooth; }
+    if (r.type === 'lights') { it.style = LIGHT_STYLES[r.style] ? r.style : 'bistro'; it.smooth = !!r.smooth; }
     const cats = spCats(r.type);
     if (cats.length) {
       const sp = findSp(r.sp);
@@ -696,7 +702,7 @@ function renderOverlay() {
     const pts = draft.pts.concat(hover ? [hover] : []);
     const t = T[draft.type];
     if (pts.length >= 2) {
-      const g = { id: 'draft', type: draft.type, pts, width: t.d.width, finish: t.d.finish, smooth: drawSmooth[draft.type] ?? t.d.smooth, sp: curSp[draft.type] || t.d.sp };
+      const g = Object.assign({ id: 'draft', type: draft.type, pts, width: t.d.width, finish: t.d.finish, sp: curSp[draft.type] || t.d.sp }, t.kind === 'line' ? toolPreset[draft.type] || {} : {}, draft.type === 'fence' ? lastFence : {}, { smooth: drawSmooth[draft.type] ?? t.d.smooth });
       if (t.kind === 'shape' && pts.length < 3) s += `<path d="${ptsD(pts)}" stroke="${SEL}" stroke-width="${sw}" fill="none" pointer-events="none"/>`;
       else s += `<g opacity="0.7" pointer-events="none">${drawItem(g, drawOpts({ tags: false }))}</g>`;
     }
@@ -734,6 +740,7 @@ function areaOf(it) {
   if (t.kind === 'shape') return polyArea(shapePoly(it.pts, it.smooth));
   if (t.kind === 'box') return it.type === 'perennial' || it.type === 'annual' || it.type === 'bubble' ? Math.PI * it.w * it.h / 4 : it.w * it.h;
   if (it.type === 'path') return polyLen(it.pts) * it.width;
+  if (it.type === 'stream') return polyLen(it.smooth ? wallLine(it) : it.pts) * it.width;
   return 0;
 }
 function statusSel() {
@@ -764,7 +771,7 @@ function renderRail() {
     b.addEventListener('click', () => setTool(b.dataset.tool));
     bindTip(b, () => `<b>${esc(toolName(b.dataset.tool))}</b> &nbsp;<kbd>${KEYS[b.dataset.tool]}</kbd><small>${esc(TIPS[b.dataset.tool] || '')}</small>`);
   });
-  const LIBTIP = { plants: ['Plant library', 'Trees, shrubs, perennials, grasses and your own plants.'], build: ['Build', 'Fences, patios by surface, walks, decks, sheds, vegetable garden, firewood, bird bath.'], living: ['Outdoor living', 'Furniture, umbrellas, pergola, grill, kitchen, fire pits, pools, hot tub, play set, swings, trampoline.'] };
+  const LIBTIP = { plants: ['Plant library', 'Trees, shrubs, perennials, grasses and your own plants.'], build: ['Build', 'Fences, walls (retaining, stone, seat, brick, timber), patios by surface, walks, decks, sheds, vegetable garden, firewood, bird bath.'], living: ['Outdoor living', 'Furniture, umbrellas, pergola, grill, kitchen, fire pits, pools, hot tub, ponds and streams, play set, swings, trampoline, string lights.'] };
   $('rail').querySelectorAll('[data-openlib]').forEach((b) => {
     b.addEventListener('click', () => { const tab = b.dataset.openlib; if (view.lib && libTab === tab) toggleLib(false); else { if (!view.lib) toggleLib(true); setLibTab(tab); } markLibButtons(); });
     bindTip(b, () => `<b>${LIBTIP[b.dataset.openlib][0]}</b><small>${LIBTIP[b.dataset.openlib][1]}</small>`);
@@ -1071,6 +1078,16 @@ function renderProps() {
     h += `<div class="row2">${fld('Fence style', `<select data-f="fstyle" aria-label="Fence style"${dis}>${Object.entries(FENCE_STYLES).map(([k, z]) => `<option value="${k}" ${(it.style || 'privacy') === k ? 'selected' : ''}>${z.replace(' fence', '')}</option>`).join('')}</select>`)}${fld('Height', `<select data-f="fheight" aria-label="Fence height"${dis}>${[3, 4, 5, 6, 8].map((v) => `<option value="${v}" ${(it.height || 6) === v ? 'selected' : ''}>${v} ft</option>`).join('')}</select>`)}</div>`;
     h += `<p class="muted" style="margin-bottom:8px">${{ privacy: 'Solid boards: blocks views and noise. Good for the busy street side and around the patio.', picket: 'Low and open: marks the edge of a front yard.', split: 'Rustic and open: marks a line without blocking views.', chain: 'See-through and low cost: keeps pets and kids in.', iron: 'Open and formal: lets light and views through.' }[it.style || 'privacy']}</p>`;
   }
+  if (it.type === 'wall') {
+    h += `<div class="row2">${fld('Wall', `<select data-f="wstyle" aria-label="Wall style"${dis}>${Object.entries(WALL_STYLES).map(([k, z]) => `<option value="${k}" ${it.style === k ? 'selected' : ''}>${z}</option>`).join('')}</select>`)}${fld('Height', `<select data-f="wheight" aria-label="Wall height"${dis}>${WALL_HEIGHTS.map((v) => `<option value="${v}" ${(it.height || 1.5) === v ? 'selected' : ''}>${ftIn(v)}</option>`).join('')}</select>`)}</div>`;
+    h += `<label class="check" style="margin-bottom:8px"><input type="checkbox" data-f="smooth" ${it.smooth ? 'checked' : ''}${dis}> Curved wall</label><p class="muted" style="margin-bottom:8px">${WALL_NOTE[it.style] || ''} ${WALL_W[it.style] * 12} in. thick.</p>`;
+  }
+  if (it.type === 'stream') h += `<div class="row2">${fld('Width ft', numIn('width', it.width || 3, 1, 20, 0.5, 'Stream width in feet'))}${fld('Course', `<label class="check"><input type="checkbox" data-f="smooth" ${it.smooth ? 'checked' : ''}${dis}> Curved</label>`)}</div><p class="muted" style="margin-bottom:8px">A shallow stream over gravel with rocky banks. Run it downhill into a pond for a recirculating water feature.</p>`;
+  if (it.type === 'pondShape') h += `<p class="muted" style="margin-bottom:8px">Natural pond with a boulder edge, water lilies and rushes. Keep it 2 ft deep or more for fish, and away from big trees (leaves).</p>`;
+  if (it.type === 'lights') {
+    h += fld('Bulbs', `<select data-f="lstyle" aria-label="Light style"${dis}>${Object.entries(LIGHT_STYLES).map(([k, z]) => `<option value="${k}" ${it.style === k ? 'selected' : ''}>${z}</option>`).join('')}</select>`);
+    h += `<label class="check" style="margin-bottom:8px"><input type="checkbox" data-f="smooth" ${it.smooth ? 'checked' : ''}${dis}> Draped (curved)</label><p class="muted" style="margin-bottom:8px">${lightBulbs(it)} bulbs. The dark dots are the poles or hooks they hang from; place them over a patio, pergola or along a fence.</p>`;
+  }
   if (t.kind === 'line') h += `<p class="muted" style="margin-bottom:8px">${polyLen(it.pts).toFixed(1)} ft long. Drag a white dot to move a corner, a blue dot to add one.</p>`;
   if (t.kind === 'text') { h += fld('Text', `<input type="text" data-f="text" value="${esc(it.text || '')}" maxlength="200" aria-label="Label text"${dis}>`); h += fld('Text size ft', numIn('size', it.size, 0.5, 20, 0.25, 'Text size')); }
   else h += fld(it.type === 'bubble' ? 'Label (blank shows the zone)' : 'Label', `<input type="text" data-f="label" value="${esc(it.label || '')}" placeholder="${t.tree ? 'e.g. Shade for patio' : 'Optional'}" maxlength="120" aria-label="Label"${dis}>`);
@@ -1132,6 +1149,9 @@ $('props').addEventListener('change', (e) => {
   if (f === 'form') { it.form = v; renderItems([it.id]); commit('Change bed shape'); return; }
   if (f === 'edge') { if (EDGES[v]) it.edge = v; else delete it.edge; renderItems([it.id]); renderOptCtx(); commit(v ? 'Raise bed' : 'Remove bed edge'); return; }
   if (f === 'fstyle') { it.style = FENCE_STYLES[v] ? v : 'privacy'; it.height = FENCE_HEIGHT[it.style]; Object.assign(lastFence, { style: it.style, height: it.height }); renderItems([it.id]); renderProps(); commit('Change fence style'); return; }
+  if (f === 'wstyle') { setWallStyle(it, v); renderItems([it.id]); renderProps(); renderOptCtx(); commit('Change wall'); return; }
+  if (f === 'wheight') { it.height = +v || 1.5; toolPreset.wall.height = it.height; renderItems([it.id]); commit('Change wall height'); return; }
+  if (f === 'lstyle') { it.style = LIGHT_STYLES[v] ? v : 'bistro'; toolPreset.lights = { style: it.style }; renderItems([it.id]); renderProps(); renderOptCtx(); commit('Change lights'); return; }
   if (f === 'fheight') { it.height = +v || 6; lastFence.height = it.height; renderItems([it.id]); commit('Change fence height'); return; }
   flush();
 });
@@ -1256,7 +1276,7 @@ function newItem(type, p) {
   if (spCats(type).length) { if (PLANT_BY_ID[curSp[type]]) it.sp = curSp[type]; else delete it.sp; }
   if (type === 'fence') Object.assign(it, lastFence);
   if (toolPreset[type]) Object.assign(it, clone(toolPreset[type]));
-  if (t.kind === 'shape' && drawSmooth[type] !== undefined) it.smooth = drawSmooth[type];
+  if ((t.kind === 'shape' || t.kind === 'line') && drawSmooth[type] !== undefined) it.smooth = drawSmooth[type];
   if (t.kind === 'line' || t.kind === 'shape') return it;
   it.x = r1(p[0]); it.y = r1(p[1]);
   if (t.kind === 'circle' && t.plant && PLANT_BY_ID[it.sp]) it.r = Math.max(0.5, PLANT_BY_ID[it.sp].w / 2);
@@ -1712,6 +1732,10 @@ function takeoff() {
     if (it.type === 'deck') addM('deck', 'Wood deck', 'deck', a, 'sq ft');
     if (it.type === 'path') addM('path-' + it.finish, `${PATH_FINISHES[it.finish] || 'Concrete'} walk`, 'path', polyLen(it.pts), 'lin ft', a);
     if (it.type === 'fence') { const fs = it.style || 'privacy'; addM('fence-' + fs + (it.height || 6), `${it.height || FENCE_HEIGHT[fs]} ft ${FENCE_STYLES[fs].toLowerCase()}`, 'fence', polyLen(it.pts), 'lin ft'); }
+    if (it.type === 'wall') addM('wall-' + it.style + it.height, `${WALL_STYLES[it.style] || 'Garden wall'}, ${ftIn(it.height || 1.5)} tall`, 'wall', polyLen(wallLine(it)), 'lin ft');
+    if (it.type === 'pondShape') { addM('pond', 'Natural pond (liner, water area)', 'pondShape', a, 'sq ft'); addM('pondrock', 'Boulder edging for pond', 'pondShape', polyLen(shapePoly(it.pts, it.smooth), true), 'lin ft'); }
+    if (it.type === 'stream') addM('stream', `Stream bed, ${it.width || 3} ft wide`, 'stream', polyLen(it.smooth ? wallLine(it) : it.pts), 'lin ft', a);
+    if (it.type === 'lights') addM('lights-' + it.style, `${LIGHT_STYLES[it.style] || 'String lights'} (${lightBulbs(it)} bulbs)`, 'lights', polyLen(wallLine(it)), 'lin ft');
     if (it.type === 'veg') addM('veg', 'Raised vegetable beds', 'veg', a, 'sq ft');
     if (it.type === 'wood') addM('wood', 'Firewood stockpile', 'wood', 1, 'ea');
     if (it.type === 'birdbath') addM('bird', 'Bird bath / feeder', 'birdbath', 1, 'ea');
@@ -2619,6 +2643,16 @@ const swatch = (f) => `<svg viewBox="0 0 6 6" aria-hidden="true" class="sw6"><re
 function surfaceChips(cur, data) {
   return `<span class="optlabel">Surface</span><div class="seg shapeseg">${Object.entries(SURF_TYPES[data.type]).map(([k, l]) => `<button type="button" ${data.attr}="${k}" aria-pressed="${cur === k}" title="${l}">${swatch(k)}<span>${l.replace('Concrete pavers', 'Pavers')}</span></button>`).join('')}</div>`;
 }
+const WALL_HEIGHTS = [1, 1.5, 2, 2.5, 3, 4, 5, 6];
+const WALL_NOTE = { block: 'Interlocking concrete block: holds back soil on a slope; cap units on top.', stone: 'Dry-stacked fieldstone: a natural low wall to define an area or edge a bed.', seat: 'Stone wall with a flat cap, about 18 in. tall: extra seating around a patio or fire pit.', brick: 'Brick with a rowlock cap: formal, matches a brick house.', timber: 'Landscape timbers: a simple low retaining wall for a slope or raised area.' };
+function setWallStyle(it, v) { it.style = WALL_STYLES[v] ? v : 'seat'; it.height = WALL_HEIGHT[it.style]; it.width = WALL_W[it.style]; toolPreset.wall = { style: it.style, height: it.height, width: it.width }; }
+const lightBulbs = (it) => Math.max(1, Math.floor(polyLen(wallLine(it)) / (it.style === 'fairy' ? 0.5 : 2)));
+const curveSeg = (on, attr) => `<span class="optlabel">Run</span><div class="seg shapeseg">${segBtn('curved', 'Curved', on, attr)}${segBtn('straight', 'Straight', !on, attr)}</div>`;
+function wallChips(cur, height, attr) {
+  return `<span class="optlabel">Wall</span><div class="seg shapeseg">${Object.entries(WALL_STYLES).map(([k, l]) => `<button type="button" ${attr}="${k}" aria-pressed="${cur === k}" title="${l}"><span>${{ block: 'Retaining', stone: 'Fieldstone', seat: 'Seat wall', brick: 'Brick', timber: 'Timber' }[k]}</span></button>`).join('')}</div>` +
+    `<select class="edgesel" data-wheight aria-label="Wall height">${WALL_HEIGHTS.map((v) => `<option value="${v}" ${height === v ? 'selected' : ''}>${ftIn(v)} tall</option>`).join('')}</select>`;
+}
+function lightChips(cur, attr) { return `<span class="optlabel">Lights</span><div class="seg shapeseg">${Object.entries(LIGHT_STYLES).map(([k, l]) => `<button type="button" ${attr}="${k}" aria-pressed="${cur === k}" title="${l}"><span>${k === 'fairy' ? 'Fairy' : 'Bistro'}</span></button>`).join('')}</div>`; }
 function fenceChips(cur, height, attr) {
   return `<span class="optlabel">Fence</span><div class="seg shapeseg">${Object.entries(FENCE_STYLES).map(([k, l]) => `<button type="button" ${attr}="${k}" aria-pressed="${cur === k}" title="${l}"><span>${l.replace(' fence', '').replace('Metal (wrought iron)', 'Metal').replace('Wood privacy', 'Privacy').replace('White picket', 'Picket')}</span></button>`).join('')}</div>` +
     `<select class="edgesel" data-fheight aria-label="Fence height">${[3, 4, 5, 6, 8].map((v) => `<option value="${v}" ${height === v ? 'selected' : ''}>${v} ft tall</option>`).join('')}</select>`;
@@ -2637,6 +2671,10 @@ function renderOptCtx() {
   } else if (SURF_TYPES[tool]) {
     h = surfaceChips((toolPreset[tool] && toolPreset[tool].finish) || T[tool].d.finish, { type: tool, attr: 'data-preffinish' }) +
       (drawSmooth[tool] !== undefined ? `<span class="optlabel">Edges</span><div class="seg shapeseg">${segBtn('curved', 'Curved', drawSmooth[tool], 'data-drawsmooth')}${segBtn('straight', 'Straight', !drawSmooth[tool], 'data-drawsmooth')}</div>` : '');
+  } else if (one && !one.locked && (one.type === 'wall' || one.type === 'lights') && tool === 'select') {
+    h = (one.type === 'wall' ? wallChips(one.style, one.height, 'data-setwall') : lightChips(one.style, 'data-setlights')) + curveSeg(!!one.smooth, 'data-setsmooth');
+  } else if (tool === 'wall' || tool === 'lights') {
+    h = (tool === 'wall' ? wallChips(toolPreset.wall.style, toolPreset.wall.height, 'data-prefwall') : lightChips((toolPreset.lights || {}).style || 'bistro', 'data-preflights')) + curveSeg(drawSmooth[tool], 'data-drawsmooth');
   } else if (tool === 'fence') {
     h = fenceChips(lastFence.style, lastFence.height, 'data-preffence');
   } else if (one && !one.locked && ['perennial', 'annual', 'groundcover'].includes(one.type) && tool === 'select') {
@@ -2663,6 +2701,12 @@ $('optCtx').addEventListener('change', (e) => {
     if (one && one.type === 'fence' && tool === 'select') { one.height = v; renderItems([one.id]); renderProps(); commit('Change fence height'); } else lastFence.height = v;
     return;
   }
+  if (e.target.dataset.wheight !== undefined) {
+    const v = +e.target.value;
+    toolPreset.wall.height = v;
+    if (one && one.type === 'wall' && tool === 'select') { one.height = v; renderItems([one.id]); renderProps(); commit('Change wall height'); }
+    return;
+  }
   if (e.target.dataset.setedge === undefined || !one || one.locked) return;
   if (EDGES[e.target.value]) one.edge = e.target.value; else delete one.edge;
   renderItems([one.id]); renderProps(); commit(one.edge ? 'Raise bed' : 'Remove bed edge');
@@ -2677,13 +2721,17 @@ $('optCtx').addEventListener('click', (e) => {
   if (b.dataset.lotdone !== undefined) { setTool('select'); fit(); return; }
   if (b.dataset.lotrect !== undefined) { const L = lot(); delete state.site.lotPts; state.site.w = r1(L.x2); state.site.h = r1(L.y2); baseKey = ''; renderBase(); renderOverlay(); renderOptCtx(); commit('Property line back to a rectangle'); return; }
   if (b.dataset.preffinish) { toolPreset[tool] = Object.assign(toolPreset[tool] || {}, { finish: b.dataset.preffinish }); renderOptCtx(); renderOverlay(); return; }
+  if (b.dataset.prefwall) { const h0 = WALL_HEIGHT[b.dataset.prefwall]; toolPreset.wall = { style: b.dataset.prefwall, height: h0, width: WALL_W[b.dataset.prefwall] }; renderOptCtx(); renderOverlay(); if (libTab === 'build') renderCatalog(); return; }
+  if (b.dataset.preflights) { toolPreset.lights = { style: b.dataset.preflights }; renderOptCtx(); renderOverlay(); return; }
   if (b.dataset.preffence) { lastFence.style = b.dataset.preffence; lastFence.height = FENCE_HEIGHT[lastFence.style]; renderOptCtx(); return; }
   if (!one || one.locked) return;
   if (b.dataset.setfinish) { one.finish = b.dataset.setfinish; renderItems([one.id]); renderProps(); commit('Change surface'); return; }
+  if (b.dataset.setwall) { setWallStyle(one, b.dataset.setwall); renderItems([one.id]); renderProps(); renderOptCtx(); commit('Change wall'); return; }
+  if (b.dataset.setlights) { one.style = b.dataset.setlights; toolPreset.lights = { style: one.style }; renderItems([one.id]); renderProps(); renderOptCtx(); commit('Change lights'); return; }
   if (b.dataset.setfence) { one.style = b.dataset.setfence; one.height = FENCE_HEIGHT[one.style]; Object.assign(lastFence, { style: one.style, height: one.height }); renderItems([one.id]); renderProps(); commit('Change fence style'); return; }
   if (b.dataset.setform) { one.form = b.dataset.setform; renderItems([one.id]); renderProps(); commit('Change bed shape'); return; }
   if (b.dataset.freeform !== undefined) { makeFreeform(); return; }
-  if (b.dataset.setsmooth) { one.smooth = b.dataset.setsmooth === 'curved'; renderItems([one.id]); renderProps(); commit(one.smooth ? 'Curved edges' : 'Straight edges'); }
+  if (b.dataset.setsmooth) { one.smooth = b.dataset.setsmooth === 'curved'; renderItems([one.id]); renderProps(); renderOptCtx(); commit(one.smooth ? 'Curved edges' : 'Straight edges'); }
 });
 
 
@@ -2724,13 +2772,17 @@ const FENCE_ENTRIES = Object.keys(FENCE_STYLES).map((k) => ({ id: 'fence-' + k, 
 const CATALOG = {
   build: [
     ['Fences', [...FENCE_ENTRIES, { id: 'fencelot', name: 'Fence the whole property line', action: () => fenceLot(), icon: 'fence', note: 'One click: every lot line but the street side' }]],
+    ['Walls', Object.keys(WALL_STYLES).map((k) => ({ id: 'wall-' + k, name: WALL_STYLES[k], tool: 'wall', preset: { style: k, height: WALL_HEIGHT[k], width: WALL_W[k] }, smooth: false, icon: 'wall', note: `${ftIn(WALL_HEIGHT[k])} tall · click each corner, double-click to finish` }))
+      .concat([{ id: 'wall-seat-curve', name: 'Curved seat wall', tool: 'wall', preset: { style: 'seat', height: 1.5, width: 1.5 }, smooth: true, icon: 'wall', note: 'Wraps a fire pit or patio edge · click 3+ points' }, { id: 'wall-stone-curve', name: 'Curved fieldstone wall', tool: 'wall', preset: { style: 'stone', height: 2, width: 1.5 }, smooth: true, icon: 'wall', note: 'Defines a garden room · click 3+ points' }])],
     ['Patios, rectangle', Object.keys(FINISHES).map((k) => ({ id: 'patio-' + k, name: `${FINISHES[k]} patio`, tool: 'patio', preset: { finish: k }, icon: 'patio', iconPreset: { finish: k } }))],
     ['Patios, any shape', Object.keys(FINISHES).map((k) => ({ id: 'pave-' + k, name: `${FINISHES[k]}, draw any shape`, tool: 'paveShape', preset: { finish: k }, icon: 'paveShape', iconPreset: { finish: k }, note: 'Click each corner, then the first dot to close' }))],
     ['Walks and paths', Object.keys(PATH_FINISHES).map((k) => ({ id: 'path-' + k, name: `${PATH_FINISHES[k]} walk`, tool: 'path', preset: { finish: k }, icon: 'path', iconPreset: { finish: k }, note: 'Click each corner, double-click to finish' }))],
     ['Decks and buildings', [{ id: 'deck', name: 'Wood deck', tool: 'deck', icon: 'deck' }, { id: 'building', name: 'House, garage or shed (draw)', tool: 'building', icon: 'building', note: 'Click each corner' }]],
     ['Garden', [{ id: 'veg', name: 'Raised vegetable garden', tool: 'veg', icon: 'veg' }, { id: 'wood', name: 'Firewood stockpile', tool: 'wood', icon: 'wood' }, { id: 'birdbath', name: 'Bird bath / feeder', tool: 'birdbath', icon: 'birdbath' }]],
   ],
-  living: ['Furniture', 'Shade', 'Cooking & fire', 'Pools & spas', 'Play'].map((g) => [g, Object.entries(FURN_T).filter(([, v]) => v.group === g).map(([k, v]) => ({ id: k, name: v.name, tool: k, icon: k, note: `${v.d.w} × ${v.d.h} ft` }))
+  living: ['Furniture', 'Shade', 'Lighting', 'Cooking & fire', 'Pools & spas', 'Ponds & streams', 'Play'].map((g) => [g, Object.entries(FURN_T).filter(([, v]) => v.group === g).map(([k, v]) => ({ id: k, name: v.name, tool: k, icon: k, note: `${v.d.w} × ${v.d.h} ft` }))
+    .concat(g === 'Ponds & streams' ? [{ id: 'pondShape', name: 'Natural pond, draw any shape', tool: 'pondShape', icon: 'pondShape', note: 'Click around the edge, then the first dot to close' }, { id: 'stream-3', name: 'Stream, 3 ft wide', tool: 'stream', preset: { width: 3 }, icon: 'stream', note: 'Click along its course, double-click to finish' }, { id: 'stream-1', name: 'Trickle / rill, 18 in. wide', tool: 'stream', preset: { width: 1.5 }, icon: 'stream', iconPreset: { width: 1.2 }, note: 'Click along its course, double-click to finish' }] : [])
+    .concat(g === 'Lighting' ? [{ id: 'lights-bistro', name: 'String lights, bistro bulbs', tool: 'lights', preset: { style: 'bistro' }, smooth: false, icon: 'lights', note: 'Click each pole or hook, double-click to finish' }, { id: 'lights-drape', name: 'String lights, draped', tool: 'lights', preset: { style: 'bistro' }, smooth: true, icon: 'lights', note: 'A soft curve between 3+ points' }, { id: 'lights-fairy', name: 'Fairy lights', tool: 'lights', preset: { style: 'fairy' }, smooth: false, icon: 'lights', note: 'Tiny bulbs: trees, fences, pergola' }] : [])
     .concat(g === 'Pools & spas' ? [{ id: 'poolShape', name: 'Pool, draw any shape', tool: 'poolShape', icon: 'poolShape', note: 'Click around the edge, then the first dot to close' }] : [])]),
 };
 const ENTRY = {};
@@ -2739,13 +2791,13 @@ let libTab = 'plants';
 function entryThumb(e) {
   const spec = ICON[e.icon] || {};
   if (e.iconPreset) { const saved = Object.assign({}, spec); Object.assign(ICON[e.icon], e.iconPreset); const out = iconSVG(e.icon, 'render'); ICON[e.icon] = saved; return out; }
-  if (e.icon === 'fence' && e.preset) { const it = Object.assign({ id: 'icon-' + e.id, type: 'fence' }, clone(ICON.fence), e.preset); delete it.vb; return `<svg viewBox="${ICON.fence.vb.join(' ')}" aria-hidden="true">${drawItem(it, { u: 0.28, render: true, color: true, icon: true })}</svg>`; }
+  if (['fence', 'wall', 'lights'].includes(e.icon) && e.preset) { const it = Object.assign({ id: 'icon-' + e.id, type: e.icon }, clone(ICON[e.icon]), e.preset, e.smooth ? { smooth: true } : {}); delete it.vb; return `<svg viewBox="${ICON[e.icon].vb.join(' ')}" aria-hidden="true">${drawItem(it, { u: 0.28, render: true, color: true, icon: true })}</svg>`; }
   return iconSVG(e.icon, 'render');
 }
 function renderCatalog() {
   const groups = CATALOG[libTab];
   $('libList').innerHTML = `<p class="libhow">${libTab === 'build' ? 'Click an item, then click the plan. Fences, walks and any-shape patios: click each corner.' : 'Click an item, then click the plan, or drag it onto the plan. Drag its corner dot to resize; turn it with the yellow dot.'}</p>` +
-    groups.map(([g, list]) => `<div class="libcat">${esc(g)}</div>` + list.map((e) => `<button type="button" class="plant" data-el="${e.id}" aria-pressed="${tool === e.tool && (!e.preset || !toolPreset[e.tool] || JSON.stringify(e.preset) === JSON.stringify(e.tool === 'fence' ? { style: lastFence.style, height: lastFence.height } : toolPreset[e.tool]))}"><span class="thumb">${entryThumb(e)}</span><span class="pn"><b>${esc(e.name)}</b>${e.note ? `<i>${esc(e.note)}</i>` : ''}</span></button>`).join('')).join('');
+    groups.map(([g, list]) => `<div class="libcat">${esc(g)}</div>` + list.map((e) => `<button type="button" class="plant" data-el="${e.id}" aria-pressed="${tool === e.tool && (e.smooth === undefined || !!drawSmooth[e.tool] === e.smooth) && (!e.preset || !toolPreset[e.tool] || JSON.stringify(e.preset) === JSON.stringify(e.tool === 'fence' ? { style: lastFence.style, height: lastFence.height } : toolPreset[e.tool]))}"><span class="thumb">${entryThumb(e)}</span><span class="pn"><b>${esc(e.name)}</b>${e.note ? `<i>${esc(e.note)}</i>` : ''}</span></button>`).join('')).join('');
 }
 function useEntry(id) {
   const e = ENTRY[id];
@@ -2753,6 +2805,7 @@ function useEntry(id) {
   if (e.action) { e.action(); return; }
   if (e.tool === 'fence' && e.preset) Object.assign(lastFence, e.preset);
   else if (e.preset) toolPreset[e.tool] = Object.assign({}, e.preset);
+  if (e.smooth !== undefined) drawSmooth[e.tool] = e.smooth;
   if (sel.length) select(null);
   setTool(e.tool); renderCatalog();
   const k = T[e.tool].kind;

@@ -117,6 +117,9 @@ const ZONES = {
 const FINISHES = { flagstone: 'Flagstone', stone: 'Cut stone', pavers: 'Concrete pavers', brick: 'Brick', concrete: 'Concrete', gravel: 'Gravel' };
 const FENCE_STYLES = { privacy: 'Wood privacy fence', picket: 'White picket fence', split: 'Split-rail fence', chain: 'Chain-link fence', iron: 'Metal (wrought iron) fence' };
 const FENCE_HEIGHT = { privacy: 6, picket: 4, split: 4, chain: 4, iron: 4 };
+const WALL_STYLES = { block: 'Block retaining wall', stone: 'Fieldstone wall, dry-stacked', seat: 'Stone seat wall with cap', brick: 'Brick garden wall', timber: 'Timber retaining wall' };
+const WALL_HEIGHT = { block: 3, stone: 2, seat: 1.5, brick: 3, timber: 2 };
+const WALL_W = { block: 1, stone: 1.5, seat: 1.5, brick: 0.75, timber: 0.5 };
 const PATH_FINISHES = { concrete: 'Concrete', pavers: 'Concrete pavers', brick: 'Brick', flagstone: 'Flagstone', gravel: 'Gravel', mulch: 'Mulch' };
 /* kind: circle (x,y,r) | box (x,y,w,h,rot) | line (pts, open) | shape (pts, closed) | text
  * band: drawing order inside a layer so a lawn never hides the trees on it. */
@@ -135,6 +138,10 @@ const T = {
   deck:      { name: 'Deck', kind: 'box', d: { w: 12, h: 12 }, band: 2, tint: '#DDBF93', op: 1 },
   path:      { name: 'Walk / path', kind: 'line', d: { width: 4, finish: 'concrete' }, band: 3, tint: '#E6DECE', op: 1 },
   fence:     { name: 'Fence / screen', kind: 'line', d: { style: 'privacy', height: 6 }, band: 6 },
+  pondShape: { name: 'Pond (draw any shape)', short: 'POND', kind: 'shape', d: { smooth: true }, band: 1.5 },
+  stream:    { name: 'Stream', kind: 'line', d: { width: 3, smooth: true }, band: 1.6 },
+  lights:    { name: 'String lights', kind: 'line', d: { style: 'bistro', smooth: false }, band: 4.8 },
+  wall:      { name: 'Garden wall', kind: 'line', d: { style: 'seat', height: 1.5, width: 1.5, smooth: false }, band: 3.2 },
   veg:       { name: 'Vegetable garden', kind: 'box', d: { w: 12, h: 10 }, band: 2, tint: '#D3E5B5', op: 1 },
   wood:      { name: 'Wood stockpile', kind: 'box', d: { w: 8, h: 4 }, band: 2, tint: '#CDAA7D', op: 1 },
   lawn:      { name: 'Lawn / recreation area', kind: 'box', d: { w: 30, h: 20, sp: 'cyda' }, band: 0, tint: '#E1F0D5', op: 1 },
@@ -950,6 +957,7 @@ function bedRender(it, o, rng) {
 }
 function shapeRender(it, o, rng) {
   const d = shapeD(it.pts, it.smooth);
+  if (it.type === 'pondShape') return pondRender(it, o, rng);
   if (it.type === 'poolShape') {
     const poly = shapePoly(it.pts, it.smooth), xs = poly.map((q) => q[0]), ys = poly.map((q) => q[1]);
     if (o.render) return (o.icon ? '' : `<path d="${d}" transform="translate(-0.3 0.3)" fill="none" stroke="#0E1408" stroke-opacity="0.3" stroke-width="2.6" stroke-linejoin="round" filter="url(#ld-softw)"/>`) +
@@ -1378,6 +1386,8 @@ function furnDefs(pat, specks, R) {
   d += '<linearGradient id="ld-poolw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A8E1F3"/><stop offset="0.45" stop-color="#55B4DC"/><stop offset="1" stop-color="#1F73A6"/></linearGradient>';
   d += '<linearGradient id="ld-poolwx" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#A8E1F3"/><stop offset="0.45" stop-color="#55B4DC"/><stop offset="1" stop-color="#1F73A6"/></linearGradient>';
   d += '<radialGradient id="ld-glow"><stop offset="0" stop-color="#FFB347" stop-opacity="0.45"/><stop offset="0.5" stop-color="#FF8C2A" stop-opacity="0.12"/><stop offset="1" stop-color="#FF8C2A" stop-opacity="0"/></radialGradient>';
+  d += '<radialGradient id="ld-pond" cx="0.5" cy="0.5" r="0.6"><stop offset="0" stop-color="#1B4549"/><stop offset="0.55" stop-color="#2C6563"/><stop offset="0.9" stop-color="#4F806A"/><stop offset="1" stop-color="#6B8A62"/></radialGradient>';
+  d += '<radialGradient id="ld-bulbglow"><stop offset="0" stop-color="#FFE7A3" stop-opacity="0.8"/><stop offset="0.3" stop-color="#FFD27A" stop-opacity="0.35"/><stop offset="1" stop-color="#FFC861" stop-opacity="0"/></radialGradient>';
   d += '<linearGradient id="ld-slide" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD54A"/><stop offset="0.5" stop-color="#F2B705"/><stop offset="1" stop-color="#C98F00"/></linearGradient>';
   let wk = '<rect width="0.4" height="0.4" fill="#6B4A2E"/>';
   wk += '<path d="M0,0.1H0.4M0,0.3H0.4" stroke="#8C6640" stroke-width="0.09"/><path d="M0.1,0V0.4M0.3,0V0.4" stroke="#4A321E" stroke-width="0.05" stroke-opacity="0.8"/>';
@@ -1397,12 +1407,16 @@ function furnDefs(pat, specks, R) {
   d += pat('ld-boards', 0.55, 0.55, '<rect width="0.55" height="0.55" fill="#8C6640"/><rect width="0.5" height="0.55" fill="#A97B4D"/><path d="M0.15,0V0.55M0.32,0V0.55" stroke="#7E5632" stroke-width="0.02" stroke-opacity="0.6"/>');
   return d;
 }
+/* a soft drop shadow for a line item; the clear box gives the blur a real area even for a perfectly straight run */
+function lineShadow(line, w, off, op) {
+  const xs = line.map((p) => p[0]), ys = line.map((p) => p[1]), m = w + Math.abs(off) + 2;
+  return `<g filter="url(#ld-softw)" opacity="${op}"><rect x="${n(Math.min(...xs) - m)}" y="${n(Math.min(...ys) - m)}" width="${n(Math.max(...xs) - Math.min(...xs) + 2 * m)}" height="${n(Math.max(...ys) - Math.min(...ys) + 2 * m)}" fill="none"/><path d="${ptsD(line)}" transform="translate(${n(-off)} ${n(off)})" fill="none" stroke="#0E1408" stroke-width="${n(w)}" stroke-linejoin="round" stroke-linecap="round"/></g>`;
+}
 /* detailed rendered fence: each run drawn in its own local frame so boards and pickets sit across it */
 function fenceDetailed(it, o) {
   const st = it.style || 'privacy', pts = it.pts;
   const d = ptsD(pts);
-  const sw0 = st === 'privacy' ? 0.5 : 0.3, so = st === 'chain' || st === 'iron' ? 0.035 : 0.06;
-  let s = o.icon ? '' : [1, 1.5, 2.1, 2.9, 3.8].map((k) => `<path d="${d}" transform="translate(-0.3 0.3)" fill="none" stroke="#0E1408" stroke-opacity="${so}" stroke-width="${n(sw0 * k)}" stroke-linejoin="round" stroke-linecap="round"/>`).join('');
+  let s = o.icon ? '' : lineShadow(pts, st === 'privacy' ? 0.7 : 0.4, st === 'privacy' ? 0.6 : 0.35, st === 'chain' || st === 'iron' ? 0.18 : 0.32);
   const seg = (fn) => { let out = ''; for (let i = 1; i < pts.length; i++) { const [x1, y1] = pts[i - 1], [x2, y2] = pts[i], L = Math.hypot(x2 - x1, y2 - y1); if (L < 0.05) continue; out += `<g transform="translate(${n(x1)} ${n(y1)}) rotate(${n(Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI)})">${fn(L)}</g>`; } return out; };
   const post = (p, size, fill, stroke, cap) => `<rect x="${n(p[0] - size / 2)}" y="${n(p[1] - size / 2)}" width="${n(size)}" height="${n(size)}" rx="${n(size * 0.12)}" fill="${fill}" stroke="${stroke}" stroke-width="0.05"/>` + (cap ? `<rect x="${n(p[0] - size * 0.3)}" y="${n(p[1] - size * 0.3)}" width="${n(size * 0.6)}" height="${n(size * 0.6)}" fill="${cap}"/>` : '');
   const rpost = (p, r, fill, stroke, hi) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${n(r)}" fill="${fill}" stroke="${stroke}" stroke-width="0.05"/>` + (hi ? `<circle cx="${n(p[0] + r * 0.25)}" cy="${n(p[1] - r * 0.25)}" r="${n(r * 0.4)}" fill="${hi}"/>` : '');
@@ -1436,7 +1450,169 @@ function fenceDetailed(it, o) {
 }
 
 for (const k of Object.keys(FURN)) { RDRAW[k] = FURN_R[k] || FURN[k]; DDRAW[k] = FURN[k]; }
+/* ------------------------------------------------------------------ garden walls: retaining, stone, seat, brick, timber
+ * A line item; `width` is the wall thickness (set by the style), `height` its height, `smooth` makes the run a curve. */
+function openSpline(pts, step) {
+  if (pts.length < 3) return pts;
+  const out = [pts[0]];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const k = Math.max(2, Math.ceil(dist(p1, p2) / (step || 0.5)));
+    for (let j = 1; j <= k; j++) {
+      const t = j / k, t2 = t * t, t3 = t2 * t;
+      out.push([0, 1].map((c) => 0.5 * ((2 * p1[c]) + (-p0[c] + p2[c]) * t + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * t2 + (-p0[c] + 3 * p1[c] - 3 * p2[c] + p3[c]) * t3)));
+    }
+  }
+  return out;
+}
+const wallLine = (it) => (it.smooth ? openSpline(it.pts, 0.4) : it.pts);
+/* walk each run and hand back unit slots {x,y,a,len} (a in degrees); straight walls restart at every corner */
+function wallUnits(it, lenFn) {
+  const runs = it.smooth ? [wallLine(it)] : it.pts.slice(1).map((p, i) => [it.pts[i], p]), out = [];
+  for (const run of runs) {
+    const L = polyLen(run);
+    for (let d = 0, i = 0; d < L - 0.05; i++) {
+      const len = Math.min(lenFn(i), L - d), m = d + len / 2;
+      const a = pointAlong(run, Math.max(0, m - 0.1)), b = pointAlong(run, Math.min(L, m + 0.1)), c = pointAlong(run, m);
+      out.push({ x: c[0], y: c[1], a: Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI, len });
+      d += len;
+    }
+  }
+  return out;
+}
+const WALL_COL = {
+  block: ['#B9B2A6', '#AFA89B', '#C4BDB1', '#A69F92'],
+  stone: ['#A59C8C', '#8F8676', '#B8AE9B', '#9C9180', '#C2B8A3', '#7F776A', '#AFA28A'],
+  seat: ['#CDBB9C', '#C2AD8C', '#D4C4A8', '#B9A383', '#C8B494'],
+  brick: ['#A8503A', '#9C4632', '#B35E44', '#8E3F2D', '#B8654B', '#A24A36'],
+  timber: ['#7E6146', '#866850', '#755A40'],
+};
+function wallDraw(it, o, rng) {
+  const st = WALL_STYLES[it.style] ? it.style : 'seat', t = it.width || WALL_W[st], line = wallLine(it), d = ptsD(line);
+  const U = (fn, lenFn) => wallUnits(it, lenFn).map((u, i) => `<g transform="translate(${n(u.x)} ${n(u.y)}) rotate(${n(u.a)})">${fn(u.len, i)}</g>`).join('');
+  if (!o.render) {   // drafting: double line with joints across
+    const col = o.color ? { block: '#E4E0D8', stone: '#E3DCCF', seat: '#EADFCB', brick: '#EBC9BC', timber: '#E3D2BE' }[st] : '#fff';
+    const step = { block: () => 1.5, stone: (i) => 0.7 + ((i * 7) % 5) * 0.15, seat: () => 2.5, brick: () => 0.75, timber: () => 8 }[st];
+    return `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${n(t)}" stroke-linejoin="miter"/><path d="${d}" fill="none" stroke="${col}" stroke-width="${n(Math.max(0.05, t - o.u * 2.4))}" stroke-linejoin="miter"/>` +
+      `<g stroke="${INK}" stroke-width="${n(o.u * 0.6)}">${wallUnits(it, step).map((u) => { const r = u.a * Math.PI / 180, ex = u.len / 2 * Math.cos(r), ey = u.len / 2 * Math.sin(r), nx = -Math.sin(r) * t / 2, ny = Math.cos(r) * t / 2; return `<path d="M${n(u.x + ex - nx)},${n(u.y + ey - ny)}L${n(u.x + ex + nx)},${n(u.y + ey + ny)}"/>`; }).join('')}</g>`;
+  }
+  const hk = clamp((it.height || WALL_HEIGHT[st]) * 0.2, 0.25, 1.4);
+  let s = o.icon ? '' : lineShadow(line, t + 0.2, hk, 0.4);
+  const C = WALL_COL[st], pick = () => C[Math.floor(rng() * C.length)];
+  const joint = { block: '#6E685E', stone: '#4A443B', seat: '#6B5E4C', brick: '#CFC6B8', timber: '#3E2E1F' }[st];
+  s += `<path d="${d}" fill="none" stroke="${joint}" stroke-width="${n(t)}" stroke-linejoin="round"/>`;
+  if (st === 'block') {
+    s += U((len) => { const w = len - 0.06, h = t - 0.08; return `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" rx="0.04" fill="${pick()}"/><rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h * 0.28)}" fill="#fff" fill-opacity="0.22"/><rect x="${n(-w / 2)}" y="${n(h / 2 - h * 0.2)}" width="${n(w)}" height="${n(h * 0.2)}" fill="#000" fill-opacity="0.13"/>` + specksIn(w, h, rng, 5); }, () => 1.5);
+  } else if (st === 'stone') {
+    s += U((len) => {
+      const two = rng() < 0.55, rows = two ? [[-t / 2, t * (0.42 + rng() * 0.16)], null] : [[-t / 2, t]];
+      if (two) rows[1] = [-t / 2 + rows[0][1], t - rows[0][1]];
+      return rows.map(([y0, h]) => stoneShape(-len / 2 + 0.04, y0 + 0.04, len - 0.08, h - 0.08, pick(), rng)).join('');
+    }, () => 0.55 + rng() * 0.8);
+  } else if (st === 'seat') {
+    s += U((len) => { const w = len - 0.05, h = t - 0.02; return `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" rx="0.06" fill="${pick()}"/><rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" rx="0.06" fill="url(#ld-puff)" fill-opacity="0.5"/><path d="M${n(-w / 2 + 0.06)},${n(-h / 2 + 0.07)}H${n(w / 2 - 0.06)}" stroke="#fff" stroke-opacity="0.45" stroke-width="0.05"/><path d="M${n(-w / 2 + 0.06)},${n(h / 2 - 0.06)}H${n(w / 2 - 0.06)}" stroke="#5E5040" stroke-opacity="0.35" stroke-width="0.05"/>` + specksIn(w, h, rng, 6); }, () => 2 + rng() * 1.2);
+  } else if (st === 'brick') {
+    s += U((len) => { const w = len - 0.035, h = t - 0.06; return `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" fill="${pick()}"/><rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h * 0.25)}" fill="#fff" fill-opacity="0.12"/>`; }, () => 0.24);
+  } else {
+    s += U((len) => { const w = len - 0.04, h = t - 0.04; let g = `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" fill="${pick()}"/>`; for (let k = 0; k < 4; k++) { const y = -h / 2 + h * (k + 0.5) / 4 + (rng() - 0.5) * 0.04; g += `<path d="M${n(-w / 2)},${n(y)}Q0,${n(y + (rng() - 0.5) * 0.08)} ${n(w / 2)},${n(y)}" stroke="#4E3A26" stroke-opacity="0.45" stroke-width="0.02" fill="none"/>`; } return g + `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h * 0.3)}" fill="#fff" fill-opacity="0.15"/><circle cx="${n(-w / 2 + 0.4)}" cy="0" r="0.05" fill="#2B2B2B"/><circle cx="${n(w / 2 - 0.4)}" cy="0" r="0.05" fill="#2B2B2B"/>`; }, () => 8);
+  }
+  return s;
+}
+function specksIn(w, h, rng, k) { let s = ''; for (let i = 0; i < k; i++) s += `<circle cx="${n((rng() - 0.5) * w * 0.9)}" cy="${n((rng() - 0.5) * h * 0.8)}" r="${n(0.02 + rng() * 0.03)}" fill="#000" fill-opacity="0.18"/>`; return s; }
+/* an irregular, softly rounded stone in the box (x,y,w,h) */
+function stoneShape(x, y, w, h, col, rng) {
+  if (w < 0.08 || h < 0.08) return '';
+  const j = () => (rng() - 0.5) * Math.min(w, h) * 0.22;
+  const p = [[x + j() * 0.5 + w * 0.12, y + j() * 0.3], [x + w * 0.55 + j(), y + j() * 0.3], [x + w - j() * 0.4, y + h * 0.3 + j()], [x + w + j() * 0.3, y + h * 0.8], [x + w * 0.6 + j(), y + h - j() * 0.3], [x + w * 0.15 + j(), y + h + j() * 0.3], [x + j() * 0.3, y + h * 0.5 + j()]];
+  const d = p.map((q, i) => { const r = p[(i + 1) % p.length], m = [(q[0] + r[0]) / 2, (q[1] + r[1]) / 2]; return (i ? '' : `M${n((p[p.length - 1][0] + q[0]) / 2)},${n((p[p.length - 1][1] + q[1]) / 2)}`) + `Q${n(q[0])},${n(q[1])} ${n(m[0])},${n(m[1])}`; }).join('') + 'Z';
+  return `<path d="${d}" fill="${col}"/><path d="${d}" fill="url(#ld-puff)"/>`;
+}
+
 RDRAW.fence = fenceDetailed;
+RDRAW.wall = DDRAW.wall = wallDraw;
+/* string lights: a wire between anchor points with bulbs along it (bistro = big bulbs every 2 ft, fairy = tiny bulbs every 6 in) */
+const LIGHT_STYLES = { bistro: 'Bistro string lights', fairy: 'Fairy lights' };
+function lightsDraw(it, o) {
+  const st = it.style === 'fairy' ? 'fairy' : 'bistro', line = wallLine(it), d = ptsD(line), L = polyLen(line), gap = st === 'fairy' ? 0.5 : 2, bulbs = [];
+  for (let x = gap / 2; x < L; x += gap) bulbs.push(pointAlong(line, x));
+  if (!o.render) {
+    return `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 0.6)}" stroke-dasharray="${n(o.u * 4)} ${n(o.u * 2)}"/>` +
+      `<g fill="${o.color ? '#F6D57E' : '#fff'}" stroke="${INK}" stroke-width="${n(o.u * 0.5)}">${bulbs.map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${st === 'fairy' ? 0.1 : 0.25}"/>`).join('')}</g>` +
+      `<g fill="${INK}">${it.pts.map((p) => `<rect x="${n(p[0] - 0.25)}" y="${n(p[1] - 0.25)}" width="0.5" height="0.5"/>`).join('')}</g>`;
+  }
+  const gr = st === 'fairy' ? 0.55 : 1.5;
+  let s = o.icon ? '' : `<g>${bulbs.map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${gr}" fill="url(#ld-bulbglow)"/>`).join('')}</g>`;
+  s += `<path d="${d}" fill="none" stroke="#1E1E1E" stroke-width="${o.icon ? 0.12 : 0.06}" stroke-linejoin="round"/>`;
+  s += st === 'fairy'
+    ? bulbs.map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="0.07" fill="#FFF1C2"/>`).join('')
+    : bulbs.map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="0.22" fill="#FFE29A" stroke="#B88E3A" stroke-width="0.03"/><circle cx="${n(p[0] + 0.04)}" cy="${n(p[1] - 0.05)}" r="0.09" fill="#FFFBEA"/>`).join('');
+  return s + it.pts.map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="0.26" fill="#2E2E2E" stroke="#0A0A0A" stroke-width="0.04"/><circle cx="${n(p[0] + 0.06)}" cy="${n(p[1] - 0.06)}" r="0.09" fill="#6A6A6A"/>`).join('');
+}
+RDRAW.lights = DDRAW.lights = lightsDraw;
+/* ------------------------------------------------------------------ natural water: ponds (closed shape) and streams (line with a width) */
+const ROCK = ['#9A9384', '#8A8374', '#ADA595', '#7E776A', '#B5AD9C', '#938A78'];
+function boulder(x, y, r, rng) {
+  const k = 7, pts = [];
+  for (let i = 0; i < k; i++) { const a = 2 * Math.PI * i / k + rng() * 0.4, rr = r * (0.78 + rng() * 0.3); pts.push([x + rr * Math.cos(a), y + rr * Math.sin(a) * (0.8 + rng() * 0.25)]); }
+  const d = shapeD(pts, true), c = ROCK[Math.floor(rng() * ROCK.length)];
+  return `<path d="${d}" transform="translate(-0.12 0.12)" fill="#1E1A14" fill-opacity="0.35"/><path d="${d}" fill="${c}" stroke="${shade(c, -0.35)}" stroke-width="0.04"/><path d="${d}" fill="url(#ld-puff)"/>`;
+}
+function lilyPad(x, y, r, rng) {
+  const a = rng() * 360, f = rng() < 0.35;
+  return `<g transform="translate(${n(x)} ${n(y)}) rotate(${n(a)})"><path d="M0,0L${n(r)},${n(-r * 0.18)}A${n(r)},${n(r)} 0 1,1 ${n(r)},${n(r * 0.18)}Z" fill="${['#4E8B3A', '#5C9944', '#447D33'][Math.floor(rng() * 3)]}" stroke="#2F5E22" stroke-width="0.04"/><path d="M0,0L${n(-r * 0.7)},${n(r * 0.3)}M0,0L${n(-r * 0.5)},${n(-r * 0.55)}M0,0L${n(r * 0.1)},${n(-r * 0.75)}" stroke="#36692A" stroke-width="0.03"/>` +
+    (f ? `<circle cx="${n(-r * 0.2)}" cy="${n(r * 0.1)}" r="${n(r * 0.32)}" fill="${rng() < 0.5 ? '#F4B8CF' : '#FBF6EA'}" stroke="#C97A98" stroke-width="0.03"/><circle cx="${n(-r * 0.2)}" cy="${n(r * 0.1)}" r="${n(r * 0.1)}" fill="#F2C94C"/>` : '') + '</g>';
+}
+function rushes(x, y, rng) {
+  let s = `<g transform="translate(${n(x)} ${n(y)})">`;
+  for (let i = 0; i < 9; i++) { const a = rng() * 6.283, L = 0.5 + rng() * 0.6; s += `<path d="M0,0L${n(L * Math.cos(a))},${n(L * Math.sin(a))}" stroke="${['#5E8C3A', '#4E7B30', '#7FA24C'][i % 3]}" stroke-width="0.07" stroke-linecap="round"/>`; }
+  return s + `<circle r="0.14" fill="#3F6A2A"/></g>`;
+}
+function pondRender(it, o, rng) {
+  const poly = shapePoly(it.pts, it.smooth), d = shapeD(it.pts, it.smooth), ring = poly.concat([poly[0]]), L = polyLen(ring);
+  if (!o.render) {
+    let s = `<path d="${d}" fill="${o.color ? '#D3E9EC' : '#fff'}"/><path d="${d}" fill="url(#dd-water)"/><path d="${d}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 2)}" stroke-linejoin="round"/>`;
+    for (let x = 0; x < L; x += 1.6) { const p = pointAlong(ring, x); s += `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${n(0.35 + rng() * 0.25)}" fill="#fff" stroke="${INK}" stroke-width="${n(o.u * 0.6)}"/>`; }
+    return s;
+  }
+  let s = `<path d="${d}" fill="none" stroke="#7D735F" stroke-width="1.5" stroke-linejoin="round"/>`;
+  s += `<path d="${d}" fill="url(#ld-pond)"/><path d="${d}" fill="#fff" filter="url(#ld-caus)" opacity="0.35"/>`;
+  s += `<path d="${d}" fill="none" stroke="#14302C" stroke-opacity="0.45" stroke-width="0.9" stroke-linejoin="round"/>`;
+  const xs = poly.map((q) => q[0]), ys = poly.map((q) => q[1]), bb = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  const area = polyArea(poly);
+  if (!o.icon) s += `<ellipse cx="${n(bb[0] + (bb[2] - bb[0]) * 0.38)}" cy="${n(bb[1] + (bb[3] - bb[1]) * 0.35)}" rx="${n((bb[2] - bb[0]) * 0.22)}" ry="${n((bb[3] - bb[1]) * 0.12)}" fill="#fff" fill-opacity="0.1" filter="url(#ld-softw)"/>`;
+  // lily pads in loose groups, kept off the edge
+  const pads = clamp(Math.round(area / 30), 2, 40);
+  for (let i = 0, tries = 0; i < pads && tries < 400; tries++) {
+    const p = [bb[0] + rng() * (bb[2] - bb[0]), bb[1] + rng() * (bb[3] - bb[1])];
+    if (!inPoly(p, poly) || poly.some((q) => dist(q, p) < 1.8)) continue;
+    s += lilyPad(p[0], p[1], 0.35 + rng() * 0.45, rng); i++;
+  }
+  // boulder edge with a few clumps of rushes
+  let x = 0, k = 0;
+  while (x < L) { const r = 0.35 + rng() * 0.45, p = pointAlong(ring, x); s += (k % 7 === 3 ? rushes(p[0], p[1], rng) : boulder(p[0], p[1], r, rng)); x += r * 1.5 + rng() * 0.3; k++; }
+  return s;
+}
+function streamDraw(it, o, rng) {
+  const line = it.smooth ? openSpline(it.pts, 0.4) : it.pts, d = ptsD(line), w = it.width || 3, L = polyLen(line);
+  if (!o.render) return `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${n(w)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${o.color ? '#D3E9EC' : '#fff'}" stroke-width="${n(Math.max(0.1, w - o.u * 2.4))}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="url(#dd-water)" stroke-width="${n(Math.max(0.1, w - o.u * 2.4))}" stroke-linejoin="round" stroke-linecap="round"/>`;
+  let s = `<path d="${d}" fill="none" stroke="#8A7F68" stroke-width="${n(w + 1.4)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#A39880" stroke-width="${n(w + 0.9)}" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="0.3 0.25"/>`;
+  s += `<path d="${d}" fill="none" stroke="#2B6268" stroke-width="${n(w)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#3F8288" stroke-width="${n(w * 0.7)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#66A8AA" stroke-opacity="0.75" stroke-width="${n(w * 0.32)}" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const at = (dd) => { const p = pointAlong(line, dd), a = pointAlong(line, Math.max(0, dd - 0.15)), b = pointAlong(line, Math.min(L, dd + 0.15)), ang = Math.atan2(b[1] - a[1], b[0] - a[0]); return [p, ang]; };
+  // ripples and the odd riffle stone in the water
+  for (let dd = 0.8; dd < L - 0.3; dd += 0.9 + rng() * 0.8) {
+    const [p, a] = at(dd), off = (rng() - 0.5) * w * 0.5, nx = -Math.sin(a), ny = Math.cos(a), cx = p[0] + nx * off, cy = p[1] + ny * off, deg = a * 180 / Math.PI;
+    if (rng() < 0.22 && w > 1.5) s += `<g transform="translate(${n(cx)} ${n(cy)}) rotate(${n(deg)})"><path d="M-0.45,-0.35Q-0.75,0 -0.45,0.35" stroke="#fff" stroke-opacity="0.75" stroke-width="0.06" fill="none"/></g>` + boulder(cx, cy, 0.22 + rng() * 0.15, rng);
+    else s += `<g transform="translate(${n(cx)} ${n(cy)}) rotate(${n(deg)})"><path d="M0,${n(-w * 0.12)}Q0.35,0 0,${n(w * 0.12)}" stroke="#fff" stroke-opacity="0.45" stroke-width="0.05" fill="none"/></g>`;
+  }
+  // rocks along both banks
+  for (const side of [-1, 1]) for (let dd = rng() * 0.6; dd < L; dd += 0.7 + rng() * 0.7) {
+    const [p, a] = at(dd), r = 0.22 + rng() * 0.35, off = side * (w / 2 + 0.25 + rng() * 0.2);
+    s += boulder(p[0] - Math.sin(a) * off, p[1] + Math.cos(a) * off, r, rng);
+  }
+  return s;
+}
+RDRAW.stream = DDRAW.stream = streamDraw;
+RDRAW.pondShape = DDRAW.pondShape = (it, o, rng) => shapeRender(it, o, rng);
 RDRAW.poolShape = DDRAW.poolShape = (it, o, rng) => shapeRender(it, o, rng);
 
 /* draw one item. o: {u: ink width (ft), render, color, tags, hit, icon, seeTrees} */
@@ -1449,7 +1625,7 @@ function drawItem(it, o) {
   else if (t.kind === 'box') g = `<g transform="translate(${n(it.x)} ${n(it.y)}) rotate(${n(it.rot || 0)})">${inner}</g>`;
   else {
     g = inner;
-    if (o.hit && t.kind === 'line') g += `<path d="${ptsD(it.pts)}" fill="none" stroke="transparent" stroke-width="${n(Math.max(2, (it.width || 0) + 1))}" stroke-linejoin="round"/>`;
+    if (o.hit && t.kind === 'line') g += `<path d="${ptsD(it.smooth ? wallLine(it) : it.pts)}" fill="none" stroke="transparent" stroke-width="${n(Math.max(2, (it.width || 0) + 1))}" stroke-linejoin="round"/>`;
   }
   if (!o.icon) g += itemLabel(it, o);
   const op = it.op !== undefined ? it.op : (o.seeTrees && t.tree && !o.icon ? 0.5 : null);
@@ -1503,10 +1679,14 @@ const ICON = {
   bubble: { w: 11, h: 7.4, zone: 'private', vb: [-6, -5, 12, 10] },
   path: { pts: [[-4, 3], [-1, -0.5], [4, -2]], width: 2.4, finish: 'pavers', vb: [-5.6, -4.8, 11.2, 9.6] },
   fence: { pts: [[-5, 3], [-1, 3], [4, -3]], vb: [-5.6, -4.8, 11.2, 9.6] },
+  wall: { pts: [[-4.6, 3], [-1, 3], [3.6, -2.6]], vb: [-5.8, -4.6, 11.6, 9.4] },
+  lights: { pts: [[-5, -2.4], [0, 1.2], [5, -2.4]], vb: [-6, -4.4, 12, 8.8] },
   arrow: { pts: [[-4.5, 3], [0, -1], [4.5, -1]], vb: [-5.6, -4.8, 11.2, 9.6] },
 };
 const CIRCLE_VB = [-5.6, -5.6, 11.2, 11.2];
 for (const [k, v] of Object.entries(FURN_T)) { const w = v.d.w, h = v.d.h, m = Math.max(w, h) * 0.08; ICON[k] = { w, h, vb: [-w / 2 - m, -h / 2 - m, w + 2 * m, h + 2 * m] }; }
+ICON.pondShape = { pts: [[-4.4, -2.6], [0.5, -3.8], [4.4, -1.6], [3.2, 3.2], [-1.6, 3.6], [-4.6, 0.8]], smooth: true, vb: [-6.2, -5.4, 12.4, 10.8] };
+ICON.stream = { pts: [[-5.4, 3.4], [-2.2, 0.4], [1.8, 1.4], [5.4, -3.2]], smooth: true, width: 2, vb: [-6, -4.6, 12, 9.2] };
 ICON.poolShape = { pts: [[-4.5, -3], [1, -4], [4.6, -1], [3.5, 3.6], [-2, 3.8], [-4.8, 1]], smooth: true, vb: [-6, -5.2, 12, 10.4] };
 function iconItem(type, sp) {
   const spec = ICON[type] || {};

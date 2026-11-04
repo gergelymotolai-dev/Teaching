@@ -28,7 +28,7 @@ async function run(w, h, tag) {
   const click = async (x, y, opts) => { await toPlan(); const [a, b] = await scr(x, y); await page.mouse.click(a, b, opts); };
   /* vegetable garden, firewood and bird bath live in the Build library tab */
   const tool = async (t) => {
-    if (['veg', 'wood', 'birdbath'].includes(t)) {
+    if (['veg', 'wood', 'birdbath', 'deck'].includes(t)) {
       if (w < 1000) { await page.click('[data-openlib="build"]'); await page.click(`[data-el="${t}"]`); await page.click('[data-openlib="build"]'); }
       else { await page.click('[data-libtab="build"]'); await page.click(`[data-el="${t}"]`); }
       return;

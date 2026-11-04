@@ -1034,6 +1034,9 @@ const ZONES = {
 const FINISHES = { flagstone: 'Flagstone', stone: 'Cut stone', pavers: 'Concrete pavers', brick: 'Brick', concrete: 'Concrete', gravel: 'Gravel' };
 const FENCE_STYLES = { privacy: 'Wood privacy fence', picket: 'White picket fence', split: 'Split-rail fence', chain: 'Chain-link fence', iron: 'Metal (wrought iron) fence' };
 const FENCE_HEIGHT = { privacy: 6, picket: 4, split: 4, chain: 4, iron: 4 };
+const WALL_STYLES = { block: 'Block retaining wall', stone: 'Fieldstone wall, dry-stacked', seat: 'Stone seat wall with cap', brick: 'Brick garden wall', timber: 'Timber retaining wall' };
+const WALL_HEIGHT = { block: 3, stone: 2, seat: 1.5, brick: 3, timber: 2 };
+const WALL_W = { block: 1, stone: 1.5, seat: 1.5, brick: 0.75, timber: 0.5 };
 const PATH_FINISHES = { concrete: 'Concrete', pavers: 'Concrete pavers', brick: 'Brick', flagstone: 'Flagstone', gravel: 'Gravel', mulch: 'Mulch' };
 /* kind: circle (x,y,r) | box (x,y,w,h,rot) | line (pts, open) | shape (pts, closed) | text
  * band: drawing order inside a layer so a lawn never hides the trees on it. */
@@ -1052,6 +1055,10 @@ const T = {
   deck:      { name: 'Deck', kind: 'box', d: { w: 12, h: 12 }, band: 2, tint: '#DDBF93', op: 1 },
   path:      { name: 'Walk / path', kind: 'line', d: { width: 4, finish: 'concrete' }, band: 3, tint: '#E6DECE', op: 1 },
   fence:     { name: 'Fence / screen', kind: 'line', d: { style: 'privacy', height: 6 }, band: 6 },
+  pondShape: { name: 'Pond (draw any shape)', short: 'POND', kind: 'shape', d: { smooth: true }, band: 1.5 },
+  stream:    { name: 'Stream', kind: 'line', d: { width: 3, smooth: true }, band: 1.6 },
+  lights:    { name: 'String lights', kind: 'line', d: { style: 'bistro', smooth: false }, band: 4.8 },
+  wall:      { name: 'Garden wall', kind: 'line', d: { style: 'seat', height: 1.5, width: 1.5, smooth: false }, band: 3.2 },
   veg:       { name: 'Vegetable garden', kind: 'box', d: { w: 12, h: 10 }, band: 2, tint: '#D3E5B5', op: 1 },
   wood:      { name: 'Wood stockpile', kind: 'box', d: { w: 8, h: 4 }, band: 2, tint: '#CDAA7D', op: 1 },
   lawn:      { name: 'Lawn / recreation area', kind: 'box', d: { w: 30, h: 20, sp: 'cyda' }, band: 0, tint: '#E1F0D5', op: 1 },
@@ -1867,6 +1874,7 @@ function bedRender(it, o, rng) {
 }
 function shapeRender(it, o, rng) {
   const d = shapeD(it.pts, it.smooth);
+  if (it.type === 'pondShape') return pondRender(it, o, rng);
   if (it.type === 'poolShape') {
     const poly = shapePoly(it.pts, it.smooth), xs = poly.map((q) => q[0]), ys = poly.map((q) => q[1]);
     if (o.render) return (o.icon ? '' : `<path d="${d}" transform="translate(-0.3 0.3)" fill="none" stroke="#0E1408" stroke-opacity="0.3" stroke-width="2.6" stroke-linejoin="round" filter="url(#ld-softw)"/>`) +
@@ -2295,6 +2303,8 @@ function furnDefs(pat, specks, R) {
   d += '<linearGradient id="ld-poolw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A8E1F3"/><stop offset="0.45" stop-color="#55B4DC"/><stop offset="1" stop-color="#1F73A6"/></linearGradient>';
   d += '<linearGradient id="ld-poolwx" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#A8E1F3"/><stop offset="0.45" stop-color="#55B4DC"/><stop offset="1" stop-color="#1F73A6"/></linearGradient>';
   d += '<radialGradient id="ld-glow"><stop offset="0" stop-color="#FFB347" stop-opacity="0.45"/><stop offset="0.5" stop-color="#FF8C2A" stop-opacity="0.12"/><stop offset="1" stop-color="#FF8C2A" stop-opacity="0"/></radialGradient>';
+  d += '<radialGradient id="ld-pond" cx="0.5" cy="0.5" r="0.6"><stop offset="0" stop-color="#1B4549"/><stop offset="0.55" stop-color="#2C6563"/><stop offset="0.9" stop-color="#4F806A"/><stop offset="1" stop-color="#6B8A62"/></radialGradient>';
+  d += '<radialGradient id="ld-bulbglow"><stop offset="0" stop-color="#FFE7A3" stop-opacity="0.8"/><stop offset="0.3" stop-color="#FFD27A" stop-opacity="0.35"/><stop offset="1" stop-color="#FFC861" stop-opacity="0"/></radialGradient>';
   d += '<linearGradient id="ld-slide" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD54A"/><stop offset="0.5" stop-color="#F2B705"/><stop offset="1" stop-color="#C98F00"/></linearGradient>';
   let wk = '<rect width="0.4" height="0.4" fill="#6B4A2E"/>';
   wk += '<path d="M0,0.1H0.4M0,0.3H0.4" stroke="#8C6640" stroke-width="0.09"/><path d="M0.1,0V0.4M0.3,0V0.4" stroke="#4A321E" stroke-width="0.05" stroke-opacity="0.8"/>';
@@ -2314,12 +2324,16 @@ function furnDefs(pat, specks, R) {
   d += pat('ld-boards', 0.55, 0.55, '<rect width="0.55" height="0.55" fill="#8C6640"/><rect width="0.5" height="0.55" fill="#A97B4D"/><path d="M0.15,0V0.55M0.32,0V0.55" stroke="#7E5632" stroke-width="0.02" stroke-opacity="0.6"/>');
   return d;
 }
+/* a soft drop shadow for a line item; the clear box gives the blur a real area even for a perfectly straight run */
+function lineShadow(line, w, off, op) {
+  const xs = line.map((p) => p[0]), ys = line.map((p) => p[1]), m = w + Math.abs(off) + 2;
+  return `<g filter="url(#ld-softw)" opacity="${op}"><rect x="${n(Math.min(...xs) - m)}" y="${n(Math.min(...ys) - m)}" width="${n(Math.max(...xs) - Math.min(...xs) + 2 * m)}" height="${n(Math.max(...ys) - Math.min(...ys) + 2 * m)}" fill="none"/><path d="${ptsD(line)}" transform="translate(${n(-off)} ${n(off)})" fill="none" stroke="#0E1408" stroke-width="${n(w)}" stroke-linejoin="round" stroke-linecap="round"/></g>`;
+}
 /* detailed rendered fence: each run drawn in its own local frame so boards and pickets sit across it */
 function fenceDetailed(it, o) {
   const st = it.style || 'privacy', pts = it.pts;
   const d = ptsD(pts);
-  const sw0 = st === 'privacy' ? 0.5 : 0.3, so = st === 'chain' || st === 'iron' ? 0.035 : 0.06;
-  let s = o.icon ? '' : [1, 1.5, 2.1, 2.9, 3.8].map((k) => `<path d="${d}" transform="translate(-0.3 0.3)" fill="none" stroke="#0E1408" stroke-opacity="${so}" stroke-width="${n(sw0 * k)}" stroke-linejoin="round" stroke-linecap="round"/>`).join('');
+  let s = o.icon ? '' : lineShadow(pts, st === 'privacy' ? 0.7 : 0.4, st === 'privacy' ? 0.6 : 0.35, st === 'chain' || st === 'iron' ? 0.18 : 0.32);
   const seg = (fn) => { let out = ''; for (let i = 1; i < pts.length; i++) { const [x1, y1] = pts[i - 1], [x2, y2] = pts[i], L = Math.hypot(x2 - x1, y2 - y1); if (L < 0.05) continue; out += `<g transform="translate(${n(x1)} ${n(y1)}) rotate(${n(Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI)})">${fn(L)}</g>`; } return out; };
   const post = (p, size, fill, stroke, cap) => `<rect x="${n(p[0] - size / 2)}" y="${n(p[1] - size / 2)}" width="${n(size)}" height="${n(size)}" rx="${n(size * 0.12)}" fill="${fill}" stroke="${stroke}" stroke-width="0.05"/>` + (cap ? `<rect x="${n(p[0] - size * 0.3)}" y="${n(p[1] - size * 0.3)}" width="${n(size * 0.6)}" height="${n(size * 0.6)}" fill="${cap}"/>` : '');
   const rpost = (p, r, fill, stroke, hi) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${n(r)}" fill="${fill}" stroke="${stroke}" stroke-width="0.05"/>` + (hi ? `<circle cx="${n(p[0] + r * 0.25)}" cy="${n(p[1] - r * 0.25)}" r="${n(r * 0.4)}" fill="${hi}"/>` : '');
@@ -2353,7 +2367,169 @@ function fenceDetailed(it, o) {
 }
 
 for (const k of Object.keys(FURN)) { RDRAW[k] = FURN_R[k] || FURN[k]; DDRAW[k] = FURN[k]; }
+/* ------------------------------------------------------------------ garden walls: retaining, stone, seat, brick, timber
+ * A line item; `width` is the wall thickness (set by the style), `height` its height, `smooth` makes the run a curve. */
+function openSpline(pts, step) {
+  if (pts.length < 3) return pts;
+  const out = [pts[0]];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const k = Math.max(2, Math.ceil(dist(p1, p2) / (step || 0.5)));
+    for (let j = 1; j <= k; j++) {
+      const t = j / k, t2 = t * t, t3 = t2 * t;
+      out.push([0, 1].map((c) => 0.5 * ((2 * p1[c]) + (-p0[c] + p2[c]) * t + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * t2 + (-p0[c] + 3 * p1[c] - 3 * p2[c] + p3[c]) * t3)));
+    }
+  }
+  return out;
+}
+const wallLine = (it) => (it.smooth ? openSpline(it.pts, 0.4) : it.pts);
+/* walk each run and hand back unit slots {x,y,a,len} (a in degrees); straight walls restart at every corner */
+function wallUnits(it, lenFn) {
+  const runs = it.smooth ? [wallLine(it)] : it.pts.slice(1).map((p, i) => [it.pts[i], p]), out = [];
+  for (const run of runs) {
+    const L = polyLen(run);
+    for (let d = 0, i = 0; d < L - 0.05; i++) {
+      const len = Math.min(lenFn(i), L - d), m = d + len / 2;
+      const a = pointAlong(run, Math.max(0, m - 0.1)), b = pointAlong(run, Math.min(L, m + 0.1)), c = pointAlong(run, m);
+      out.push({ x: c[0], y: c[1], a: Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI, len });
+      d += len;
+    }
+  }
+  return out;
+}
+const WALL_COL = {
+  block: ['#B9B2A6', '#AFA89B', '#C4BDB1', '#A69F92'],
+  stone: ['#A59C8C', '#8F8676', '#B8AE9B', '#9C9180', '#C2B8A3', '#7F776A', '#AFA28A'],
+  seat: ['#CDBB9C', '#C2AD8C', '#D4C4A8', '#B9A383', '#C8B494'],
+  brick: ['#A8503A', '#9C4632', '#B35E44', '#8E3F2D', '#B8654B', '#A24A36'],
+  timber: ['#7E6146', '#866850', '#755A40'],
+};
+function wallDraw(it, o, rng) {
+  const st = WALL_STYLES[it.style] ? it.style : 'seat', t = it.width || WALL_W[st], line = wallLine(it), d = ptsD(line);
+  const U = (fn, lenFn) => wallUnits(it, lenFn).map((u, i) => `<g transform="translate(${n(u.x)} ${n(u.y)}) rotate(${n(u.a)})">${fn(u.len, i)}</g>`).join('');
+  if (!o.render) {   // drafting: double line with joints across
+    const col = o.color ? { block: '#E4E0D8', stone: '#E3DCCF', seat: '#EADFCB', brick: '#EBC9BC', timber: '#E3D2BE' }[st] : '#fff';
+    const step = { block: () => 1.5, stone: (i) => 0.7 + ((i * 7) % 5) * 0.15, seat: () => 2.5, brick: () => 0.75, timber: () => 8 }[st];
+    return `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${n(t)}" stroke-linejoin="miter"/><path d="${d}" fill="none" stroke="${col}" stroke-width="${n(Math.max(0.05, t - o.u * 2.4))}" stroke-linejoin="miter"/>` +
+      `<g stroke="${INK}" stroke-width="${n(o.u * 0.6)}">${wallUnits(it, step).map((u) => { const r = u.a * Math.PI / 180, ex = u.len / 2 * Math.cos(r), ey = u.len / 2 * Math.sin(r), nx = -Math.sin(r) * t / 2, ny = Math.cos(r) * t / 2; return `<path d="M${n(u.x + ex - nx)},${n(u.y + ey - ny)}L${n(u.x + ex + nx)},${n(u.y + ey + ny)}"/>`; }).join('')}</g>`;
+  }
+  const hk = clamp((it.height || WALL_HEIGHT[st]) * 0.2, 0.25, 1.4);
+  let s = o.icon ? '' : lineShadow(line, t + 0.2, hk, 0.4);
+  const C = WALL_COL[st], pick = () => C[Math.floor(rng() * C.length)];
+  const joint = { block: '#6E685E', stone: '#4A443B', seat: '#6B5E4C', brick: '#CFC6B8', timber: '#3E2E1F' }[st];
+  s += `<path d="${d}" fill="none" stroke="${joint}" stroke-width="${n(t)}" stroke-linejoin="round"/>`;
+  if (st === 'block') {
+    s += U((len) => { const w = len - 0.06, h = t - 0.08; return `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" rx="0.04" fill="${pick()}"/><rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h * 0.28)}" fill="#fff" fill-opacity="0.22"/><rect x="${n(-w / 2)}" y="${n(h / 2 - h * 0.2)}" width="${n(w)}" height="${n(h * 0.2)}" fill="#000" fill-opacity="0.13"/>` + specksIn(w, h, rng, 5); }, () => 1.5);
+  } else if (st === 'stone') {
+    s += U((len) => {
+      const two = rng() < 0.55, rows = two ? [[-t / 2, t * (0.42 + rng() * 0.16)], null] : [[-t / 2, t]];
+      if (two) rows[1] = [-t / 2 + rows[0][1], t - rows[0][1]];
+      return rows.map(([y0, h]) => stoneShape(-len / 2 + 0.04, y0 + 0.04, len - 0.08, h - 0.08, pick(), rng)).join('');
+    }, () => 0.55 + rng() * 0.8);
+  } else if (st === 'seat') {
+    s += U((len) => { const w = len - 0.05, h = t - 0.02; return `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" rx="0.06" fill="${pick()}"/><rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" rx="0.06" fill="url(#ld-puff)" fill-opacity="0.5"/><path d="M${n(-w / 2 + 0.06)},${n(-h / 2 + 0.07)}H${n(w / 2 - 0.06)}" stroke="#fff" stroke-opacity="0.45" stroke-width="0.05"/><path d="M${n(-w / 2 + 0.06)},${n(h / 2 - 0.06)}H${n(w / 2 - 0.06)}" stroke="#5E5040" stroke-opacity="0.35" stroke-width="0.05"/>` + specksIn(w, h, rng, 6); }, () => 2 + rng() * 1.2);
+  } else if (st === 'brick') {
+    s += U((len) => { const w = len - 0.035, h = t - 0.06; return `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" fill="${pick()}"/><rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h * 0.25)}" fill="#fff" fill-opacity="0.12"/>`; }, () => 0.24);
+  } else {
+    s += U((len) => { const w = len - 0.04, h = t - 0.04; let g = `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" fill="${pick()}"/>`; for (let k = 0; k < 4; k++) { const y = -h / 2 + h * (k + 0.5) / 4 + (rng() - 0.5) * 0.04; g += `<path d="M${n(-w / 2)},${n(y)}Q0,${n(y + (rng() - 0.5) * 0.08)} ${n(w / 2)},${n(y)}" stroke="#4E3A26" stroke-opacity="0.45" stroke-width="0.02" fill="none"/>`; } return g + `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h * 0.3)}" fill="#fff" fill-opacity="0.15"/><circle cx="${n(-w / 2 + 0.4)}" cy="0" r="0.05" fill="#2B2B2B"/><circle cx="${n(w / 2 - 0.4)}" cy="0" r="0.05" fill="#2B2B2B"/>`; }, () => 8);
+  }
+  return s;
+}
+function specksIn(w, h, rng, k) { let s = ''; for (let i = 0; i < k; i++) s += `<circle cx="${n((rng() - 0.5) * w * 0.9)}" cy="${n((rng() - 0.5) * h * 0.8)}" r="${n(0.02 + rng() * 0.03)}" fill="#000" fill-opacity="0.18"/>`; return s; }
+/* an irregular, softly rounded stone in the box (x,y,w,h) */
+function stoneShape(x, y, w, h, col, rng) {
+  if (w < 0.08 || h < 0.08) return '';
+  const j = () => (rng() - 0.5) * Math.min(w, h) * 0.22;
+  const p = [[x + j() * 0.5 + w * 0.12, y + j() * 0.3], [x + w * 0.55 + j(), y + j() * 0.3], [x + w - j() * 0.4, y + h * 0.3 + j()], [x + w + j() * 0.3, y + h * 0.8], [x + w * 0.6 + j(), y + h - j() * 0.3], [x + w * 0.15 + j(), y + h + j() * 0.3], [x + j() * 0.3, y + h * 0.5 + j()]];
+  const d = p.map((q, i) => { const r = p[(i + 1) % p.length], m = [(q[0] + r[0]) / 2, (q[1] + r[1]) / 2]; return (i ? '' : `M${n((p[p.length - 1][0] + q[0]) / 2)},${n((p[p.length - 1][1] + q[1]) / 2)}`) + `Q${n(q[0])},${n(q[1])} ${n(m[0])},${n(m[1])}`; }).join('') + 'Z';
+  return `<path d="${d}" fill="${col}"/><path d="${d}" fill="url(#ld-puff)"/>`;
+}
+
 RDRAW.fence = fenceDetailed;
+RDRAW.wall = DDRAW.wall = wallDraw;
+/* string lights: a wire between anchor points with bulbs along it (bistro = big bulbs every 2 ft, fairy = tiny bulbs every 6 in) */
+const LIGHT_STYLES = { bistro: 'Bistro string lights', fairy: 'Fairy lights' };
+function lightsDraw(it, o) {
+  const st = it.style === 'fairy' ? 'fairy' : 'bistro', line = wallLine(it), d = ptsD(line), L = polyLen(line), gap = st === 'fairy' ? 0.5 : 2, bulbs = [];
+  for (let x = gap / 2; x < L; x += gap) bulbs.push(pointAlong(line, x));
+  if (!o.render) {
+    return `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 0.6)}" stroke-dasharray="${n(o.u * 4)} ${n(o.u * 2)}"/>` +
+      `<g fill="${o.color ? '#F6D57E' : '#fff'}" stroke="${INK}" stroke-width="${n(o.u * 0.5)}">${bulbs.map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${st === 'fairy' ? 0.1 : 0.25}"/>`).join('')}</g>` +
+      `<g fill="${INK}">${it.pts.map((p) => `<rect x="${n(p[0] - 0.25)}" y="${n(p[1] - 0.25)}" width="0.5" height="0.5"/>`).join('')}</g>`;
+  }
+  const gr = st === 'fairy' ? 0.55 : 1.5;
+  let s = o.icon ? '' : `<g>${bulbs.map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${gr}" fill="url(#ld-bulbglow)"/>`).join('')}</g>`;
+  s += `<path d="${d}" fill="none" stroke="#1E1E1E" stroke-width="${o.icon ? 0.12 : 0.06}" stroke-linejoin="round"/>`;
+  s += st === 'fairy'
+    ? bulbs.map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="0.07" fill="#FFF1C2"/>`).join('')
+    : bulbs.map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="0.22" fill="#FFE29A" stroke="#B88E3A" stroke-width="0.03"/><circle cx="${n(p[0] + 0.04)}" cy="${n(p[1] - 0.05)}" r="0.09" fill="#FFFBEA"/>`).join('');
+  return s + it.pts.map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="0.26" fill="#2E2E2E" stroke="#0A0A0A" stroke-width="0.04"/><circle cx="${n(p[0] + 0.06)}" cy="${n(p[1] - 0.06)}" r="0.09" fill="#6A6A6A"/>`).join('');
+}
+RDRAW.lights = DDRAW.lights = lightsDraw;
+/* ------------------------------------------------------------------ natural water: ponds (closed shape) and streams (line with a width) */
+const ROCK = ['#9A9384', '#8A8374', '#ADA595', '#7E776A', '#B5AD9C', '#938A78'];
+function boulder(x, y, r, rng) {
+  const k = 7, pts = [];
+  for (let i = 0; i < k; i++) { const a = 2 * Math.PI * i / k + rng() * 0.4, rr = r * (0.78 + rng() * 0.3); pts.push([x + rr * Math.cos(a), y + rr * Math.sin(a) * (0.8 + rng() * 0.25)]); }
+  const d = shapeD(pts, true), c = ROCK[Math.floor(rng() * ROCK.length)];
+  return `<path d="${d}" transform="translate(-0.12 0.12)" fill="#1E1A14" fill-opacity="0.35"/><path d="${d}" fill="${c}" stroke="${shade(c, -0.35)}" stroke-width="0.04"/><path d="${d}" fill="url(#ld-puff)"/>`;
+}
+function lilyPad(x, y, r, rng) {
+  const a = rng() * 360, f = rng() < 0.35;
+  return `<g transform="translate(${n(x)} ${n(y)}) rotate(${n(a)})"><path d="M0,0L${n(r)},${n(-r * 0.18)}A${n(r)},${n(r)} 0 1,1 ${n(r)},${n(r * 0.18)}Z" fill="${['#4E8B3A', '#5C9944', '#447D33'][Math.floor(rng() * 3)]}" stroke="#2F5E22" stroke-width="0.04"/><path d="M0,0L${n(-r * 0.7)},${n(r * 0.3)}M0,0L${n(-r * 0.5)},${n(-r * 0.55)}M0,0L${n(r * 0.1)},${n(-r * 0.75)}" stroke="#36692A" stroke-width="0.03"/>` +
+    (f ? `<circle cx="${n(-r * 0.2)}" cy="${n(r * 0.1)}" r="${n(r * 0.32)}" fill="${rng() < 0.5 ? '#F4B8CF' : '#FBF6EA'}" stroke="#C97A98" stroke-width="0.03"/><circle cx="${n(-r * 0.2)}" cy="${n(r * 0.1)}" r="${n(r * 0.1)}" fill="#F2C94C"/>` : '') + '</g>';
+}
+function rushes(x, y, rng) {
+  let s = `<g transform="translate(${n(x)} ${n(y)})">`;
+  for (let i = 0; i < 9; i++) { const a = rng() * 6.283, L = 0.5 + rng() * 0.6; s += `<path d="M0,0L${n(L * Math.cos(a))},${n(L * Math.sin(a))}" stroke="${['#5E8C3A', '#4E7B30', '#7FA24C'][i % 3]}" stroke-width="0.07" stroke-linecap="round"/>`; }
+  return s + `<circle r="0.14" fill="#3F6A2A"/></g>`;
+}
+function pondRender(it, o, rng) {
+  const poly = shapePoly(it.pts, it.smooth), d = shapeD(it.pts, it.smooth), ring = poly.concat([poly[0]]), L = polyLen(ring);
+  if (!o.render) {
+    let s = `<path d="${d}" fill="${o.color ? '#D3E9EC' : '#fff'}"/><path d="${d}" fill="url(#dd-water)"/><path d="${d}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 2)}" stroke-linejoin="round"/>`;
+    for (let x = 0; x < L; x += 1.6) { const p = pointAlong(ring, x); s += `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${n(0.35 + rng() * 0.25)}" fill="#fff" stroke="${INK}" stroke-width="${n(o.u * 0.6)}"/>`; }
+    return s;
+  }
+  let s = `<path d="${d}" fill="none" stroke="#7D735F" stroke-width="1.5" stroke-linejoin="round"/>`;
+  s += `<path d="${d}" fill="url(#ld-pond)"/><path d="${d}" fill="#fff" filter="url(#ld-caus)" opacity="0.35"/>`;
+  s += `<path d="${d}" fill="none" stroke="#14302C" stroke-opacity="0.45" stroke-width="0.9" stroke-linejoin="round"/>`;
+  const xs = poly.map((q) => q[0]), ys = poly.map((q) => q[1]), bb = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  const area = polyArea(poly);
+  if (!o.icon) s += `<ellipse cx="${n(bb[0] + (bb[2] - bb[0]) * 0.38)}" cy="${n(bb[1] + (bb[3] - bb[1]) * 0.35)}" rx="${n((bb[2] - bb[0]) * 0.22)}" ry="${n((bb[3] - bb[1]) * 0.12)}" fill="#fff" fill-opacity="0.1" filter="url(#ld-softw)"/>`;
+  // lily pads in loose groups, kept off the edge
+  const pads = clamp(Math.round(area / 30), 2, 40);
+  for (let i = 0, tries = 0; i < pads && tries < 400; tries++) {
+    const p = [bb[0] + rng() * (bb[2] - bb[0]), bb[1] + rng() * (bb[3] - bb[1])];
+    if (!inPoly(p, poly) || poly.some((q) => dist(q, p) < 1.8)) continue;
+    s += lilyPad(p[0], p[1], 0.35 + rng() * 0.45, rng); i++;
+  }
+  // boulder edge with a few clumps of rushes
+  let x = 0, k = 0;
+  while (x < L) { const r = 0.35 + rng() * 0.45, p = pointAlong(ring, x); s += (k % 7 === 3 ? rushes(p[0], p[1], rng) : boulder(p[0], p[1], r, rng)); x += r * 1.5 + rng() * 0.3; k++; }
+  return s;
+}
+function streamDraw(it, o, rng) {
+  const line = it.smooth ? openSpline(it.pts, 0.4) : it.pts, d = ptsD(line), w = it.width || 3, L = polyLen(line);
+  if (!o.render) return `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${n(w)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${o.color ? '#D3E9EC' : '#fff'}" stroke-width="${n(Math.max(0.1, w - o.u * 2.4))}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="url(#dd-water)" stroke-width="${n(Math.max(0.1, w - o.u * 2.4))}" stroke-linejoin="round" stroke-linecap="round"/>`;
+  let s = `<path d="${d}" fill="none" stroke="#8A7F68" stroke-width="${n(w + 1.4)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#A39880" stroke-width="${n(w + 0.9)}" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="0.3 0.25"/>`;
+  s += `<path d="${d}" fill="none" stroke="#2B6268" stroke-width="${n(w)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#3F8288" stroke-width="${n(w * 0.7)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#66A8AA" stroke-opacity="0.75" stroke-width="${n(w * 0.32)}" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const at = (dd) => { const p = pointAlong(line, dd), a = pointAlong(line, Math.max(0, dd - 0.15)), b = pointAlong(line, Math.min(L, dd + 0.15)), ang = Math.atan2(b[1] - a[1], b[0] - a[0]); return [p, ang]; };
+  // ripples and the odd riffle stone in the water
+  for (let dd = 0.8; dd < L - 0.3; dd += 0.9 + rng() * 0.8) {
+    const [p, a] = at(dd), off = (rng() - 0.5) * w * 0.5, nx = -Math.sin(a), ny = Math.cos(a), cx = p[0] + nx * off, cy = p[1] + ny * off, deg = a * 180 / Math.PI;
+    if (rng() < 0.22 && w > 1.5) s += `<g transform="translate(${n(cx)} ${n(cy)}) rotate(${n(deg)})"><path d="M-0.45,-0.35Q-0.75,0 -0.45,0.35" stroke="#fff" stroke-opacity="0.75" stroke-width="0.06" fill="none"/></g>` + boulder(cx, cy, 0.22 + rng() * 0.15, rng);
+    else s += `<g transform="translate(${n(cx)} ${n(cy)}) rotate(${n(deg)})"><path d="M0,${n(-w * 0.12)}Q0.35,0 0,${n(w * 0.12)}" stroke="#fff" stroke-opacity="0.45" stroke-width="0.05" fill="none"/></g>`;
+  }
+  // rocks along both banks
+  for (const side of [-1, 1]) for (let dd = rng() * 0.6; dd < L; dd += 0.7 + rng() * 0.7) {
+    const [p, a] = at(dd), r = 0.22 + rng() * 0.35, off = side * (w / 2 + 0.25 + rng() * 0.2);
+    s += boulder(p[0] - Math.sin(a) * off, p[1] + Math.cos(a) * off, r, rng);
+  }
+  return s;
+}
+RDRAW.stream = DDRAW.stream = streamDraw;
+RDRAW.pondShape = DDRAW.pondShape = (it, o, rng) => shapeRender(it, o, rng);
 RDRAW.poolShape = DDRAW.poolShape = (it, o, rng) => shapeRender(it, o, rng);
 
 /* draw one item. o: {u: ink width (ft), render, color, tags, hit, icon, seeTrees} */
@@ -2366,7 +2542,7 @@ function drawItem(it, o) {
   else if (t.kind === 'box') g = `<g transform="translate(${n(it.x)} ${n(it.y)}) rotate(${n(it.rot || 0)})">${inner}</g>`;
   else {
     g = inner;
-    if (o.hit && t.kind === 'line') g += `<path d="${ptsD(it.pts)}" fill="none" stroke="transparent" stroke-width="${n(Math.max(2, (it.width || 0) + 1))}" stroke-linejoin="round"/>`;
+    if (o.hit && t.kind === 'line') g += `<path d="${ptsD(it.smooth ? wallLine(it) : it.pts)}" fill="none" stroke="transparent" stroke-width="${n(Math.max(2, (it.width || 0) + 1))}" stroke-linejoin="round"/>`;
   }
   if (!o.icon) g += itemLabel(it, o);
   const op = it.op !== undefined ? it.op : (o.seeTrees && t.tree && !o.icon ? 0.5 : null);
@@ -2420,10 +2596,14 @@ const ICON = {
   bubble: { w: 11, h: 7.4, zone: 'private', vb: [-6, -5, 12, 10] },
   path: { pts: [[-4, 3], [-1, -0.5], [4, -2]], width: 2.4, finish: 'pavers', vb: [-5.6, -4.8, 11.2, 9.6] },
   fence: { pts: [[-5, 3], [-1, 3], [4, -3]], vb: [-5.6, -4.8, 11.2, 9.6] },
+  wall: { pts: [[-4.6, 3], [-1, 3], [3.6, -2.6]], vb: [-5.8, -4.6, 11.6, 9.4] },
+  lights: { pts: [[-5, -2.4], [0, 1.2], [5, -2.4]], vb: [-6, -4.4, 12, 8.8] },
   arrow: { pts: [[-4.5, 3], [0, -1], [4.5, -1]], vb: [-5.6, -4.8, 11.2, 9.6] },
 };
 const CIRCLE_VB = [-5.6, -5.6, 11.2, 11.2];
 for (const [k, v] of Object.entries(FURN_T)) { const w = v.d.w, h = v.d.h, m = Math.max(w, h) * 0.08; ICON[k] = { w, h, vb: [-w / 2 - m, -h / 2 - m, w + 2 * m, h + 2 * m] }; }
+ICON.pondShape = { pts: [[-4.4, -2.6], [0.5, -3.8], [4.4, -1.6], [3.2, 3.2], [-1.6, 3.6], [-4.6, 0.8]], smooth: true, vb: [-6.2, -5.4, 12.4, 10.8] };
+ICON.stream = { pts: [[-5.4, 3.4], [-2.2, 0.4], [1.8, 1.4], [5.4, -3.2]], smooth: true, width: 2, vb: [-6, -4.6, 12, 9.2] };
 ICON.poolShape = { pts: [[-4.5, -3], [1, -4], [4.6, -1], [3.5, 3.6], [-2, 3.8], [-4.8, 1]], smooth: true, vb: [-6, -5.2, 12, 10.4] };
 function iconItem(type, sp) {
   const spec = ICON[type] || {};
@@ -2500,7 +2680,7 @@ const NS = 'http://www.w3.org/2000/svg';
 const KEYS = {
   select: 'V', hand: 'H', label: 'T', measure: 'M',
   dtree: '1', etree: '2', bshrub: '3', dshrub: '4', perennial: '5', annual: '6', groundcover: '7', bedShape: 'B',
-  lawn: 'L', lawnShape: 'N', patio: 'P', paveShape: 'O', deck: 'K', path: 'W', fence: 'F', veg: 'G', wood: 'S', birdbath: 'Y',
+  lawn: 'L', lawnShape: 'N', patio: 'P', paveShape: 'O', deck: 'K', path: 'W', fence: 'F', wall: 'R', veg: 'G', wood: 'S', birdbath: 'Y',
   bubble: 'U', arrow: 'A', building: 'Q',
 };
 const LINE_ICO = {
@@ -2526,6 +2706,9 @@ const TIPS = {
   lawn: 'Rectangle of lawn. Pick the grass in the library.', lawnShape: 'Draw a curved lawn edge point by point.',
   patio: 'Rectangle patio. Choose stone, pavers, brick or concrete.', paveShape: 'Draw any paved shape point by point.',
   deck: 'Wood deck.', path: 'Click each corner of the walk, double-click to finish.', fence: 'Click each corner of the fence, double-click to finish. Pick the style (privacy, picket, split rail, chain link, metal) under Properties, or use Arrange → Fence the property line.',
+  pondShape: 'Draw a natural pond: click around the edge, then the first dot to close.', stream: 'Click along the course of the stream, double-click to finish. Set its width under Properties.',
+  wall: 'Click each corner of the wall, double-click to finish. Pick retaining block, fieldstone, seat wall, brick or timber at the top; Curved makes a smooth arc.',
+  lights: 'String lights: click each pole or hook, double-click to finish. Bistro or fairy bulbs at the top.',
   veg: 'Raised vegetable garden.', wood: 'Firewood stockpile.', birdbath: 'Bird bath or feeder. The kids birdwatch.',
   bubble: 'Use-area bubble for the functional diagram.', arrow: 'Circulation arrow: click points, double-click to finish.',
   building: 'Draw a house, garage or shed outline: click each corner, then click the first corner to close.',
@@ -2534,7 +2717,7 @@ const RAIL = [
   ['select', 'hand', 'label', 'measure'],
   ['dtree', 'etree', 'bshrub', 'dshrub'],
   ['perennial', 'annual', 'groundcover', 'bedShape'],
-  ['building', 'lawn', 'lawnShape', 'patio', 'paveShape', 'deck', 'path', 'fence'],
+  ['building', 'lawn', 'lawnShape', 'patio', 'paveShape', 'path', 'fence', 'wall'],
   ['bubble', 'arrow'],
 ];
 
@@ -2600,9 +2783,9 @@ let hist = [], hIdx = -1, commitTimer = null, pendingLabel = 'Edit';
 let checkRun = false;
 let draft = null, hover = null, measure = null, marquee = null, snapMark = null;
 let clip = [], pasteN = 0;
-const toolPreset = {};
+const toolPreset = { wall: { style: 'seat', height: 1.5, width: 1.5 } };
 const bedFormPref = { perennial: 'oval', annual: 'oval', groundcover: 'round' };
-const drawSmooth = { bedShape: true, lawnShape: true, paveShape: false };
+const drawSmooth = { bedShape: true, lawnShape: true, paveShape: false, wall: false, lights: false, pondShape: true, stream: true };
 const lastFence = { style: 'privacy', height: 6 };
 const byId = (id) => state.items.find((i) => i.id === id);
 const selItems = () => sel.map(byId).filter(Boolean);
@@ -2708,6 +2891,7 @@ function cleanState(raw) {
         if (!Array.isArray(r.pts) || r.pts.length < min || r.pts.length > 500) throw 0;
         it.pts = r.pts.map((p) => { if (!Array.isArray(p)) throw 0; return [numOr(p[0], -200, 300), numOr(p[1], -200, 300)]; });
         if (r.type === 'path') it.width = numOr(r.width, 1, 30, 4);
+        if (r.type === 'stream') { it.width = numOr(r.width, 1, 20, 3); it.smooth = r.smooth === undefined ? true : !!r.smooth; }
         if (t.kind === 'shape') it.smooth = r.smooth === undefined ? !!t.d.smooth : !!r.smooth;
       } else {
         it.x = numOr(r.x, -200, 300); it.y = numOr(r.y, -200, 300);
@@ -2721,6 +2905,8 @@ function cleanState(raw) {
     if (r.type === 'patio' || r.type === 'paveShape') it.finish = FINISHES[r.finish] ? r.finish : t.d.finish;
     if (r.type === 'path') it.finish = PATH_FINISHES[r.finish] ? r.finish : 'concrete';
     if (r.type === 'fence') { it.style = FENCE_STYLES[r.style] ? r.style : 'privacy'; it.height = numOr(r.height, 2, 12, FENCE_HEIGHT[it.style]); }
+    if (r.type === 'wall') { it.style = WALL_STYLES[r.style] ? r.style : 'seat'; it.height = numOr(r.height, 0.5, 12, WALL_HEIGHT[it.style]); it.width = WALL_W[it.style]; it.smooth = !!r.smooth; }
+    if (r.type === 'lights') { it.style = LIGHT_STYLES[r.style] ? r.style : 'bistro'; it.smooth = !!r.smooth; }
     const cats = spCats(r.type);
     if (cats.length) {
       const sp = findSp(r.sp);
@@ -3144,7 +3330,7 @@ function renderOverlay() {
     const pts = draft.pts.concat(hover ? [hover] : []);
     const t = T[draft.type];
     if (pts.length >= 2) {
-      const g = { id: 'draft', type: draft.type, pts, width: t.d.width, finish: t.d.finish, smooth: drawSmooth[draft.type] ?? t.d.smooth, sp: curSp[draft.type] || t.d.sp };
+      const g = Object.assign({ id: 'draft', type: draft.type, pts, width: t.d.width, finish: t.d.finish, sp: curSp[draft.type] || t.d.sp }, t.kind === 'line' ? toolPreset[draft.type] || {} : {}, draft.type === 'fence' ? lastFence : {}, { smooth: drawSmooth[draft.type] ?? t.d.smooth });
       if (t.kind === 'shape' && pts.length < 3) s += `<path d="${ptsD(pts)}" stroke="${SEL}" stroke-width="${sw}" fill="none" pointer-events="none"/>`;
       else s += `<g opacity="0.7" pointer-events="none">${drawItem(g, drawOpts({ tags: false }))}</g>`;
     }
@@ -3182,6 +3368,7 @@ function areaOf(it) {
   if (t.kind === 'shape') return polyArea(shapePoly(it.pts, it.smooth));
   if (t.kind === 'box') return it.type === 'perennial' || it.type === 'annual' || it.type === 'bubble' ? Math.PI * it.w * it.h / 4 : it.w * it.h;
   if (it.type === 'path') return polyLen(it.pts) * it.width;
+  if (it.type === 'stream') return polyLen(it.smooth ? wallLine(it) : it.pts) * it.width;
   return 0;
 }
 function statusSel() {
@@ -3212,7 +3399,7 @@ function renderRail() {
     b.addEventListener('click', () => setTool(b.dataset.tool));
     bindTip(b, () => `<b>${esc(toolName(b.dataset.tool))}</b> &nbsp;<kbd>${KEYS[b.dataset.tool]}</kbd><small>${esc(TIPS[b.dataset.tool] || '')}</small>`);
   });
-  const LIBTIP = { plants: ['Plant library', 'Trees, shrubs, perennials, grasses and your own plants.'], build: ['Build', 'Fences, patios by surface, walks, decks, sheds, vegetable garden, firewood, bird bath.'], living: ['Outdoor living', 'Furniture, umbrellas, pergola, grill, kitchen, fire pits, pools, hot tub, play set, swings, trampoline.'] };
+  const LIBTIP = { plants: ['Plant library', 'Trees, shrubs, perennials, grasses and your own plants.'], build: ['Build', 'Fences, walls (retaining, stone, seat, brick, timber), patios by surface, walks, decks, sheds, vegetable garden, firewood, bird bath.'], living: ['Outdoor living', 'Furniture, umbrellas, pergola, grill, kitchen, fire pits, pools, hot tub, ponds and streams, play set, swings, trampoline, string lights.'] };
   $('rail').querySelectorAll('[data-openlib]').forEach((b) => {
     b.addEventListener('click', () => { const tab = b.dataset.openlib; if (view.lib && libTab === tab) toggleLib(false); else { if (!view.lib) toggleLib(true); setLibTab(tab); } markLibButtons(); });
     bindTip(b, () => `<b>${LIBTIP[b.dataset.openlib][0]}</b><small>${LIBTIP[b.dataset.openlib][1]}</small>`);
@@ -3519,6 +3706,16 @@ function renderProps() {
     h += `<div class="row2">${fld('Fence style', `<select data-f="fstyle" aria-label="Fence style"${dis}>${Object.entries(FENCE_STYLES).map(([k, z]) => `<option value="${k}" ${(it.style || 'privacy') === k ? 'selected' : ''}>${z.replace(' fence', '')}</option>`).join('')}</select>`)}${fld('Height', `<select data-f="fheight" aria-label="Fence height"${dis}>${[3, 4, 5, 6, 8].map((v) => `<option value="${v}" ${(it.height || 6) === v ? 'selected' : ''}>${v} ft</option>`).join('')}</select>`)}</div>`;
     h += `<p class="muted" style="margin-bottom:8px">${{ privacy: 'Solid boards: blocks views and noise. Good for the busy street side and around the patio.', picket: 'Low and open: marks the edge of a front yard.', split: 'Rustic and open: marks a line without blocking views.', chain: 'See-through and low cost: keeps pets and kids in.', iron: 'Open and formal: lets light and views through.' }[it.style || 'privacy']}</p>`;
   }
+  if (it.type === 'wall') {
+    h += `<div class="row2">${fld('Wall', `<select data-f="wstyle" aria-label="Wall style"${dis}>${Object.entries(WALL_STYLES).map(([k, z]) => `<option value="${k}" ${it.style === k ? 'selected' : ''}>${z}</option>`).join('')}</select>`)}${fld('Height', `<select data-f="wheight" aria-label="Wall height"${dis}>${WALL_HEIGHTS.map((v) => `<option value="${v}" ${(it.height || 1.5) === v ? 'selected' : ''}>${ftIn(v)}</option>`).join('')}</select>`)}</div>`;
+    h += `<label class="check" style="margin-bottom:8px"><input type="checkbox" data-f="smooth" ${it.smooth ? 'checked' : ''}${dis}> Curved wall</label><p class="muted" style="margin-bottom:8px">${WALL_NOTE[it.style] || ''} ${WALL_W[it.style] * 12} in. thick.</p>`;
+  }
+  if (it.type === 'stream') h += `<div class="row2">${fld('Width ft', numIn('width', it.width || 3, 1, 20, 0.5, 'Stream width in feet'))}${fld('Course', `<label class="check"><input type="checkbox" data-f="smooth" ${it.smooth ? 'checked' : ''}${dis}> Curved</label>`)}</div><p class="muted" style="margin-bottom:8px">A shallow stream over gravel with rocky banks. Run it downhill into a pond for a recirculating water feature.</p>`;
+  if (it.type === 'pondShape') h += `<p class="muted" style="margin-bottom:8px">Natural pond with a boulder edge, water lilies and rushes. Keep it 2 ft deep or more for fish, and away from big trees (leaves).</p>`;
+  if (it.type === 'lights') {
+    h += fld('Bulbs', `<select data-f="lstyle" aria-label="Light style"${dis}>${Object.entries(LIGHT_STYLES).map(([k, z]) => `<option value="${k}" ${it.style === k ? 'selected' : ''}>${z}</option>`).join('')}</select>`);
+    h += `<label class="check" style="margin-bottom:8px"><input type="checkbox" data-f="smooth" ${it.smooth ? 'checked' : ''}${dis}> Draped (curved)</label><p class="muted" style="margin-bottom:8px">${lightBulbs(it)} bulbs. The dark dots are the poles or hooks they hang from; place them over a patio, pergola or along a fence.</p>`;
+  }
   if (t.kind === 'line') h += `<p class="muted" style="margin-bottom:8px">${polyLen(it.pts).toFixed(1)} ft long. Drag a white dot to move a corner, a blue dot to add one.</p>`;
   if (t.kind === 'text') { h += fld('Text', `<input type="text" data-f="text" value="${esc(it.text || '')}" maxlength="200" aria-label="Label text"${dis}>`); h += fld('Text size ft', numIn('size', it.size, 0.5, 20, 0.25, 'Text size')); }
   else h += fld(it.type === 'bubble' ? 'Label (blank shows the zone)' : 'Label', `<input type="text" data-f="label" value="${esc(it.label || '')}" placeholder="${t.tree ? 'e.g. Shade for patio' : 'Optional'}" maxlength="120" aria-label="Label"${dis}>`);
@@ -3580,6 +3777,9 @@ $('props').addEventListener('change', (e) => {
   if (f === 'form') { it.form = v; renderItems([it.id]); commit('Change bed shape'); return; }
   if (f === 'edge') { if (EDGES[v]) it.edge = v; else delete it.edge; renderItems([it.id]); renderOptCtx(); commit(v ? 'Raise bed' : 'Remove bed edge'); return; }
   if (f === 'fstyle') { it.style = FENCE_STYLES[v] ? v : 'privacy'; it.height = FENCE_HEIGHT[it.style]; Object.assign(lastFence, { style: it.style, height: it.height }); renderItems([it.id]); renderProps(); commit('Change fence style'); return; }
+  if (f === 'wstyle') { setWallStyle(it, v); renderItems([it.id]); renderProps(); renderOptCtx(); commit('Change wall'); return; }
+  if (f === 'wheight') { it.height = +v || 1.5; toolPreset.wall.height = it.height; renderItems([it.id]); commit('Change wall height'); return; }
+  if (f === 'lstyle') { it.style = LIGHT_STYLES[v] ? v : 'bistro'; toolPreset.lights = { style: it.style }; renderItems([it.id]); renderProps(); renderOptCtx(); commit('Change lights'); return; }
   if (f === 'fheight') { it.height = +v || 6; lastFence.height = it.height; renderItems([it.id]); commit('Change fence height'); return; }
   flush();
 });
@@ -3704,7 +3904,7 @@ function newItem(type, p) {
   if (spCats(type).length) { if (PLANT_BY_ID[curSp[type]]) it.sp = curSp[type]; else delete it.sp; }
   if (type === 'fence') Object.assign(it, lastFence);
   if (toolPreset[type]) Object.assign(it, clone(toolPreset[type]));
-  if (t.kind === 'shape' && drawSmooth[type] !== undefined) it.smooth = drawSmooth[type];
+  if ((t.kind === 'shape' || t.kind === 'line') && drawSmooth[type] !== undefined) it.smooth = drawSmooth[type];
   if (t.kind === 'line' || t.kind === 'shape') return it;
   it.x = r1(p[0]); it.y = r1(p[1]);
   if (t.kind === 'circle' && t.plant && PLANT_BY_ID[it.sp]) it.r = Math.max(0.5, PLANT_BY_ID[it.sp].w / 2);
@@ -4160,6 +4360,10 @@ function takeoff() {
     if (it.type === 'deck') addM('deck', 'Wood deck', 'deck', a, 'sq ft');
     if (it.type === 'path') addM('path-' + it.finish, `${PATH_FINISHES[it.finish] || 'Concrete'} walk`, 'path', polyLen(it.pts), 'lin ft', a);
     if (it.type === 'fence') { const fs = it.style || 'privacy'; addM('fence-' + fs + (it.height || 6), `${it.height || FENCE_HEIGHT[fs]} ft ${FENCE_STYLES[fs].toLowerCase()}`, 'fence', polyLen(it.pts), 'lin ft'); }
+    if (it.type === 'wall') addM('wall-' + it.style + it.height, `${WALL_STYLES[it.style] || 'Garden wall'}, ${ftIn(it.height || 1.5)} tall`, 'wall', polyLen(wallLine(it)), 'lin ft');
+    if (it.type === 'pondShape') { addM('pond', 'Natural pond (liner, water area)', 'pondShape', a, 'sq ft'); addM('pondrock', 'Boulder edging for pond', 'pondShape', polyLen(shapePoly(it.pts, it.smooth), true), 'lin ft'); }
+    if (it.type === 'stream') addM('stream', `Stream bed, ${it.width || 3} ft wide`, 'stream', polyLen(it.smooth ? wallLine(it) : it.pts), 'lin ft', a);
+    if (it.type === 'lights') addM('lights-' + it.style, `${LIGHT_STYLES[it.style] || 'String lights'} (${lightBulbs(it)} bulbs)`, 'lights', polyLen(wallLine(it)), 'lin ft');
     if (it.type === 'veg') addM('veg', 'Raised vegetable beds', 'veg', a, 'sq ft');
     if (it.type === 'wood') addM('wood', 'Firewood stockpile', 'wood', 1, 'ea');
     if (it.type === 'birdbath') addM('bird', 'Bird bath / feeder', 'birdbath', 1, 'ea');
@@ -5067,6 +5271,16 @@ const swatch = (f) => `<svg viewBox="0 0 6 6" aria-hidden="true" class="sw6"><re
 function surfaceChips(cur, data) {
   return `<span class="optlabel">Surface</span><div class="seg shapeseg">${Object.entries(SURF_TYPES[data.type]).map(([k, l]) => `<button type="button" ${data.attr}="${k}" aria-pressed="${cur === k}" title="${l}">${swatch(k)}<span>${l.replace('Concrete pavers', 'Pavers')}</span></button>`).join('')}</div>`;
 }
+const WALL_HEIGHTS = [1, 1.5, 2, 2.5, 3, 4, 5, 6];
+const WALL_NOTE = { block: 'Interlocking concrete block: holds back soil on a slope; cap units on top.', stone: 'Dry-stacked fieldstone: a natural low wall to define an area or edge a bed.', seat: 'Stone wall with a flat cap, about 18 in. tall: extra seating around a patio or fire pit.', brick: 'Brick with a rowlock cap: formal, matches a brick house.', timber: 'Landscape timbers: a simple low retaining wall for a slope or raised area.' };
+function setWallStyle(it, v) { it.style = WALL_STYLES[v] ? v : 'seat'; it.height = WALL_HEIGHT[it.style]; it.width = WALL_W[it.style]; toolPreset.wall = { style: it.style, height: it.height, width: it.width }; }
+const lightBulbs = (it) => Math.max(1, Math.floor(polyLen(wallLine(it)) / (it.style === 'fairy' ? 0.5 : 2)));
+const curveSeg = (on, attr) => `<span class="optlabel">Run</span><div class="seg shapeseg">${segBtn('curved', 'Curved', on, attr)}${segBtn('straight', 'Straight', !on, attr)}</div>`;
+function wallChips(cur, height, attr) {
+  return `<span class="optlabel">Wall</span><div class="seg shapeseg">${Object.entries(WALL_STYLES).map(([k, l]) => `<button type="button" ${attr}="${k}" aria-pressed="${cur === k}" title="${l}"><span>${{ block: 'Retaining', stone: 'Fieldstone', seat: 'Seat wall', brick: 'Brick', timber: 'Timber' }[k]}</span></button>`).join('')}</div>` +
+    `<select class="edgesel" data-wheight aria-label="Wall height">${WALL_HEIGHTS.map((v) => `<option value="${v}" ${height === v ? 'selected' : ''}>${ftIn(v)} tall</option>`).join('')}</select>`;
+}
+function lightChips(cur, attr) { return `<span class="optlabel">Lights</span><div class="seg shapeseg">${Object.entries(LIGHT_STYLES).map(([k, l]) => `<button type="button" ${attr}="${k}" aria-pressed="${cur === k}" title="${l}"><span>${k === 'fairy' ? 'Fairy' : 'Bistro'}</span></button>`).join('')}</div>`; }
 function fenceChips(cur, height, attr) {
   return `<span class="optlabel">Fence</span><div class="seg shapeseg">${Object.entries(FENCE_STYLES).map(([k, l]) => `<button type="button" ${attr}="${k}" aria-pressed="${cur === k}" title="${l}"><span>${l.replace(' fence', '').replace('Metal (wrought iron)', 'Metal').replace('Wood privacy', 'Privacy').replace('White picket', 'Picket')}</span></button>`).join('')}</div>` +
     `<select class="edgesel" data-fheight aria-label="Fence height">${[3, 4, 5, 6, 8].map((v) => `<option value="${v}" ${height === v ? 'selected' : ''}>${v} ft tall</option>`).join('')}</select>`;
@@ -5085,6 +5299,10 @@ function renderOptCtx() {
   } else if (SURF_TYPES[tool]) {
     h = surfaceChips((toolPreset[tool] && toolPreset[tool].finish) || T[tool].d.finish, { type: tool, attr: 'data-preffinish' }) +
       (drawSmooth[tool] !== undefined ? `<span class="optlabel">Edges</span><div class="seg shapeseg">${segBtn('curved', 'Curved', drawSmooth[tool], 'data-drawsmooth')}${segBtn('straight', 'Straight', !drawSmooth[tool], 'data-drawsmooth')}</div>` : '');
+  } else if (one && !one.locked && (one.type === 'wall' || one.type === 'lights') && tool === 'select') {
+    h = (one.type === 'wall' ? wallChips(one.style, one.height, 'data-setwall') : lightChips(one.style, 'data-setlights')) + curveSeg(!!one.smooth, 'data-setsmooth');
+  } else if (tool === 'wall' || tool === 'lights') {
+    h = (tool === 'wall' ? wallChips(toolPreset.wall.style, toolPreset.wall.height, 'data-prefwall') : lightChips((toolPreset.lights || {}).style || 'bistro', 'data-preflights')) + curveSeg(drawSmooth[tool], 'data-drawsmooth');
   } else if (tool === 'fence') {
     h = fenceChips(lastFence.style, lastFence.height, 'data-preffence');
   } else if (one && !one.locked && ['perennial', 'annual', 'groundcover'].includes(one.type) && tool === 'select') {
@@ -5111,6 +5329,12 @@ $('optCtx').addEventListener('change', (e) => {
     if (one && one.type === 'fence' && tool === 'select') { one.height = v; renderItems([one.id]); renderProps(); commit('Change fence height'); } else lastFence.height = v;
     return;
   }
+  if (e.target.dataset.wheight !== undefined) {
+    const v = +e.target.value;
+    toolPreset.wall.height = v;
+    if (one && one.type === 'wall' && tool === 'select') { one.height = v; renderItems([one.id]); renderProps(); commit('Change wall height'); }
+    return;
+  }
   if (e.target.dataset.setedge === undefined || !one || one.locked) return;
   if (EDGES[e.target.value]) one.edge = e.target.value; else delete one.edge;
   renderItems([one.id]); renderProps(); commit(one.edge ? 'Raise bed' : 'Remove bed edge');
@@ -5125,13 +5349,17 @@ $('optCtx').addEventListener('click', (e) => {
   if (b.dataset.lotdone !== undefined) { setTool('select'); fit(); return; }
   if (b.dataset.lotrect !== undefined) { const L = lot(); delete state.site.lotPts; state.site.w = r1(L.x2); state.site.h = r1(L.y2); baseKey = ''; renderBase(); renderOverlay(); renderOptCtx(); commit('Property line back to a rectangle'); return; }
   if (b.dataset.preffinish) { toolPreset[tool] = Object.assign(toolPreset[tool] || {}, { finish: b.dataset.preffinish }); renderOptCtx(); renderOverlay(); return; }
+  if (b.dataset.prefwall) { const h0 = WALL_HEIGHT[b.dataset.prefwall]; toolPreset.wall = { style: b.dataset.prefwall, height: h0, width: WALL_W[b.dataset.prefwall] }; renderOptCtx(); renderOverlay(); if (libTab === 'build') renderCatalog(); return; }
+  if (b.dataset.preflights) { toolPreset.lights = { style: b.dataset.preflights }; renderOptCtx(); renderOverlay(); return; }
   if (b.dataset.preffence) { lastFence.style = b.dataset.preffence; lastFence.height = FENCE_HEIGHT[lastFence.style]; renderOptCtx(); return; }
   if (!one || one.locked) return;
   if (b.dataset.setfinish) { one.finish = b.dataset.setfinish; renderItems([one.id]); renderProps(); commit('Change surface'); return; }
+  if (b.dataset.setwall) { setWallStyle(one, b.dataset.setwall); renderItems([one.id]); renderProps(); renderOptCtx(); commit('Change wall'); return; }
+  if (b.dataset.setlights) { one.style = b.dataset.setlights; toolPreset.lights = { style: one.style }; renderItems([one.id]); renderProps(); renderOptCtx(); commit('Change lights'); return; }
   if (b.dataset.setfence) { one.style = b.dataset.setfence; one.height = FENCE_HEIGHT[one.style]; Object.assign(lastFence, { style: one.style, height: one.height }); renderItems([one.id]); renderProps(); commit('Change fence style'); return; }
   if (b.dataset.setform) { one.form = b.dataset.setform; renderItems([one.id]); renderProps(); commit('Change bed shape'); return; }
   if (b.dataset.freeform !== undefined) { makeFreeform(); return; }
-  if (b.dataset.setsmooth) { one.smooth = b.dataset.setsmooth === 'curved'; renderItems([one.id]); renderProps(); commit(one.smooth ? 'Curved edges' : 'Straight edges'); }
+  if (b.dataset.setsmooth) { one.smooth = b.dataset.setsmooth === 'curved'; renderItems([one.id]); renderProps(); renderOptCtx(); commit(one.smooth ? 'Curved edges' : 'Straight edges'); }
 });
 
 
@@ -5172,13 +5400,17 @@ const FENCE_ENTRIES = Object.keys(FENCE_STYLES).map((k) => ({ id: 'fence-' + k, 
 const CATALOG = {
   build: [
     ['Fences', [...FENCE_ENTRIES, { id: 'fencelot', name: 'Fence the whole property line', action: () => fenceLot(), icon: 'fence', note: 'One click: every lot line but the street side' }]],
+    ['Walls', Object.keys(WALL_STYLES).map((k) => ({ id: 'wall-' + k, name: WALL_STYLES[k], tool: 'wall', preset: { style: k, height: WALL_HEIGHT[k], width: WALL_W[k] }, smooth: false, icon: 'wall', note: `${ftIn(WALL_HEIGHT[k])} tall · click each corner, double-click to finish` }))
+      .concat([{ id: 'wall-seat-curve', name: 'Curved seat wall', tool: 'wall', preset: { style: 'seat', height: 1.5, width: 1.5 }, smooth: true, icon: 'wall', note: 'Wraps a fire pit or patio edge · click 3+ points' }, { id: 'wall-stone-curve', name: 'Curved fieldstone wall', tool: 'wall', preset: { style: 'stone', height: 2, width: 1.5 }, smooth: true, icon: 'wall', note: 'Defines a garden room · click 3+ points' }])],
     ['Patios, rectangle', Object.keys(FINISHES).map((k) => ({ id: 'patio-' + k, name: `${FINISHES[k]} patio`, tool: 'patio', preset: { finish: k }, icon: 'patio', iconPreset: { finish: k } }))],
     ['Patios, any shape', Object.keys(FINISHES).map((k) => ({ id: 'pave-' + k, name: `${FINISHES[k]}, draw any shape`, tool: 'paveShape', preset: { finish: k }, icon: 'paveShape', iconPreset: { finish: k }, note: 'Click each corner, then the first dot to close' }))],
     ['Walks and paths', Object.keys(PATH_FINISHES).map((k) => ({ id: 'path-' + k, name: `${PATH_FINISHES[k]} walk`, tool: 'path', preset: { finish: k }, icon: 'path', iconPreset: { finish: k }, note: 'Click each corner, double-click to finish' }))],
     ['Decks and buildings', [{ id: 'deck', name: 'Wood deck', tool: 'deck', icon: 'deck' }, { id: 'building', name: 'House, garage or shed (draw)', tool: 'building', icon: 'building', note: 'Click each corner' }]],
     ['Garden', [{ id: 'veg', name: 'Raised vegetable garden', tool: 'veg', icon: 'veg' }, { id: 'wood', name: 'Firewood stockpile', tool: 'wood', icon: 'wood' }, { id: 'birdbath', name: 'Bird bath / feeder', tool: 'birdbath', icon: 'birdbath' }]],
   ],
-  living: ['Furniture', 'Shade', 'Cooking & fire', 'Pools & spas', 'Play'].map((g) => [g, Object.entries(FURN_T).filter(([, v]) => v.group === g).map(([k, v]) => ({ id: k, name: v.name, tool: k, icon: k, note: `${v.d.w} × ${v.d.h} ft` }))
+  living: ['Furniture', 'Shade', 'Lighting', 'Cooking & fire', 'Pools & spas', 'Ponds & streams', 'Play'].map((g) => [g, Object.entries(FURN_T).filter(([, v]) => v.group === g).map(([k, v]) => ({ id: k, name: v.name, tool: k, icon: k, note: `${v.d.w} × ${v.d.h} ft` }))
+    .concat(g === 'Ponds & streams' ? [{ id: 'pondShape', name: 'Natural pond, draw any shape', tool: 'pondShape', icon: 'pondShape', note: 'Click around the edge, then the first dot to close' }, { id: 'stream-3', name: 'Stream, 3 ft wide', tool: 'stream', preset: { width: 3 }, icon: 'stream', note: 'Click along its course, double-click to finish' }, { id: 'stream-1', name: 'Trickle / rill, 18 in. wide', tool: 'stream', preset: { width: 1.5 }, icon: 'stream', iconPreset: { width: 1.2 }, note: 'Click along its course, double-click to finish' }] : [])
+    .concat(g === 'Lighting' ? [{ id: 'lights-bistro', name: 'String lights, bistro bulbs', tool: 'lights', preset: { style: 'bistro' }, smooth: false, icon: 'lights', note: 'Click each pole or hook, double-click to finish' }, { id: 'lights-drape', name: 'String lights, draped', tool: 'lights', preset: { style: 'bistro' }, smooth: true, icon: 'lights', note: 'A soft curve between 3+ points' }, { id: 'lights-fairy', name: 'Fairy lights', tool: 'lights', preset: { style: 'fairy' }, smooth: false, icon: 'lights', note: 'Tiny bulbs: trees, fences, pergola' }] : [])
     .concat(g === 'Pools & spas' ? [{ id: 'poolShape', name: 'Pool, draw any shape', tool: 'poolShape', icon: 'poolShape', note: 'Click around the edge, then the first dot to close' }] : [])]),
 };
 const ENTRY = {};
@@ -5187,13 +5419,13 @@ let libTab = 'plants';
 function entryThumb(e) {
   const spec = ICON[e.icon] || {};
   if (e.iconPreset) { const saved = Object.assign({}, spec); Object.assign(ICON[e.icon], e.iconPreset); const out = iconSVG(e.icon, 'render'); ICON[e.icon] = saved; return out; }
-  if (e.icon === 'fence' && e.preset) { const it = Object.assign({ id: 'icon-' + e.id, type: 'fence' }, clone(ICON.fence), e.preset); delete it.vb; return `<svg viewBox="${ICON.fence.vb.join(' ')}" aria-hidden="true">${drawItem(it, { u: 0.28, render: true, color: true, icon: true })}</svg>`; }
+  if (['fence', 'wall', 'lights'].includes(e.icon) && e.preset) { const it = Object.assign({ id: 'icon-' + e.id, type: e.icon }, clone(ICON[e.icon]), e.preset, e.smooth ? { smooth: true } : {}); delete it.vb; return `<svg viewBox="${ICON[e.icon].vb.join(' ')}" aria-hidden="true">${drawItem(it, { u: 0.28, render: true, color: true, icon: true })}</svg>`; }
   return iconSVG(e.icon, 'render');
 }
 function renderCatalog() {
   const groups = CATALOG[libTab];
   $('libList').innerHTML = `<p class="libhow">${libTab === 'build' ? 'Click an item, then click the plan. Fences, walks and any-shape patios: click each corner.' : 'Click an item, then click the plan, or drag it onto the plan. Drag its corner dot to resize; turn it with the yellow dot.'}</p>` +
-    groups.map(([g, list]) => `<div class="libcat">${esc(g)}</div>` + list.map((e) => `<button type="button" class="plant" data-el="${e.id}" aria-pressed="${tool === e.tool && (!e.preset || !toolPreset[e.tool] || JSON.stringify(e.preset) === JSON.stringify(e.tool === 'fence' ? { style: lastFence.style, height: lastFence.height } : toolPreset[e.tool]))}"><span class="thumb">${entryThumb(e)}</span><span class="pn"><b>${esc(e.name)}</b>${e.note ? `<i>${esc(e.note)}</i>` : ''}</span></button>`).join('')).join('');
+    groups.map(([g, list]) => `<div class="libcat">${esc(g)}</div>` + list.map((e) => `<button type="button" class="plant" data-el="${e.id}" aria-pressed="${tool === e.tool && (e.smooth === undefined || !!drawSmooth[e.tool] === e.smooth) && (!e.preset || !toolPreset[e.tool] || JSON.stringify(e.preset) === JSON.stringify(e.tool === 'fence' ? { style: lastFence.style, height: lastFence.height } : toolPreset[e.tool]))}"><span class="thumb">${entryThumb(e)}</span><span class="pn"><b>${esc(e.name)}</b>${e.note ? `<i>${esc(e.note)}</i>` : ''}</span></button>`).join('')).join('');
 }
 function useEntry(id) {
   const e = ENTRY[id];
@@ -5201,6 +5433,7 @@ function useEntry(id) {
   if (e.action) { e.action(); return; }
   if (e.tool === 'fence' && e.preset) Object.assign(lastFence, e.preset);
   else if (e.preset) toolPreset[e.tool] = Object.assign({}, e.preset);
+  if (e.smooth !== undefined) drawSmooth[e.tool] = e.smooth;
   if (sel.length) select(null);
   setTool(e.tool); renderCatalog();
   const k = T[e.tool].kind;
