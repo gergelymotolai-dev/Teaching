@@ -161,6 +161,213 @@ function bedMix(it) {
   return list.map((m) => ({ sp: m.sp, w: m.w / tot }));
 }
 const layerOf = (it) => (T[it.type].layer === 'diagram' ? 'diagram' : 'design');
+/* ------------------------------------------------------------------ outdoor living: furniture, cooking and fire, pools, play
+ * Box items drawn in local feet around (0,0). Each works in the rendered style (o.render) and the drafting styles. */
+const FURN_T = {
+  table_round: { name: 'Round dining table', group: 'Furniture', d: { w: 7, h: 7 }, band: 3.5 },
+  table_rect:  { name: 'Dining table, 6 chairs', group: 'Furniture', d: { w: 9, h: 6.5 }, band: 3.5 },
+  sofa:        { name: 'Outdoor sofa', group: 'Furniture', d: { w: 7, h: 3 }, band: 3.5 },
+  sectional:   { name: 'L-shaped sectional', group: 'Furniture', d: { w: 9, h: 9 }, band: 3.5 },
+  chair:       { name: 'Lounge chair', group: 'Furniture', d: { w: 3, h: 3 }, band: 3.5 },
+  lounge:      { name: 'Chaise lounge', group: 'Furniture', d: { w: 2.5, h: 6.5 }, band: 3.5 },
+  bench:       { name: 'Garden bench', group: 'Furniture', d: { w: 6, h: 2 }, band: 3.5 },
+  umbrella:    { name: 'Patio umbrella', group: 'Shade', d: { w: 9, h: 9 }, band: 4.6, overhead: true },
+  pergola:     { name: 'Pergola', group: 'Shade', d: { w: 12, h: 12 }, band: 4.7, overhead: true },
+  grill:       { name: 'Grill', group: 'Cooking & fire', d: { w: 5, h: 2.5 }, band: 3.5 },
+  kitchen:     { name: 'Outdoor kitchen', group: 'Cooking & fire', d: { w: 10, h: 3 }, band: 3.5 },
+  firepit:     { name: 'Fire pit, round', group: 'Cooking & fire', d: { w: 5, h: 5 }, band: 3 },
+  firetable:   { name: 'Fire table, square', group: 'Cooking & fire', d: { w: 5, h: 5 }, band: 3 },
+  pool:        { name: 'Pool, rectangle', group: 'Pools & spas', d: { w: 16, h: 32 }, band: 1.5 },
+  pool_kidney: { name: 'Pool, kidney', group: 'Pools & spas', d: { w: 16, h: 30 }, band: 1.5 },
+  hottub:      { name: 'Hot tub', group: 'Pools & spas', d: { w: 7.5, h: 7.5 }, band: 2.5 },
+  playset:     { name: 'Play set with slide', group: 'Play', d: { w: 12, h: 10 }, band: 3.5 },
+  swing:       { name: 'Swing set', group: 'Play', d: { w: 14, h: 6 }, band: 3.5 },
+  sandbox:     { name: 'Sandbox', group: 'Play', d: { w: 6, h: 6 }, band: 2.5 },
+  trampoline:  { name: 'Trampoline', group: 'Play', d: { w: 12, h: 12 }, band: 3.5 },
+};
+const poolT = { name: 'Pool (draw any shape)', group: 'Pools & spas', band: 1.5 };
+
+/* colors: rendered look, or drafting (white with a light tint when Color is on) */
+const pc = (o, rendered, tint) => (o.render ? rendered : (o.color && tint ? tint : '#fff'));
+const ink = (o, rendered) => (o.render ? rendered : INK);
+const sw = (o, k) => n(o.u * k);
+const rr = (x, y, w, h, r, fill, stroke, wd, extra) => `<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" rx="${n(r)}" fill="${fill}"${stroke ? ` stroke="${stroke}" stroke-width="${wd}"` : ''}${extra || ''}/>`;
+const shadowBox = (o, w, h, r) => (o.render && !o.icon ? rr(-w / 2 - 0.25, -h / 2 + 0.25, w, h, r || 0.2, '#0E1408', '', '', ' fill-opacity="0.3" filter="url(#ld-soft)"') : '');
+function seat(o, x, y, w, h, rot) {
+  return `<g transform="translate(${n(x)} ${n(y)}) rotate(${n(rot || 0)})">${rr(-w / 2, -h / 2, w, h, Math.min(w, h) * 0.22, pc(o, '#3F4A52', '#E9EDF0'), ink(o, '#22292E'), sw(o, 0.8))}` +
+    `${rr(-w / 2 + w * 0.12, -h / 2 + h * 0.22, w * 0.76, h * 0.66, Math.min(w, h) * 0.15, pc(o, '#D9CBB0', '#fff'), ink(o, '#A99A7E'), sw(o, 0.5))}</g>`;
+}
+function poolWater(d, o, rng, bb) {
+  if (!o.render) return `<path d="${d}" fill="${o.color ? '#D7ECF6' : '#fff'}"/>` + `<path d="${d}" fill="url(#dd-water)"/>`;
+  let s = `<path d="${d}" fill="url(#ld-pool)"/>`;
+  for (let i = 0, k = Math.round((bb[2] - bb[0]) * (bb[3] - bb[1]) / 18); i < k; i++) {
+    const x = bb[0] + rng() * (bb[2] - bb[0]), y = bb[1] + rng() * (bb[3] - bb[1]), L = 0.8 + rng() * 1.6;
+    s += `<path d="M${n(x)},${n(y)}q${n(L / 2)},${n(-0.35)} ${n(L)},0" stroke="#fff" stroke-opacity="0.45" stroke-width="0.1" fill="none" clip-path="none"/>`;
+  }
+  return s;
+}
+const KIDNEY = (w, h) => {
+  const P = (x, y) => `${n(x * w)},${n(y * h)}`;
+  return `M${P(-0.05, -0.5)}C${P(0.32, -0.5)} ${P(0.5, -0.36)} ${P(0.5, -0.12)}C${P(0.5, 0.06)} ${P(0.3, 0.1)} ${P(0.32, 0.22)}C${P(0.36, 0.42)} ${P(0.2, 0.5)} ${P(0.0, 0.5)}C${P(-0.32, 0.5)} ${P(-0.5, 0.34)} ${P(-0.5, 0.1)}C${P(-0.5, -0.06)} ${P(-0.3, -0.12)} ${P(-0.36, -0.28)}C${P(-0.42, -0.46)} ${P(-0.28, -0.5)} ${P(-0.05, -0.5)}Z`;
+};
+const FURN = {
+  table_round(it, o) {
+    const R = Math.min(it.w, it.h) / 2, tr = R * 0.5, k = clamp(Math.round(2 * Math.PI * (tr + 1) / 2.4), 4, 10);
+    let s = '';
+    for (let i = 0; i < k; i++) { const a = 2 * Math.PI * i / k, d = tr + 0.95; s += seat(o, d * Math.cos(a), d * Math.sin(a), 1.7, 1.7, a * 180 / Math.PI + 90); }
+    return s + (o.render && !o.icon ? `<circle cx="-0.2" cy="0.2" r="${n(tr)}" fill="#0E1408" fill-opacity="0.3" filter="url(#ld-soft)"/>` : '') +
+      `<circle r="${n(tr)}" fill="${pc(o, '#B98A5A', '#F1E6D6')}" stroke="${ink(o, '#5E4129')}" stroke-width="${sw(o, 1)}"/>` + (o.render ? `<circle r="${n(tr * 0.75)}" fill="none" stroke="#C99C69" stroke-width="0.06"/>` : '');
+  },
+  table_rect(it, o) {
+    const tw = Math.max(2, it.w - 3.4), th = Math.max(2, it.h - 3.4), per = Math.max(1, Math.floor(tw / 2.4));
+    let s = '';
+    for (let i = 0; i < per; i++) { const x = -tw / 2 + tw * (i + 0.5) / per; s += seat(o, x, -th / 2 - 0.95, 1.7, 1.7, 180) + seat(o, x, th / 2 + 0.95, 1.7, 1.7, 0); }
+    if (it.w >= 7.5) s += seat(o, -tw / 2 - 0.95, 0, 1.7, 1.7, 90) + seat(o, tw / 2 + 0.95, 0, 1.7, 1.7, -90);
+    let slats = '';
+    if (o.render) for (let x = -tw / 2 + 0.5; x < tw / 2; x += 0.5) slats += `M${n(x)},${n(-th / 2)}V${n(th / 2)}`;
+    return s + shadowBox(o, tw, th) + rr(-tw / 2, -th / 2, tw, th, 0.15, pc(o, '#B98A5A', '#F1E6D6'), ink(o, '#5E4129'), sw(o, 1)) + (slats ? `<path d="${slats}" stroke="#8E6640" stroke-width="0.05"/>` : '');
+  },
+  sofa(it, o) {
+    const w = it.w, h = it.h, arm = Math.min(0.7, w * 0.1), back = h * 0.3, n3 = Math.max(1, Math.round((w - 2 * arm) / 2.2));
+    let s = shadowBox(o, w, h, 0.3) + rr(-w / 2, -h / 2, w, h, 0.3, pc(o, '#3F4A52', '#E9EDF0'), ink(o, '#22292E'), sw(o, 1));
+    s += rr(-w / 2 + arm, -h / 2 + 0.1, w - 2 * arm, back, 0.2, pc(o, '#C9BBA0', '#fff'), ink(o, '#A99A7E'), sw(o, 0.5));
+    for (let i = 0; i < n3; i++) { const cw = (w - 2 * arm) / n3; s += rr(-w / 2 + arm + i * cw + 0.05, -h / 2 + back + 0.15, cw - 0.1, h - back - 0.3, 0.2, pc(o, '#D9CBB0', '#fff'), ink(o, '#A99A7E'), sw(o, 0.5)); }
+    return s;
+  },
+  sectional(it, o) {
+    const w = it.w, h = it.h, d = Math.min(3, w * 0.35, h * 0.35);
+    const L = `M${n(-w / 2)},${n(-h / 2)}H${n(w / 2)}V${n(-h / 2 + d)}H${n(-w / 2 + d)}V${n(h / 2)}H${n(-w / 2)}Z`;
+    let s = (o.render && !o.icon ? `<path d="${L}" transform="translate(-0.25 0.25)" fill="#0E1408" fill-opacity="0.3" filter="url(#ld-soft)"/>` : '') + `<path d="${L}" fill="${pc(o, '#3F4A52', '#E9EDF0')}" stroke="${ink(o, '#22292E')}" stroke-width="${sw(o, 1)}"/>`;
+    const cush = (x, y, cw, ch) => rr(x, y, cw, ch, 0.2, pc(o, '#D9CBB0', '#fff'), ink(o, '#A99A7E'), sw(o, 0.5));
+    const nx = Math.max(1, Math.round((w - d) / 2.3)), ny = Math.max(1, Math.round((h - d) / 2.3));
+    for (let i = 0; i < nx; i++) { const cw = (w - d - 0.3) / nx; s += cush(-w / 2 + d + 0.1 + i * cw, -h / 2 + d * 0.32, cw - 0.1, d * 0.6); }
+    for (let i = 0; i < ny; i++) { const ch = (h - d - 0.3) / ny; s += cush(-w / 2 + d * 0.32, -h / 2 + d + 0.1 + i * ch, d * 0.6, ch - 0.1); }
+    return s + cush(-w / 2 + d * 0.32, -h / 2 + d * 0.32, d * 0.6, d * 0.6);
+  },
+  chair(it, o) { return shadowBox(o, it.w, it.h, 0.3) + seat(o, 0, 0, it.w, it.h, 0); },
+  lounge(it, o) {
+    const w = it.w, h = it.h;
+    return shadowBox(o, w, h, 0.3) + rr(-w / 2, -h / 2, w, h, 0.3, pc(o, '#E8E4DC', '#F3F3F3'), ink(o, '#8A8478'), sw(o, 0.9)) +
+      rr(-w / 2 + 0.2, -h / 2 + 0.2, w - 0.4, h * 0.3, 0.2, pc(o, '#5B8FB0', '#fff'), ink(o, '#3F6E8C'), sw(o, 0.5)) +
+      rr(-w / 2 + 0.2, -h / 2 + h * 0.3 + 0.3, w - 0.4, h * 0.7 - 0.5, 0.2, pc(o, '#6FA3C4', '#fff'), ink(o, '#3F6E8C'), sw(o, 0.5));
+  },
+  bench(it, o) {
+    const w = it.w, h = it.h;
+    let sl = '';
+    for (let y = -h / 2 + h / 4; y < h / 2 - 0.05; y += h / 4) sl += `M${n(-w / 2 + 0.1)},${n(y)}H${n(w / 2 - 0.1)}`;
+    return shadowBox(o, w, h) + rr(-w / 2, -h / 2, w, h, 0.1, pc(o, '#A97B4D', '#F1E6D6'), ink(o, '#4E3622'), sw(o, 0.9)) + `<path d="${sl}" stroke="${ink(o, '#6E4E30')}" stroke-width="${sw(o, 0.5)}"/>`;
+  },
+  umbrella(it, o) {
+    const R = Math.min(it.w, it.h) / 2, k = 8;
+    let s = o.render && !o.icon ? `<circle cx="-0.8" cy="0.8" r="${n(R)}" fill="#0E1408" fill-opacity="0.22" filter="url(#ld-soft)"/>` : '';
+    for (let i = 0; i < k; i++) {
+      const a0 = 2 * Math.PI * i / k, a1 = 2 * Math.PI * (i + 1) / k;
+      s += `<path d="M0,0L${n(R * Math.cos(a0))},${n(R * Math.sin(a0))}L${n(R * Math.cos(a1))},${n(R * Math.sin(a1))}Z" fill="${pc(o, i % 2 ? '#E7DCC6' : '#D6C8AC', '#FBF8F2')}" stroke="${ink(o, '#9C8C70')}" stroke-width="${sw(o, 0.6)}" stroke-linejoin="round"/>`;
+    }
+    return s + `<circle r="${n(Math.max(0.2, R * 0.06))}" fill="${ink(o, '#5E5240')}"/>`;
+  },
+  pergola(it, o) {
+    const w = it.w, h = it.h, ps = 0.55;
+    let s = '';
+    let raft = '';
+    for (let x = -w / 2 + 0.6; x < w / 2; x += 1) raft += `M${n(x)},${n(-h / 2 - 0.6)}V${n(h / 2 + 0.6)}`;
+    s += `<path d="${raft}" stroke="${ink(o, '#8E6640')}" stroke-width="${o.render ? 0.28 : sw(o, 0.7)}"${o.render ? ' stroke-opacity="0.92"' : ''}/>`;
+    s += `<path d="M${n(-w / 2 - 0.9)},${n(-h / 2 + 0.3)}H${n(w / 2 + 0.9)}M${n(-w / 2 - 0.9)},${n(h / 2 - 0.3)}H${n(w / 2 + 0.9)}" stroke="${ink(o, '#6E4E30')}" stroke-width="${o.render ? 0.45 : sw(o, 1.2)}"/>`;
+    for (const [x, y] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) s += rr(x * (w / 2 - 0.3) - ps / 2, y * (h / 2 - 0.3) - ps / 2, ps, ps, 0, ink(o, '#4E3622'));
+    return s;
+  },
+  grill(it, o) {
+    const w = it.w, h = it.h, bw = w * 0.55;
+    let gr = '';
+    for (let x = -bw / 2 + 0.25; x < bw / 2; x += 0.25) gr += `M${n(x)},${n(-h / 2 + 0.35)}V${n(h / 2 - 0.35)}`;
+    return shadowBox(o, w, h) + rr(-w / 2, -h / 2 + 0.3, w, h - 0.6, 0.1, pc(o, '#9AA0A5', '#F3F3F3'), ink(o, '#5F666B'), sw(o, 0.8)) +
+      rr(-bw / 2, -h / 2, bw, h, 0.4, pc(o, '#2E2F31', '#fff'), ink(o, '#111'), sw(o, 1)) + `<path d="${gr}" stroke="${o.render ? '#6E6F72' : INK}" stroke-width="${sw(o, 0.4)}"/>`;
+  },
+  kitchen(it, o) {
+    const w = it.w, h = it.h;
+    let s = shadowBox(o, w, h) + rr(-w / 2, -h / 2, w, h, 0.1, pc(o, '#CFC6B4', '#F3F1EC'), ink(o, '#6E655A'), sw(o, 1));
+    s += rr(-w * 0.32, -h / 2 + 0.35, w * 0.3, h - 0.7, 0.3, pc(o, '#2E2F31', '#fff'), ink(o, '#111'), sw(o, 0.8));
+    let gr = '';
+    for (let x = -w * 0.32 + 0.25; x < -w * 0.02; x += 0.25) gr += `M${n(x)},${n(-h / 2 + 0.55)}V${n(h / 2 - 0.55)}`;
+    s += `<path d="${gr}" stroke="${o.render ? '#6E6F72' : INK}" stroke-width="${sw(o, 0.4)}"/>`;
+    s += rr(w * 0.12, -h / 2 + 0.45, w * 0.18, h - 0.9, 0.3, pc(o, '#B9C2C8', '#fff'), ink(o, '#5F666B'), sw(o, 0.7)) + `<circle cx="${n(w * 0.21)}" cy="0" r="0.1" fill="${ink(o, '#5F666B')}"/>`;
+    return s;
+  },
+  firepit(it, o) {
+    const R = Math.min(it.w, it.h) / 2;
+    let s = o.render && !o.icon ? `<circle cx="-0.3" cy="0.3" r="${n(R)}" fill="#0E1408" fill-opacity="0.35" filter="url(#ld-soft)"/>` : '';
+    s += `<circle r="${n(R)}" fill="${o.render ? 'url(#ld-flagstone)' : pc(o, '', '#EDE6DA')}" stroke="${ink(o, '#5E564C')}" stroke-width="${sw(o, 1)}"/>`;
+    s += `<circle r="${n(R * 0.62)}" fill="${o.render ? 'url(#ld-fire)' : '#fff'}" stroke="${ink(o, '#3A332B')}" stroke-width="${sw(o, 0.8)}"/>`;
+    if (!o.render) s += `<path d="M${n(-R * 0.25)},${n(R * 0.2)}q${n(R * 0.1)},${n(-R * 0.45)} ${n(R * 0.25)},${n(-R * 0.5)}q${n(R * 0.15)},${n(R * 0.3)} ${n(R * 0.25)},${n(R * 0.5)}" fill="none" stroke="${INK}" stroke-width="${sw(o, 0.7)}"/>`;
+    return s;
+  },
+  firetable(it, o) {
+    const w = it.w, h = it.h;
+    return shadowBox(o, w, h) + rr(-w / 2, -h / 2, w, h, 0.2, pc(o, '#8C8984', '#EDEDEA'), ink(o, '#3E3C39'), sw(o, 1)) +
+      rr(-w * 0.32, -h * 0.32, w * 0.64, h * 0.64, 0.2, o.render ? 'url(#ld-fire)' : '#fff', ink(o, '#3A332B'), sw(o, 0.7));
+  },
+  pool(it, o, rng) {
+    const w = it.w, h = it.h, c = 1.2, d = `M${n(-w / 2 + c)},${n(-h / 2 + c)}H${n(w / 2 - c)}V${n(h / 2 - c)}H${n(-w / 2 + c)}Z`;
+    let s = rr(-w / 2, -h / 2, w, h, 0.4, o.render ? '#D8D0BF' : pc(o, '', '#F1EFEA'), ink(o, '#8E8676'), sw(o, 1));
+    s += poolWater(d, o, rng, [-w / 2 + c, -h / 2 + c, w / 2 - c, h / 2 - c]) + `<path d="${d}" fill="none" stroke="${ink(o, '#3C82AE')}" stroke-width="${sw(o, 1)}"/>`;
+    let st = '';
+    for (let i = 1; i <= 3; i++) st += `M${n(-w / 2 + c)},${n(-h / 2 + c + i * 1)}H${n(-w / 2 + c + Math.min(6, w * 0.4))}`;
+    return s + `<path d="${st}" stroke="${o.render ? '#fff' : INK}" stroke-opacity="${o.render ? 0.8 : 1}" stroke-width="${sw(o, 0.7)}"/>`;
+  },
+  pool_kidney(it, o, rng) {
+    const w = it.w, h = it.h, outer = KIDNEY(w, h), inner = KIDNEY(w - 2.4, h - 2.4);
+    return `<path d="${outer}" fill="${o.render ? '#D8D0BF' : pc(o, '', '#F1EFEA')}" stroke="${ink(o, '#8E8676')}" stroke-width="${sw(o, 1)}"/>` +
+      poolWater(inner, o, rng, [-w / 2 + 1.2, -h / 2 + 1.2, w / 2 - 1.2, h / 2 - 1.2]) + `<path d="${inner}" fill="none" stroke="${ink(o, '#3C82AE')}" stroke-width="${sw(o, 1)}"/>`;
+  },
+  hottub(it, o, rng) {
+    const w = it.w, h = it.h, c = 0.8;
+    let s = shadowBox(o, w, h, 1) + rr(-w / 2, -h / 2, w, h, 1, pc(o, '#7A5B3C', '#EFE8DE'), ink(o, '#4E3622'), sw(o, 1));
+    const d = `M${n(-w / 2 + c + 0.6)},${n(-h / 2 + c)}H${n(w / 2 - c - 0.6)}Q${n(w / 2 - c)},${n(-h / 2 + c)} ${n(w / 2 - c)},${n(-h / 2 + c + 0.6)}V${n(h / 2 - c - 0.6)}Q${n(w / 2 - c)},${n(h / 2 - c)} ${n(w / 2 - c - 0.6)},${n(h / 2 - c)}H${n(-w / 2 + c + 0.6)}Q${n(-w / 2 + c)},${n(h / 2 - c)} ${n(-w / 2 + c)},${n(h / 2 - c - 0.6)}V${n(-h / 2 + c + 0.6)}Q${n(-w / 2 + c)},${n(-h / 2 + c)} ${n(-w / 2 + c + 0.6)},${n(-h / 2 + c)}Z`;
+    s += poolWater(d, o, rng, [-w / 2 + c, -h / 2 + c, w / 2 - c, h / 2 - c]) + `<path d="${d}" fill="none" stroke="${ink(o, '#3C82AE')}" stroke-width="${sw(o, 0.8)}"/>`;
+    s += `<circle r="${n(Math.min(w, h) * 0.22)}" fill="none" stroke="${o.render ? '#fff' : INK}" stroke-opacity="${o.render ? 0.6 : 1}" stroke-width="${sw(o, 0.6)}"/>`;
+    for (const [x, y] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) s += `<circle cx="${n(x * (w / 2 - c - 0.7))}" cy="${n(y * (h / 2 - c - 0.7))}" r="0.15" fill="${o.render ? '#fff' : INK}"/>`;
+    return s;
+  },
+  playset(it, o) {
+    const w = it.w, h = it.h, dk = Math.min(w * 0.4, h * 0.55);
+    const x0 = -w / 2, y0 = -h / 2;
+    let s = shadowBox(o, dk, dk);
+    // slide running out from the deck
+    s += rr(x0 + dk - 0.2, y0 + dk * 0.3, w - dk + 0.2, 1.8, 0.9, pc(o, '#2F8F4E', '#E6F2E9'), ink(o, '#1D5F33'), sw(o, 0.9)) + `<path d="M${n(x0 + dk)},${n(y0 + dk * 0.3 + 0.9)}H${n(w / 2 - 0.9)}" stroke="${o.render ? '#7FC796' : INK}" stroke-width="${sw(o, 0.5)}"/>`;
+    // climbing wall / ladder below the deck
+    s += rr(x0 + dk * 0.2, y0 + dk - 0.1, dk * 0.6, h - dk + 0.1, 0.1, pc(o, '#B98A5A', '#F1E6D6'), ink(o, '#5E4129'), sw(o, 0.8));
+    for (let y = y0 + dk + 0.6; y < h / 2 - 0.2; y += 0.8) s += `<circle cx="${n(x0 + dk * 0.35)}" cy="${n(y)}" r="0.14" fill="${pc(o, '#E2552F', INK)}"/><circle cx="${n(x0 + dk * 0.65)}" cy="${n(y + 0.4)}" r="0.14" fill="${pc(o, '#F2B705', INK)}"/>`;
+    // deck with a striped roof
+    s += rr(x0, y0, dk, dk, 0.1, pc(o, '#A97B4D', '#F1E6D6'), ink(o, '#4E3622'), sw(o, 1));
+    if (o.render) for (let i = 0; i < 6; i++) s += `<path d="M${n(x0 + dk / 2)},${n(y0 + dk / 2)}L${n(x0 + (i < 3 ? dk * i / 2 : dk))},${n(y0 + (i < 3 ? 0 : dk * (i - 3) / 2))}" stroke="none"/>`;
+    s += `<path d="M${n(x0)},${n(y0)}L${n(x0 + dk / 2)},${n(y0 + dk / 2)}L${n(x0 + dk)},${n(y0)}M${n(x0)},${n(y0 + dk)}L${n(x0 + dk / 2)},${n(y0 + dk / 2)}L${n(x0 + dk)},${n(y0 + dk)}" stroke="${ink(o, '#4E3622')}" stroke-width="${sw(o, 0.7)}" fill="none"/>`;
+    if (o.render) s += `<path d="M${n(x0)},${n(y0)}L${n(x0 + dk / 2)},${n(y0 + dk / 2)}L${n(x0 + dk)},${n(y0)}Z" fill="#2F7DB8" fill-opacity="0.85"/><path d="M${n(x0)},${n(y0 + dk)}L${n(x0 + dk / 2)},${n(y0 + dk / 2)}L${n(x0 + dk)},${n(y0 + dk)}Z" fill="#2F7DB8" fill-opacity="0.7"/>`;
+    return s;
+  },
+  swing(it, o) {
+    const w = it.w, h = it.h, n2 = Math.max(1, Math.round((w - 2) / 3.2));
+    let s = `<path d="M${n(-w / 2)},${n(-h / 2)}L${n(-w / 2 + 1)},0L${n(-w / 2)},${n(h / 2)}M${n(w / 2)},${n(-h / 2)}L${n(w / 2 - 1)},0L${n(w / 2)},${n(h / 2)}" stroke="${ink(o, '#5E4129')}" stroke-width="${o.render ? 0.4 : sw(o, 1.2)}" fill="none" stroke-linecap="round"/>`;
+    s += `<path d="M${n(-w / 2 + 1)},0H${n(w / 2 - 1)}" stroke="${ink(o, '#6E4E30')}" stroke-width="${o.render ? 0.5 : sw(o, 1.4)}"/>`;
+    for (let i = 0; i < n2; i++) { const x = -w / 2 + 1 + (w - 2) * (i + 0.5) / n2; s += rr(x - 0.8, -0.35, 1.6, 0.7, 0.2, pc(o, ['#E2552F', '#2F7DB8', '#F2B705'][i % 3], '#fff'), ink(o, '#222'), sw(o, 0.6)); }
+    return s;
+  },
+  sandbox(it, o) {
+    const w = it.w, h = it.h;
+    return shadowBox(o, w, h) + rr(-w / 2, -h / 2, w, h, 0.1, pc(o, '#A97B4D', '#F1E6D6'), ink(o, '#4E3622'), sw(o, 1)) +
+      rr(-w / 2 + 0.4, -h / 2 + 0.4, w - 0.8, h - 0.8, 0.05, o.render ? 'url(#ld-sand)' : '#fff', o.render ? '' : INK, sw(o, 0.5)) + (o.render ? '' : rr(-w / 2 + 0.4, -h / 2 + 0.4, w - 0.8, h - 0.8, 0.05, 'url(#dd-dots)'));
+  },
+  trampoline(it, o) {
+    const R = Math.min(it.w, it.h) / 2;
+    return (o.render && !o.icon ? `<circle cx="-0.5" cy="0.5" r="${n(R)}" fill="#0E1408" fill-opacity="0.28" filter="url(#ld-soft)"/>` : '') +
+      `<circle r="${n(R)}" fill="${pc(o, '#2F7DB8', '#E6F0F8')}" stroke="${ink(o, '#1F5A86')}" stroke-width="${sw(o, 1)}"/>` +
+      `<circle r="${n(R * 0.82)}" fill="${pc(o, '#232527', '#fff')}" stroke="${ink(o, '#111')}" stroke-width="${sw(o, 0.6)}"/>` +
+      `<circle r="${n(R * 0.95)}" fill="none" stroke="${o.render ? '#fff' : INK}" stroke-opacity="${o.render ? 0.5 : 1}" stroke-width="${sw(o, 0.5)}" stroke-dasharray="${n(R * 0.08)} ${n(R * 0.08)}"/>`;
+  },
+};
+
+for (const [k, v] of Object.entries(FURN_T)) T[k] = Object.assign({ id: k, kind: 'box', furn: true }, v, { d: Object.assign({}, v.d) });
+T.poolShape = Object.assign({ id: 'poolShape', kind: 'shape', furn: true, d: { smooth: true } }, poolT);
+
 
 /* ------------------------------------------------------------------ shared defs (patterns, filters) */
 function makeDefs() {
@@ -230,6 +437,10 @@ function makeDefs() {
     d += pat('ld-deck', 12, 1.5, body);
   }
   d += pat('ld-roof', 1.5, 0.75, '<rect width="1.5" height="0.75" fill="#CDC7BD"/><path d="M0,0.72H1.5M0.4,0V0.36M1.15,0.36V0.75" stroke="#B2AB9F" stroke-width="0.05"/>');
+  d += '<linearGradient id="ld-pool" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8FD3EE"/><stop offset="0.55" stop-color="#4FB0DA"/><stop offset="1" stop-color="#2E86B8"/></linearGradient>';
+  d += '<radialGradient id="ld-fire"><stop offset="0" stop-color="#FFE08A"/><stop offset="0.35" stop-color="#F59A2A"/><stop offset="0.7" stop-color="#C2411B"/><stop offset="1" stop-color="#2B201A"/></radialGradient>';
+  d += pat('ld-sand', 1.5, 1.5, '<rect width="1.5" height="1.5" fill="#E8D7A8"/>' + specks(1.5, 1.5, 24, ['#D6C28E', '#F2E6C4', '#CBB57D'], 0.03, 0.07));
+  d += pat('dd-water', 3, 1.5, `<path d="M0,0.75q0.75,-0.35 1.5,0t1.5,0" stroke="${INK}" stroke-width="0.05" fill="none"/>`);
   // drafting hatches (black ink)
   d += pat('dd-dots', 1.2, 1.2, `<circle cx="0.3" cy="0.4" r="0.06" fill="${INK}"/><circle cx="0.9" cy="1" r="0.05" fill="${INK}"/>`);
   d += pat('dd-sparse', 3, 3, `<circle cx="0.6" cy="0.8" r="0.07" fill="${INK}" fill-opacity="0.6"/><circle cx="2.2" cy="2.3" r="0.07" fill="${INK}" fill-opacity="0.6"/><circle cx="2.4" cy="0.7" r="0.06" fill="${INK}" fill-opacity="0.6"/>`);
@@ -737,6 +948,12 @@ function bedRender(it, o, rng) {
 }
 function shapeRender(it, o, rng) {
   const d = shapeD(it.pts, it.smooth);
+  if (it.type === 'poolShape') {
+    const poly = shapePoly(it.pts, it.smooth), xs = poly.map((q) => q[0]), ys = poly.map((q) => q[1]);
+    return `<path d="${d}" fill="none" stroke="${o.render ? '#D8D0BF' : INK}" stroke-width="${o.render ? 2.4 : n(o.u * 1.2)}" stroke-linejoin="round"/>` +
+      (o.render ? `<path d="${d}" fill="none" stroke="#8E8676" stroke-width="2.5" stroke-opacity="0.35" stroke-linejoin="round" transform="translate(0 0)"/>` : '') +
+      poolWater(d, o, rngFor(it.id), [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]) + `<path d="${d}" fill="none" stroke="${o.render ? '#3C82AE' : INK}" stroke-width="${n(o.u)}"/>`;
+  }
   if (it.type === 'building') {
     if (!o.render) return `<path d="${d}" fill="${o.color ? '#EFEEE9' : '#fff'}" stroke="${INK}" stroke-width="${n(Math.max(0.3, o.u * 2.6))}" stroke-linejoin="miter"/>`;
     return (o.icon ? '' : `<path d="${d}" transform="translate(-1.6 0.9)" fill="#0E1408" fill-opacity="0.3" filter="url(#ld-soft)"/>`) +
@@ -893,7 +1110,10 @@ const DDRAW = {
   building(it, o, rng) { return shapeRender(it, o, rng); },
 };
 
-/* draw one item. o: {u: ink width (ft), render, color, tags, hit, icon} */
+for (const k of Object.keys(FURN)) { RDRAW[k] = FURN[k]; DDRAW[k] = FURN[k]; }
+RDRAW.poolShape = DDRAW.poolShape = (it, o, rng) => shapeRender(it, o, rng);
+
+/* draw one item. o: {u: ink width (ft), render, color, tags, hit, icon, seeTrees} */
 function drawItem(it, o) {
   const t = T[it.type], rng = rngFor(it.id);
   const fn = (o.render && RDRAW[it.type]) || DDRAW[it.type];
@@ -906,7 +1126,8 @@ function drawItem(it, o) {
     if (o.hit && t.kind === 'line') g += `<path d="${ptsD(it.pts)}" fill="none" stroke="transparent" stroke-width="${n(Math.max(2, (it.width || 0) + 1))}" stroke-linejoin="round"/>`;
   }
   if (!o.icon) g += itemLabel(it, o);
-  return `<g${o.hit ? ` data-id="${esc(it.id)}"` : ''}${it.hidden ? ' display="none"' : ''}>${g}</g>`;
+  const op = it.op !== undefined ? it.op : (o.seeTrees && t.tree && !o.icon ? 0.5 : null);
+  return `<g${o.hit ? ` data-id="${esc(it.id)}"` : ''}${it.hidden ? ' display="none"' : ''}${op !== null && op < 1 ? ` opacity="${op}"` : ''}>${g}</g>`;
 }
 function itemCenter(it) {
   const k = T[it.type].kind;
@@ -959,6 +1180,8 @@ const ICON = {
   arrow: { pts: [[-4.5, 3], [0, -1], [4.5, -1]], vb: [-5.6, -4.8, 11.2, 9.6] },
 };
 const CIRCLE_VB = [-5.6, -5.6, 11.2, 11.2];
+for (const [k, v] of Object.entries(FURN_T)) { const w = v.d.w, h = v.d.h, m = Math.max(w, h) * 0.08; ICON[k] = { w, h, vb: [-w / 2 - m, -h / 2 - m, w + 2 * m, h + 2 * m] }; }
+ICON.poolShape = { pts: [[-4.5, -3], [1, -4], [4.6, -1], [3.5, 3.6], [-2, 3.8], [-4.8, 1]], smooth: true, vb: [-6, -5.2, 12, 10.4] };
 function iconItem(type, sp) {
   const spec = ICON[type] || {};
   const it = Object.assign({ id: 'icon-' + type + (sp || ''), type, x: 0, y: 0, rot: 0 }, clone(spec));

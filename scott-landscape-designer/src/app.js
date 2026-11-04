@@ -60,10 +60,13 @@ const LINE_ICO = {
   hand: '<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V11"/><path d="M11 10.5V4.5a1.5 1.5 0 0 1 3 0V11"/><path d="M14 10.5V6a1.5 1.5 0 0 1 3 0v6"/><path d="M8 12.5 6.6 11a1.6 1.6 0 0 0-2.3 2.2L8 18c1.5 2 3 3 5.5 3H14a5 5 0 0 0 5-5v-4.5a1.5 1.5 0 0 0-3 0"/>',
   label: '<path d="M5 6V4h14v2"/><path d="M12 4v16"/><path d="M9 20h6"/>',
   measure: '<path d="M3 17 17 3l4 4L7 21z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/>',
+  lotedit: '<path d="M4 6 18 4l2 13-12 3z" stroke-dasharray="3 2"/><circle cx="4" cy="6" r="1.6"/><circle cx="18" cy="4" r="1.6"/><circle cx="20" cy="17" r="1.6"/><circle cx="8" cy="20" r="1.6"/>',
   imgscale: '<rect x="3" y="5" width="18" height="14" rx="1"/><path d="M6 15 18 9"/><circle cx="6" cy="15" r="1.5"/><circle cx="18" cy="9" r="1.5"/>',
+  buildlib: '<path d="M3 20h18"/><path d="M5 20V9l7-5 7 5v11"/><path d="M9 20v-6h6v6"/>',
+  livinglib: '<path d="M4 13h16v4H4z"/><path d="M6 17v3M18 17v3M6 13V9a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4"/><path d="M12 3v2"/>',
   library: '<path d="M4 19V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z"/><path d="M4 19a2 2 0 0 1 2-2h12"/><path d="M12 7c-2 0-3 1.4-3 3 2 0 3-1.4 3-3zm0 0c2 0 3 1.4 3 3-2 0-3-1.4-3-3zm0 0v6"/>',
 };
-const BASIC_NAMES = { select: 'Select / move', hand: 'Hand (pan)', label: 'Text label', measure: 'Measure', imgscale: 'Set image scale' };
+const BASIC_NAMES = { select: 'Select / move', hand: 'Hand (pan)', label: 'Text label', measure: 'Measure', imgscale: 'Set image scale', lotedit: 'Edit property line' };
 const TIPS = {
   select: 'Click to select, Shift-click to add. Drag empty space to box-select. Alt-drag copies.',
   hand: 'Drag to move around the plan. Hold Space for the hand from any tool.',
@@ -83,7 +86,7 @@ const RAIL = [
   ['select', 'hand', 'label', 'measure'],
   ['dtree', 'etree', 'bshrub', 'dshrub'],
   ['perennial', 'annual', 'groundcover', 'bedShape'],
-  ['building', 'lawn', 'lawnShape', 'patio', 'paveShape', 'deck', 'path', 'fence', 'veg', 'wood', 'birdbath'],
+  ['building', 'lawn', 'lawnShape', 'patio', 'paveShape', 'deck', 'path', 'fence'],
   ['bubble', 'arrow'],
 ];
 
@@ -93,15 +96,26 @@ const uid = () => 'i' + Date.now().toString(36) + (idSeq++).toString(36) + Math.
 const scottWants = () => WANTS.map((t) => ({ t, d: false }));
 function blankState() { return { version: 3, pid: uid(), meta: { name: '', section: '', date: '' }, wants: scottWants(), items: [] }; }
 const isScott = () => !state.site;
-const lot = () => (isScott() ? LOT : { w: state.site.w, h: state.site.h });
+function lotPoly() {
+  if (isScott()) return [[0, 0], [82, 0], [82, 111], [0, 111]];
+  const st = state.site;
+  return Array.isArray(st.lotPts) && st.lotPts.length >= 3 ? st.lotPts : [[0, 0], [st.w, 0], [st.w, st.h], [0, st.h]];
+}
+/* lot bounds; w/h are the far edges (the lot usually starts at 0,0) */
+function lot() {
+  const P = lotPoly(), xs = P.map((q) => q[0]), ys = P.map((q) => q[1]);
+  const x1 = Math.min(...xs), y1 = Math.min(...ys), x2 = Math.max(...xs), y2 = Math.max(...ys);
+  return { x1, y1, x2, y2, w: x2, h: y2, poly: P };
+}
+const SCALES = [8, 10, 20, 30, 40, 50, 60, 100];
 const projName = () => (isScott() ? 'Scott Residence' : (state.site.name || 'My yard'));
 const clientName = () => (isScott() ? 'The Scott family' : (state.site.client || ''));
 function fitRect() {
   if (isScott()) return FIT;
-  const st = state.site, m = 6, sw = 16;
-  let x = -m, y = -m, x2 = st.w + m, y2 = st.h + m;
-  if (st.street === 'bottom') y2 = st.h + sw; if (st.street === 'top') y = -sw;
-  if (st.street === 'left') x = -sw; if (st.street === 'right') x2 = st.w + sw;
+  const st = state.site, m = 6, sw = 16, L = lot();
+  let x = L.x1 - m, y = L.y1 - m, x2 = L.x2 + m, y2 = L.y2 + m;
+  if (st.street === 'bottom') y2 = L.y2 + sw; if (st.street === 'top') y = L.y1 - sw;
+  if (st.street === 'left') x = L.x1 - sw; if (st.street === 'right') x2 = L.x2 + sw;
   return { x, y, w: x2 - x, h: y2 - y };
 }
 /* what prints in the title block and sheet header. The Scott lab has defaults; an own-yard design prints only what the student typed */
@@ -138,13 +152,14 @@ let hist = [], hIdx = -1, commitTimer = null, pendingLabel = 'Edit';
 let checkRun = false;
 let draft = null, hover = null, measure = null, marquee = null, snapMark = null;
 let clip = [], pasteN = 0;
+const toolPreset = {};
 const bedFormPref = { perennial: 'oval', annual: 'oval', groundcover: 'round' };
 const drawSmooth = { bedShape: true, lawnShape: true, paveShape: false };
 const lastFence = { style: 'privacy', height: 6 };
 const byId = (id) => state.items.find((i) => i.id === id);
 const selItems = () => sel.map(byId).filter(Boolean);
 const single = () => (sel.length === 1 ? byId(sel[0]) || null : null);
-const drawOpts = (extra) => Object.assign({ u: 0.125, render: view.style === 'render', color: view.style !== 'bw', tags: view.tags }, extra || {});
+const drawOpts = (extra) => Object.assign({ u: 0.125, render: view.style === 'render', color: view.style !== 'bw', tags: view.tags, seeTrees: view.seeTrees }, extra || {});
 
 /* ------------------------------------------------------------------ history */
 const snapshot = () => JSON.stringify(state);
@@ -189,7 +204,7 @@ function autosave(s) {
   }
 }
 function saveView() {
-  try { localStorage.setItem(VIEW_KEY, JSON.stringify({ site: view.site, grid: view.grid, diagram: view.diagram, design: view.design, tags: view.tags, base: view.base, style: view.style, snap: view.snap, lib: view.lib, floor: view.floor, img: view.img, util: view.util })); } catch (e) { /* ignore */ }
+  try { localStorage.setItem(VIEW_KEY, JSON.stringify({ site: view.site, grid: view.grid, diagram: view.diagram, design: view.design, tags: view.tags, base: view.base, style: view.style, snap: view.snap, lib: view.lib, floor: view.floor, img: view.img, util: view.util, seeTrees: view.seeTrees, libTab })); } catch (e) { /* ignore */ }
 }
 
 /* ------------------------------------------------------------------ validation */
@@ -216,6 +231,10 @@ function cleanState(raw) {
     try { w = numOr(r.w, 10, 2000); h = numOr(r.h, 10, 2000); } catch (e) { throw new Error('The lot size in this file is missing or not a number.'); }
     st.site = { kind: 'custom', name: typeof r.name === 'string' ? r.name.slice(0, 60) : 'My yard', client: typeof r.client === 'string' ? r.client.slice(0, 60) : '',
       w, h, street: STREETS[r.street] ? r.street : 'bottom', north: r.north === undefined ? 0 : toNorthDeg(r.north), streetName: typeof r.streetName === 'string' ? r.streetName.slice(0, 40) : '' };
+    if (Array.isArray(r.lotPts) && r.lotPts.length >= 3 && r.lotPts.length <= 60) {
+      try { st.site.lotPts = r.lotPts.map((q) => [numOr(q[0], -2000, 4000), numOr(q[1], -2000, 4000)]); } catch (e) { /* keep the rectangle */ }
+    }
+    if (SCALES.includes(+r.scale)) st.site.scale = +r.scale;
     const im = r.img;
     if (im && typeof im === 'object' && typeof im.src === 'string' && /^data:image\/(png|jpeg|webp);base64,/.test(im.src) && im.src.length < 6e6) {
       try { st.site.img = { src: im.src, x: numOr(im.x, -2000, 4000), y: numOr(im.y, -2000, 4000), w: numOr(im.w, 1, 6000), h: numOr(im.h, 1, 6000), op: numOr(im.op, 0.05, 1, 0.6) }; } catch (e) { /* drop a broken image */ }
@@ -266,6 +285,7 @@ function cleanState(raw) {
     }
     if (['perennial', 'annual', 'groundcover'].includes(r.type) && ['oval', 'rect', 'round'].includes(r.form)) it.form = r.form;
     if (isBedType(r.type) && EDGES[r.edge]) it.edge = r.edge;
+    if (Number.isFinite(+r.op) && +r.op >= 0.1 && +r.op < 1) it.op = Math.round(+r.op * 100) / 100;
     if (r.locked) it.locked = true;
     if (r.hidden) it.hidden = true;
     st.items.push(it);
@@ -306,6 +326,7 @@ css.textContent = `
 .props-h{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:500;font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.05em}
 .props-h .chip{width:28px;height:24px}.props-h .chip svg{width:26px;height:22px}
 .mixrow{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.sw6{width:14px;height:14px;border-radius:2px;flex:none;outline:1px solid #000}
 .obj .grip{display:grid;place-items:center;width:14px;color:var(--dim)}
 .obj .grip svg{width:14px;height:14px;stroke:currentColor;stroke-width:3;stroke-linecap:round}
 .obj{touch-action:none;cursor:grab}
@@ -489,7 +510,7 @@ function customBase(o) {
   const st = state.site, L = lot();
   let s = '';
   const sw = 9, g = '#E6E7E2';
-  const band = { bottom: [-4, L.h + 2, L.w + 8, sw], top: [-4, -2 - sw, L.w + 8, sw], left: [-2 - sw, -4, sw, L.h + 8], right: [L.w + 2, -4, sw, L.h + 8] }[st.street];
+  const band = { bottom: [L.x1 - 4, L.y2 + 2, L.x2 - L.x1 + 8, sw], top: [L.x1 - 4, L.y1 - 2 - sw, L.x2 - L.x1 + 8, sw], left: [L.x1 - 2 - sw, L.y1 - 4, sw, L.y2 - L.y1 + 8], right: [L.x2 + 2, L.y1 - 4, sw, L.y2 - L.y1 + 8] }[st.street];
   if (band) {
     const [x, y, w, h] = band, vert = st.street === 'left' || st.street === 'right';
     s += `<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" fill="${g}"/>`;
@@ -497,7 +518,7 @@ function customBase(o) {
     const name = esc((st.streetName || 'STREET').toUpperCase());
     s += `<text x="${n(x + w / 2)}" y="${n(y + h / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-weight="600" font-size="2.1" letter-spacing="0.3em" fill="${INK}"${vert ? ` transform="rotate(-90 ${n(x + w / 2)} ${n(y + h / 2)})"` : ''}>${name}</text>`;
   }
-  s += `<rect x="0" y="0" width="${n(L.w)}" height="${n(L.h)}" fill="none" stroke="${INK}" stroke-width="0.19" stroke-dasharray="2.7 0.5 0.4 0.5 0.4 0.5"/>`;
+  s += `<path d="${ptsD(L.poly)}Z" fill="none" stroke="${INK}" stroke-width="0.19" stroke-dasharray="2.7 0.5 0.4 0.5 0.4 0.5" stroke-linejoin="round"/>`;
   return s;
 }
 function northArrow(x, y, size) {
@@ -514,6 +535,22 @@ function customSite() {
   };
   const ftl = (v) => `${Math.floor(v)}'-${Math.round((v % 1) * 12)}"`;
   const sw = state.site.street;
+  if (state.site.lotPts) {
+    const P = L.poly, N = P.length, cx = P.reduce((a, q) => a + q[0], 0) / N, cy = P.reduce((a, q) => a + q[1], 0) / N;
+    let t = '';
+    for (let i = 0; i < N; i++) {
+      const a = P[i], b = P[(i + 1) % N], len = dist(a, b);
+      if (len < 2) continue;
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      let nx = -(b[1] - a[1]) / len, ny = (b[0] - a[0]) / len;
+      if ((mx - cx) * nx + (my - cy) * ny < 0) { nx = -nx; ny = -ny; }
+      let ang = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;
+      if (ang > 90) ang -= 180; if (ang < -90) ang += 180;
+      const tx = mx + nx * 1.6, ty = my + ny * 1.6;
+      t += `<text x="${n(tx)}" y="${n(ty)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-size="1.4" font-weight="500" fill="${INK}" paint-order="stroke" stroke="#fff" stroke-width="0.7" transform="rotate(${n(ang)} ${n(tx)} ${n(ty)})">${ftl(len)}</text>`;
+    }
+    return t + northArrow(L.x2 - 4, L.y1 + 5, 2.4);
+  }
   return dim(0, sw === 'top' ? L.h + 3.5 : -3.5, L.w, sw === 'top' ? L.h + 3.5 : -3.5, ftl(L.w)) + dim(sw === 'left' ? L.w + 3.5 : -3.5, 0, sw === 'left' ? L.w + 3.5 : -3.5, L.h, ftl(L.h), true) +
     northArrow(sw === 'right' ? 4 : L.w - 4, sw === 'top' ? L.h - 5 : 5, 2.4);
 }
@@ -558,8 +595,9 @@ function renderBase() {
 function gridMarkup() {
   let d = '';
   const L = lot();
-  for (let x = 0; x <= L.w; x += 10) d += `M${x},0V${L.h}`;
-  for (let y = 0; y <= L.h; y += 10) d += `M0,${y}H${L.w}`;
+  const gx0 = Math.floor(L.x1 / 10) * 10, gy0 = Math.floor(L.y1 / 10) * 10;
+  for (let x = gx0; x <= L.x2; x += 10) d += `M${x},${gy0}V${L.y2}`;
+  for (let y = gy0; y <= L.y2; y += 10) d += `M${gx0},${y}H${L.x2}`;
   return `<path d="${d}" stroke="#4F86B3" stroke-opacity="0.6" stroke-width="0.07" fill="none"/>`;
 }
 /* the items array is the stacking order, bottom first; students can restack freely */
@@ -664,6 +702,12 @@ function renderOverlay() {
     }
     draft.pts.forEach((p, i) => { s += `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${n((i === 0 && t.kind === 'shape' ? 6 : 4) / k)}" fill="${i === 0 ? '#fff' : SEL}" stroke="${SEL}" stroke-width="${n(1.5 / k)}" pointer-events="none"/>`; });
   }
+  if (tool === 'lotedit' && !isScott()) {
+    const P = lotPoly(), N = P.length;
+    s += `<path d="${ptsD(P)}Z" fill="rgba(44,123,192,.06)" stroke="${SEL}" stroke-width="${n(2 / k)}" stroke-dasharray="${n(6 / k)} ${n(4 / k)}"/>`;
+    for (let i = 0; i < N; i++) { const a = P[i], b = P[(i + 1) % N]; s += handle((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 'lm' + i, k, '#2C7BC0', 4); }
+    P.forEach((q, i) => { s += handle(q[0], q[1], 'lv' + i, k, '#fff', 7); });
+  }
   if (snapMark) s += `<rect x="${n(snapMark[0] - 5 / k)}" y="${n(snapMark[1] - 5 / k)}" width="${n(10 / k)}" height="${n(10 / k)}" fill="none" stroke="#E08A00" stroke-width="${n(1.6 / k)}" transform="rotate(45 ${n(snapMark[0])} ${n(snapMark[1])})" pointer-events="none"/>`;
   if (marquee) {
     const x = Math.min(marquee.a[0], marquee.b[0]), y = Math.min(marquee.a[1], marquee.b[1]);
@@ -714,15 +758,18 @@ function renderRail() {
     const line = !!LINE_ICO[tl];
     return `<button type="button" class="tool${line ? ' line' : ''}" data-tool="${tl}" aria-pressed="${tool === tl}" aria-label="${esc(toolName(tl))} (${KEYS[tl]})" aria-keyshortcuts="${KEYS[tl]}">${line ? toolIcon(tl) : `<span class="chip">${toolIcon(tl)}</span>`}<span class="key" aria-hidden="true">${KEYS[tl]}</span></button>`;
   }).join('')}</div>`).join('');
-  h += `<div class="grp"><button type="button" class="tool line" id="bLib" aria-pressed="${view.lib}" aria-label="Plant library">${toolIcon('library')}</button></div>`;
+  h += `<div class="grp"><button type="button" class="tool line" data-openlib="plants" aria-label="Plant library">${toolIcon('library')}</button><button type="button" class="tool line" data-openlib="build" aria-label="Build library: fences, patios, walks">${toolIcon('buildlib')}</button><button type="button" class="tool line" data-openlib="living" aria-label="Outdoor living library: furniture, pools, play, fire">${toolIcon('livinglib')}</button></div>`;
   $('rail').innerHTML = h;
   $('rail').querySelectorAll('[data-tool]').forEach((b) => {
     b.addEventListener('click', () => setTool(b.dataset.tool));
     bindTip(b, () => `<b>${esc(toolName(b.dataset.tool))}</b> &nbsp;<kbd>${KEYS[b.dataset.tool]}</kbd><small>${esc(TIPS[b.dataset.tool] || '')}</small>`);
   });
-  const bl = $('bLib');
-  bl.addEventListener('click', () => toggleLib());
-  bindTip(bl, () => '<b>Plant library</b><small>Show or hide the plant library.</small>');
+  const LIBTIP = { plants: ['Plant library', 'Trees, shrubs, perennials, grasses and your own plants.'], build: ['Build', 'Fences, patios by surface, walks, decks, sheds, vegetable garden, firewood, bird bath.'], living: ['Outdoor living', 'Furniture, umbrellas, pergola, grill, kitchen, fire pits, pools, hot tub, play set, swings, trampoline.'] };
+  $('rail').querySelectorAll('[data-openlib]').forEach((b) => {
+    b.addEventListener('click', () => { const tab = b.dataset.openlib; if (view.lib && libTab === tab) toggleLib(false); else { if (!view.lib) toggleLib(true); setLibTab(tab); } markLibButtons(); });
+    bindTip(b, () => `<b>${LIBTIP[b.dataset.openlib][0]}</b><small>${LIBTIP[b.dataset.openlib][1]}</small>`);
+  });
+  markLibButtons();
 }
 const tipEl = $('tip');
 function bindTip(b, html) {
@@ -743,6 +790,7 @@ function hintFor(tl) {
   if (tl === 'select') return touch ? 'Tap to select. Drag to pan, pinch to zoom.' : 'Click to select, Shift-click to add more, drag empty space to box-select. Alt-drag copies. Right-click for more.';
   if (tl === 'hand') return 'Drag to move around the plan.';
   if (tl === 'measure') return 'Drag between two points to measure the distance in feet.';
+  if (tl === 'lotedit') return 'Drag the white corners to reshape the property line. Drag a blue dot to add a corner; Alt-click a corner to remove it. Esc or Done when finished.';
   if (tl === 'imgscale') return 'Drag along something on the image whose length you know, like a lot line or a house wall. Then type its real length.';
   if (tl === 'label') return `${click} where the label should go, then type it in Properties.`;
   if (t.kind === 'line' || t.kind === 'shape') {
@@ -804,8 +852,9 @@ function renderLibControls() {
 }
 function renderLib() {
   $('lib').classList.toggle('collapsed', !view.lib);
-  const bl = $('bLib'); if (bl) bl.setAttribute('aria-pressed', view.lib);
+  if (typeof markLibButtons === 'function') markLibButtons();
   if (!view.lib) return;
+  if (libTab !== 'plants') { renderCatalog(); return; }
   $('libCat').value = libCat;
   $('libSun').querySelectorAll('[data-sun]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.sun === libSun));
   const q = libQ.trim().toLowerCase();
@@ -872,9 +921,9 @@ const ghostEl = document.createElement('div');
 ghostEl.className = 'dragghost'; ghostEl.setAttribute('aria-hidden', 'true');
 document.body.appendChild(ghostEl);
 $('libList').addEventListener('pointerdown', (e) => {
-  const b = e.target.closest('[data-sp]');
+  const b = e.target.closest('[data-sp],[data-el]');
   if (!b || (e.pointerType === 'mouse' && e.button !== 0)) return;
-  libDrag = { id: b.dataset.sp, x: e.clientX, y: e.clientY, on: false, touch: e.pointerType !== 'mouse', pid: e.pointerId };
+  libDrag = { id: b.dataset.sp || b.dataset.el, el: !!b.dataset.el, x: e.clientX, y: e.clientY, on: false, touch: e.pointerType !== 'mouse', pid: e.pointerId };
 });
 document.addEventListener('pointermove', (e) => {
   const d = libDrag;
@@ -883,8 +932,8 @@ document.addEventListener('pointermove', (e) => {
   if (!d.on) {
     if (d.touch ? Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) : Math.hypot(dx, dy) > 6) {
       d.on = true;
-      const sp = PLANT_BY_ID[d.id];
-      ghostEl.innerHTML = `<span class="thumb">${plantThumb(sp)}</span>${esc(sp.cn)}`;
+      if (d.el) { const en = ENTRY[d.id]; ghostEl.innerHTML = `<span class="thumb">${entryThumb(en)}</span>${esc(en.name)}`; }
+      else { const sp = PLANT_BY_ID[d.id]; ghostEl.innerHTML = `<span class="thumb">${plantThumb(sp)}</span>${esc(sp.cn)}`; }
       ghostEl.classList.add('show');
     } else if (d.touch && Math.abs(dy) > 12) libDrag = null;   // vertical swipe scrolls the list
     if (!d.on) return;
@@ -904,15 +953,17 @@ function endLibDrag(e, cancel) {
   libNoClick = true; setTimeout(() => { libNoClick = false; }, 50);
   if (cancel) return;
   const r = svg.getBoundingClientRect();
-  if (e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom) dropPlant(d.id, e.clientX, e.clientY);
-  else toast('Drop the plant on the plan');
+  if (e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom) { if (d.el) dropEntry(d.id, e.clientX, e.clientY); else dropPlant(d.id, e.clientX, e.clientY); }
+  else toast('Drop it on the plan');
 }
 document.addEventListener('pointerup', (e) => endLibDrag(e, false));
 document.addEventListener('pointercancel', (e) => endLibDrag(e, true));
 $('libList').addEventListener('click', (e) => {
+  if (libNoClick) return;
+  const el = e.target.closest('[data-el]');
+  if (el) { useEntry(el.dataset.el); return; }
   const b = e.target.closest('[data-sp]');
-  if (!b || libNoClick) return;
-  pickPlant(b.dataset.sp);
+  if (b) pickPlant(b.dataset.sp);
 });
 function renderLibInfo(id) { const sp = PLANT_BY_ID[id || libShown || libSp]; $('libInfo').innerHTML = sp ? speciesInfo(sp) : ''; }
 let libShown = null;
@@ -1023,6 +1074,7 @@ function renderProps() {
   if (t.kind === 'line') h += `<p class="muted" style="margin-bottom:8px">${polyLen(it.pts).toFixed(1)} ft long. Drag a white dot to move a corner, a blue dot to add one.</p>`;
   if (t.kind === 'text') { h += fld('Text', `<input type="text" data-f="text" value="${esc(it.text || '')}" maxlength="200" aria-label="Label text"${dis}>`); h += fld('Text size ft', numIn('size', it.size, 0.5, 20, 0.25, 'Text size')); }
   else h += fld(it.type === 'bubble' ? 'Label (blank shows the zone)' : 'Label', `<input type="text" data-f="label" value="${esc(it.label || '')}" placeholder="${t.tree ? 'e.g. Shade for patio' : 'Optional'}" maxlength="120" aria-label="Label"${dis}>`);
+  h += `<div class="field"><label>Opacity ${Math.round((it.op ?? 1) * 100)}%${T[it.type].tree ? ' · lower it to see what is under the canopy' : ''}</label><input type="range" data-f="op" min="10" max="100" step="5" value="${Math.round((it.op ?? 1) * 100)}" aria-label="Opacity"${dis} style="height:auto;padding:0"></div>`;
   h += `<label class="check" style="margin:2px 0 10px"><input type="checkbox" data-f="locked" ${it.locked ? 'checked' : ''}> Lock (can't be moved or changed)</label>`;
   h += `<div class="btnrow"><button type="button" class="btn" data-act="dup">Duplicate</button><button type="button" class="btn" data-act="fwd" title="Bring forward (Ctrl+])">Forward</button><button type="button" class="btn" data-act="bwd" title="Send backward (Ctrl+[)">Backward</button><button type="button" class="btn" data-act="front" title="Bring to front (Ctrl+Shift+])">To front</button><button type="button" class="btn" data-act="back" title="Send to back (Ctrl+Shift+[)">To back</button><button type="button" class="btn danger" data-act="del"${dis}>Delete</button></div>`;
   P.innerHTML = h;
@@ -1051,6 +1103,7 @@ $('props').addEventListener('input', (e) => {
     case 'size': if (ok) it.size = clamp(num, 0.5, 20); break;
     case 'text': it.text = v.slice(0, 200); break;
     case 'label': if (v) it.label = v.slice(0, 120); else delete it.label; break;
+    case 'op': { if (ok) { if (num >= 100) delete it.op; else it.op = clamp(num, 10, 100) / 100; } const lb = e.target.closest('.field').querySelector('label'); if (lb) lb.firstChild.textContent = `Opacity ${Math.round((it.op ?? 1) * 100)}%`; break; }
     default: return;
   }
   renderItems([it.id]);
@@ -1202,6 +1255,7 @@ function newItem(type, p) {
   const it = Object.assign({ id: uid(), type }, clone(t.d));
   if (spCats(type).length) { if (PLANT_BY_ID[curSp[type]]) it.sp = curSp[type]; else delete it.sp; }
   if (type === 'fence') Object.assign(it, lastFence);
+  if (toolPreset[type]) Object.assign(it, clone(toolPreset[type]));
   if (t.kind === 'shape' && drawSmooth[type] !== undefined) it.smooth = drawSmooth[type];
   if (t.kind === 'line' || t.kind === 'shape') return it;
   it.x = r1(p[0]); it.y = r1(p[1]);
@@ -1218,7 +1272,7 @@ function snapPt(p, exceptId) {
   const tol = 10 / view.k;
   let best = null, bd = tol;
   const L = lot();
-  const cand = isScott() ? SNAP_PTS.slice() : [[0, 0], [L.w, 0], [L.w, L.h], [0, L.h]];
+  const cand = isScott() ? SNAP_PTS.slice() : L.poly.slice();
   for (const it of state.items) {
     if (it.id === exceptId || it.hidden) continue;
     const k = T[it.type].kind;
@@ -1321,6 +1375,15 @@ svg.addEventListener('pointerdown', (e) => {
     marquee = { a: p, b: p };
     return;
   }
+  if (tool === 'lotedit' && !isScott()) {
+    const hEl = e.target.closest('[data-h]'), h = hEl && hEl.getAttribute('data-h');
+    if (!state.site.lotPts) state.site.lotPts = lotPoly().map((q) => q.slice());
+    const P = state.site.lotPts;
+    if (h && h.startsWith('lv') && e.altKey) { if (P.length > 3) { P.splice(+h.slice(2), 1); baseKey = ''; renderBase(); renderOverlay(); commit('Remove property corner'); } else toast('A lot needs at least 3 corners'); return; }
+    if (h && h.startsWith('lm')) { const i = +h.slice(2); P.splice(i + 1, 0, [r1(p[0]), r1(p[1])]); drag = { mode: 'lot', i: i + 1, moved: true }; renderOverlay(); return; }
+    if (h && h.startsWith('lv')) { drag = { mode: 'lot', i: +h.slice(2), moved: false }; return; }
+    drag = startPan(); svg.classList.add('panning'); return;
+  }
   if (tool === 'measure' || tool === 'imgscale') { const q = tool === 'measure' ? snapPt(p) : p; measure = { a: q, b: q }; drag = { mode: 'measure' }; renderOverlay(); return; }
   drag = Object.assign(startPan(), { mode: 'tap', p });
 });
@@ -1393,6 +1456,12 @@ svg.addEventListener('pointermove', (e) => {
       break;
     }
     case 'measure': measure.b = tool === 'measure' ? snapPt(p) : p; renderOverlay(); break;
+    case 'lot': {
+      const q = view.snap && !e.ctrlKey ? [Math.round(p[0] * 2) / 2, Math.round(p[1] * 2) / 2] : [r1(p[0]), r1(p[1])];
+      state.site.lotPts[drag.i] = q; drag.moved = true;
+      baseKey = ''; renderBase(); renderOverlay(); trackCursor(q); renderOptCtx();
+      break;
+    }
   }
 });
 function endPointer(e, cancelled) {
@@ -1405,6 +1474,7 @@ function endPointer(e, cancelled) {
   if (!d) return;
   if ((d.mode === 'move' || d.mode === 'handle') && (d.moved || d.copied)) { snapMark = null; renderPlan(); commit(d.label); renderProps(); }
   if (d.mode === 'marquee') { marquee = null; setSel(sel); }
+  if (d.mode === 'lot' && d.moved) { syncLotSize(); commit('Edit property line'); }
   if (d.mode === 'measure' && tool === 'imgscale' && !cancelled) askScale();
   if (d.mode === 'tap' && !cancelled) {
     const t = T[tool];
@@ -1439,7 +1509,7 @@ const MI = {};
 function mi(id, l, act, opts) { MI[id] = Object.assign({ id, l, act }, opts || {}); return MI[id]; }
 const MENUS = [
   ['File', [mi('new', 'New design…', () => showNew(), { k: 'Ctrl+Alt+N' }), mi('mine', 'My designs…', () => showMine()), mi('open', 'Open design file…', () => showOpen(), { k: 'Ctrl+O' }), mi('save', 'Save design file', () => saveDesign(), { k: 'Ctrl+S' }), '-',
-    mi('site', 'Lot and project settings…', () => showSiteSettings(), { en: () => !isScott() }), mi('img', 'Import trace image…', () => pickImage(), { en: () => !isScott() }), '-',
+    mi('site', 'Lot and project settings…', () => showSiteSettings(), { en: () => !isScott() }), mi('lotedit', 'Edit property line shape', () => editLot(), { en: () => !isScott() }), mi('img', 'Import trace image…', () => pickImage(), { en: () => !isScott() }), '-',
     mi('export', 'Export to turn in…', () => $('bExport').click(), { k: 'Ctrl+E' }), mi('clear', 'Start over (clear this plan)…', () => $('bClear').click())]],
   ['Edit', [mi('undo', 'Undo', undo, { k: 'Ctrl+Z', en: () => hIdx > 0 }), mi('redo', 'Redo', redo, { k: 'Ctrl+Y', en: () => hIdx < hist.length - 1 }), '-',
     mi('cut', 'Cut', () => copySel(true), { k: 'Ctrl+X', en: hasSel }), mi('copy', 'Copy', () => copySel(false), { k: 'Ctrl+C', en: hasSel }), mi('paste', 'Paste', paste, { k: 'Ctrl+V', en: () => clip.length > 0 }),
@@ -1584,7 +1654,7 @@ function runCheck() {
     }
     if (layerOf(it) !== 'design' || t.kind === 'text') continue;
     const fp = t.kind === 'line' ? it.pts : itemPoly(it);
-    if (fp.some(([x, y]) => x < -0.05 || y < -0.05 || x > L.w + 0.05 || y > L.h + 0.05)) issues.push({ id: it.id, msg: `${nameOf(it)} goes outside the property line.` });
+    if (fp.some((q) => polyDist(q, L.poly) > 0.05)) issues.push({ id: it.id, msg: `${nameOf(it)} goes outside the property line.` });
     if (t.kind !== 'line' && it.type !== 'building') {
       const [cx, cy] = itemCenter(it);
       if (scott && cx > DRIVE.x1 && cx < DRIVE.x2 && cy > DRIVE.y1 && cy < DRIVE.y2) issues.push({ id: it.id, msg: `${nameOf(it)} sits on the driveway.` });
@@ -1645,6 +1715,10 @@ function takeoff() {
     if (it.type === 'veg') addM('veg', 'Raised vegetable beds', 'veg', a, 'sq ft');
     if (it.type === 'wood') addM('wood', 'Firewood stockpile', 'wood', 1, 'ea');
     if (it.type === 'birdbath') addM('bird', 'Bird bath / feeder', 'birdbath', 1, 'ea');
+    if (it.type === 'pool' || it.type === 'pool_kidney' || it.type === 'poolShape') {
+      const wa = it.type === 'poolShape' ? a : it.type === 'pool' ? (it.w - 2.4) * (it.h - 2.4) : (it.w - 2.4) * (it.h - 2.4) * 0.8;
+      addM('pool', 'Swimming pool (water area)', it.type, wa, 'sq ft');
+    } else if (t.furn) addM('furn-' + it.type, t.name, it.type, 1, 'ea');
   }
   const order = CATS.map((c) => c[0]);
   const plantRows = Object.values(plants).sort((a, b) => order.indexOf(a.sp.t) - order.indexOf(b.sp.t) || a.sp.cn.localeCompare(b.sp.cn));
@@ -1768,7 +1842,7 @@ function renderSide(light) {
 }
 
 /* ------------------------------------------------------------------ layers, style, meta, client list */
-const TOGGLES = { tSite: 'site', tUtil: 'util', tGrid: 'grid', tDiagram: 'diagram', tDesign: 'design', tTypes: 'tags', tBase: 'base', tFloor: 'floor', tImg: 'img' };
+const TOGGLES = { tSee: 'seeTrees', tSite: 'site', tUtil: 'util', tGrid: 'grid', tDiagram: 'diagram', tDesign: 'design', tTypes: 'tags', tBase: 'base', tFloor: 'floor', tImg: 'img' };
 for (const [id, key] of Object.entries(TOGGLES)) {
   $(id).addEventListener('change', (e) => {
     view[key] = e.target.checked;
@@ -1882,7 +1956,7 @@ function showKeys() {
 function showBrief() {
   if (!isScott()) {
     const st = state.site;
-    openDialog(`<h3>${esc(projName())}</h3><table><tr><td><b>Client</b></td><td>${esc(st.client || '—')}</td></tr><tr><td><b>Lot</b></td><td>${n(st.w)} × ${n(st.h)} ft (${Math.round(st.w * st.h).toLocaleString()} sq ft)</td></tr>
+    openDialog(`<h3>${esc(projName())}</h3><table><tr><td><b>Client</b></td><td>${esc(st.client || '—')}</td></tr><tr><td><b>Lot</b></td><td>${st.lotPts ? `${lotPoly().length}-sided` : `${n(st.w)} × ${n(st.h)} ft`} (${Math.round(polyArea(lotPoly())).toLocaleString()} sq ft)</td></tr>
       <tr><td><b>Street side</b></td><td>${STREETS[st.street]}</td></tr><tr><td><b>North points</b></td><td>${northWords(toNorthDeg(st.north))}</td></tr></table>
       <div class="btnrow"><button type="button" class="btn" id="bBriefEdit">Change settings…</button><button type="button" class="btn" data-close autofocus>Close</button></div>`);
     $('bBriefEdit').addEventListener('click', showSiteSettings);
@@ -1989,11 +2063,13 @@ $('bRedo').addEventListener('click', redo);
 /* where the plan goes on the 11x17 sheet: the lab plan is fixed at 1 in = 10 ft; a custom lot gets the
  * largest standard engineering scale that fits the plan area */
 function sheetFrame() {
-  if (isScott()) return { s: PX, ox: X0, oy: Y0, scale: 10 };
+  if (isScott()) return { s: PX, ox: X0, oy: Y0, scale: 10, fits: true };
   const F = fitRect(), AW = 960, AH = 1210;
-  const scale = [10, 20, 30, 40, 50, 60, 80, 100, 200, 400].find((sc) => F.w * 96 / sc <= AW && F.h * 96 / sc <= AH) || 400;
+  const fitsAt = (sc) => F.w * 96 / sc <= AW && F.h * 96 / sc <= AH;
+  const auto = [10, 20, 30, 40, 50, 60, 80, 100, 200, 400].find(fitsAt) || 400;
+  const scale = state.site.scale || auto;
   const k = 96 / scale;
-  return { s: k, ox: 48 + (AW - F.w * k) / 2 - F.x * k, oy: 84 + (AH - F.h * k) / 2 - F.y * k, scale };
+  return { s: k, ox: 48 + (AW - F.w * k) / 2 - F.x * k, oy: 84 + (AH - F.h * k) / 2 - F.y * k, scale, fits: fitsAt(scale), auto };
 }
 function sheetSVG() {
   const fr = sheetFrame(), o = drawOpts({ u: 0.125 * PX / fr.s });
@@ -2169,6 +2245,8 @@ function exportDialog(err) {
     : `<div class="northrow"><svg id="exNPrev" viewBox="-44 -46 88 88" aria-hidden="true" style="width:56px;height:56px;background:#fff;border-radius:3px">${northSymbol(0, 0, 30, 270, arrowStyle())}</svg><p class="muted" style="margin:0">North points left on the Scott lab plan: the busy street is on the west side, as in the client brief. For your own yard, use New → My own yard and set any direction.</p></div>`}
     </div><div>
       <div class="preview"><img id="exPreview" src="" alt="Preview of your 11 by 17 design plan sheet"></div>
+      ${own ? `<div class="field"><label>Scale</label><select id="exScale"><option value="">Auto: 1 in = ${sheetFrame().auto} ft (fits the sheet)</option>${SCALES.map((v) => `<option value="${v}" ${state.site.scale === v ? 'selected' : ''}>1 in = ${v} ft</option>`).join('')}</select></div>` : ''}
+      ${own && !sheetFrame().fits ? `<p class="warn">At 1 in = ${sheetFrame().scale} ft the lot is bigger than the sheet, so the edges are cut off. Pick a larger number or Auto.</p>` : ''}
       <p class="muted">Prints at 1 in = ${sheetFrame().scale} ft on 11×17 with the plant schedule and material takeoff, in the plan style and layers you have on now.</p>
       ${open ? `<p class="warn">${open} client want${open > 1 ? 's are' : ' is'} not checked off yet.</p>` : ''}
     </div></div>
@@ -2185,6 +2263,10 @@ function exportDialog(err) {
     baseKey = ''; renderBase();
     commitSoon('Edit title block'); clearTimeout(t0); t0 = setTimeout(refresh, 300);
   }));
+  if ($('exScale')) $('exScale').addEventListener('change', (e) => {
+    if (SCALES.includes(+e.target.value)) state.site.scale = +e.target.value; else delete state.site.scale;
+    commit('Change drawing scale'); exportDialog();
+  });
   $('exArrow').addEventListener('change', (e) => {
     state.title = state.title || {}; state.title.arrow = e.target.value;
     baseKey = ''; renderBase(); commit('Change north arrow style'); refresh();
@@ -2229,12 +2311,13 @@ function siteFields(st) {
   return `<div class="row2">${fld('Project name', `<input id="nfName" value="${esc(st.name)}" maxlength="60">`)}${fld('Client / owner', `<input id="nfClient" value="${esc(st.client)}" maxlength="60" placeholder="Optional">`)}</div>
     <div class="row2">${fld('Lot width (ft)', `<input id="nfW" type="number" min="10" max="2000" step="0.5" value="${n(st.w)}">`)}${fld('Lot depth (ft)', `<input id="nfH" type="number" min="10" max="2000" step="0.5" value="${n(st.h)}">`)}</div>
     <div class="field"><label>North arrow</label><div class="northrow"><span class="muted">North points</span><input id="nfNorth" type="number" min="0" max="359" step="1" value="${toNorthDeg(st.north)}" aria-label="North angle in degrees"><span class="muted">° clockwise from the top of the page</span>${northControl('nf', toNorthDeg(st.north))}</div></div>
+    ${fld('Drawing scale', `<select id="nfScale"><option value="">Auto (largest that fits 11×17)</option>${SCALES.map((v) => `<option value="${v}" ${st.scale === v ? 'selected' : ''}>1 in = ${v} ft</option>`).join('')}</select>`)}
     <div class="row2">${fld('Street side', `<select id="nfStreet">${opt(STREETS, st.street)}</select>`)}${fld('Street name', `<input id="nfStreetName" value="${esc(st.streetName || '')}" maxlength="40" placeholder="Optional">`)}</div>`;
 }
 function readSiteFields() {
   const w = parseFloat($('nfW').value), h = parseFloat($('nfH').value);
   if (!(w >= 10 && w <= 2000 && h >= 10 && h <= 2000)) throw new Error('Enter a lot width and depth between 10 and 2,000 ft.');
-  return { kind: 'custom', name: $('nfName').value.trim().slice(0, 60) || 'My yard', client: $('nfClient').value.trim().slice(0, 60), w, h, street: $('nfStreet').value, north: toNorthDeg($('nfNorth').value), streetName: $('nfStreetName').value.trim().slice(0, 40) };
+  return { kind: 'custom', name: $('nfName').value.trim().slice(0, 60) || 'My yard', client: $('nfClient').value.trim().slice(0, 60), w, h, street: $('nfStreet').value, north: toNorthDeg($('nfNorth').value), scale: SCALES.includes(+$('nfScale').value) ? +$('nfScale').value : undefined, streetName: $('nfStreetName').value.trim().slice(0, 40) };
 }
 function showNew(err) {
   openDialog(`<h3>New design</h3>${err ? `<p class="err" role="alert">${esc(err)}</p>` : ''}
@@ -2277,11 +2360,13 @@ function showNew(err) {
 }
 function showSiteSettings() {
   if (isScott()) return;
-  openDialog(`<h3>Lot and project settings</h3>${siteFields(state.site)}<div class="btnrow"><button type="button" class="btn gold" id="nfSave" autofocus>Save settings</button><button type="button" class="btn" data-close>Cancel</button></div>`);
+  openDialog(`<h3>Lot and project settings</h3>${siteFields(state.site)}<div class="btnrow" style="margin-bottom:6px"><button type="button" class="btn" id="nfShape">Edit property line shape…</button></div><div class="btnrow"><button type="button" class="btn gold" id="nfSave" autofocus>Save settings</button><button type="button" class="btn" data-close>Cancel</button></div>`);
+  $('nfShape').addEventListener('click', editLot);
   $('nfSave').addEventListener('click', () => {
     let site;
     try { site = readSiteFields(); } catch (e) { toast(e.message); return; }
     if (state.site.img) site.img = state.site.img;
+    if (state.site.lotPts) { const L = lot(), fx = site.w / (L.x2 || 1), fy = site.h / (L.y2 || 1); site.lotPts = state.site.lotPts.map((q) => [r1(q[0] * fx), r1(q[1] * fy)]); }
     state.site = site; closeDialog(); baseKey = ''; renderPlan(); fit(); commit('Change lot settings');
   });
 }
@@ -2387,6 +2472,19 @@ $('bNew').addEventListener('click', () => showNew());
 
 /* a fence along every lot line except the street side; students can reshape it afterward */
 function fenceLotPts(street, L) {
+  if (L.poly && !isScott() && state.site.lotPts) {
+    const P = L.poly, N = P.length, dir = { bottom: [0, 1], top: [0, -1], left: [-1, 0], right: [1, 0] }[street];
+    if (!dir) return P.concat([P[0]]);
+    let best = 0, bestDot = -Infinity;
+    for (let i = 0; i < N; i++) {
+      const a = P[i], b = P[(i + 1) % N], mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      const d = mx * dir[0] + my * dir[1];
+      if (d > bestDot) { bestDot = d; best = i; }
+    }
+    const out = [];
+    for (let k = 1; k <= N; k++) out.push(P[(best + k) % N]);
+    return out;
+  }
   const W = L.w, H = L.h;
   return { bottom: [[0, H], [0, 0], [W, 0], [W, H]], top: [[0, 0], [0, H], [W, H], [W, 0]], left: [[0, 0], [W, 0], [W, H], [0, H]],
     right: [[W, 0], [0, 0], [0, H], [W, H]] }[street] || [[0, 0], [W, 0], [W, H], [0, H], [0, 0]];
@@ -2516,12 +2614,32 @@ const SHAPE_ICO = {
   curved: '<path d="M4 17C4 7 20 7 20 17"/>', straight: '<path d="M4 17 9 7h6l5 10"/>', free: '<path d="M5 18 4 8l7-3 9 4-2 9z"/><circle cx="5" cy="18" r="1.4"/><circle cx="4" cy="8" r="1.4"/><circle cx="11" cy="5" r="1.4"/><circle cx="20" cy="9" r="1.4"/><circle cx="18" cy="18" r="1.4"/>',
 };
 const segBtn = (k, label, on, data) => `<button type="button" ${data}="${k}" aria-pressed="${on}" title="${label}"><svg viewBox="0 0 24 24" aria-hidden="true">${SHAPE_ICO[k]}</svg><span>${label}</span></button>`;
+const SURF_TYPES = { patio: FINISHES, paveShape: FINISHES, path: PATH_FINISHES };
+const swatch = (f) => `<svg viewBox="0 0 6 6" aria-hidden="true" class="sw6"><rect width="6" height="6" fill="${f === 'mulch' ? 'url(#ld-mulch)' : `url(#ld-${f})`}"/></svg>`;
+function surfaceChips(cur, data) {
+  return `<span class="optlabel">Surface</span><div class="seg shapeseg">${Object.entries(SURF_TYPES[data.type]).map(([k, l]) => `<button type="button" ${data.attr}="${k}" aria-pressed="${cur === k}" title="${l}">${swatch(k)}<span>${l.replace('Concrete pavers', 'Pavers')}</span></button>`).join('')}</div>`;
+}
+function fenceChips(cur, height, attr) {
+  return `<span class="optlabel">Fence</span><div class="seg shapeseg">${Object.entries(FENCE_STYLES).map(([k, l]) => `<button type="button" ${attr}="${k}" aria-pressed="${cur === k}" title="${l}"><span>${l.replace(' fence', '').replace('Metal (wrought iron)', 'Metal').replace('Wood privacy', 'Privacy').replace('White picket', 'Picket')}</span></button>`).join('')}</div>` +
+    `<select class="edgesel" data-fheight aria-label="Fence height">${[3, 4, 5, 6, 8].map((v) => `<option value="${v}" ${height === v ? 'selected' : ''}>${v} ft tall</option>`).join('')}</select>`;
+}
 function renderOptCtx() {
   const box = $('optCtx');
   if (!box) return;
   const one = single();
   let h = '';
-  if (one && !one.locked && ['perennial', 'annual', 'groundcover'].includes(one.type) && tool === 'select') {
+  if (one && !one.locked && SURF_TYPES[one.type] && tool === 'select') {
+    h = surfaceChips(one.finish || T[one.type].d.finish, { type: one.type, attr: 'data-setfinish' }) + (FREEFORM[one.type] ? `<div class="seg shapeseg">${segBtn('free', 'Freeform', false, 'data-freeform')}</div>` : '');
+  } else if (one && !one.locked && one.type === 'fence' && tool === 'select') {
+    h = fenceChips(one.style || 'privacy', one.height || 6, 'data-setfence');
+  } else if (tool === 'lotedit') {
+    h = `<div class="seg shapeseg"><button type="button" data-lotdone><span>Done</span></button><button type="button" data-lotrect><span>Back to a rectangle</span></button></div><span class="optnote">${lotPoly().length} corners · ${Math.round(polyArea(lotPoly())).toLocaleString()} sq ft</span>`;
+  } else if (SURF_TYPES[tool]) {
+    h = surfaceChips((toolPreset[tool] && toolPreset[tool].finish) || T[tool].d.finish, { type: tool, attr: 'data-preffinish' }) +
+      (drawSmooth[tool] !== undefined ? `<span class="optlabel">Edges</span><div class="seg shapeseg">${segBtn('curved', 'Curved', drawSmooth[tool], 'data-drawsmooth')}${segBtn('straight', 'Straight', !drawSmooth[tool], 'data-drawsmooth')}</div>` : '');
+  } else if (tool === 'fence') {
+    h = fenceChips(lastFence.style, lastFence.height, 'data-preffence');
+  } else if (one && !one.locked && ['perennial', 'annual', 'groundcover'].includes(one.type) && tool === 'select') {
     h = `<span class="optlabel">Bed shape</span><div class="seg shapeseg">${['oval', 'rect', 'round'].map((k) => segBtn(k, { oval: 'Oval', rect: 'Rectangle', round: 'Rounded' }[k], bedForm(one) === k, 'data-setform')).join('')}${segBtn('free', 'Freeform', false, 'data-freeform')}</div>` + edgePick(one);
   } else if (one && !one.locked && FREEFORM[one.type] && tool === 'select') {
     h = `<span class="optlabel">Shape</span><div class="seg shapeseg">${segBtn('free', 'Make freeform', false, 'data-freeform')}</div>`;
@@ -2540,6 +2658,11 @@ function edgePick(it) {
 }
 $('optCtx').addEventListener('change', (e) => {
   const one = single();
+  if (e.target.dataset.fheight !== undefined) {
+    const v = +e.target.value;
+    if (one && one.type === 'fence' && tool === 'select') { one.height = v; renderItems([one.id]); renderProps(); commit('Change fence height'); } else lastFence.height = v;
+    return;
+  }
   if (e.target.dataset.setedge === undefined || !one || one.locked) return;
   if (EDGES[e.target.value]) one.edge = e.target.value; else delete one.edge;
   renderItems([one.id]); renderProps(); commit(one.edge ? 'Raise bed' : 'Remove bed edge');
@@ -2551,7 +2674,13 @@ $('optCtx').addEventListener('click', (e) => {
   if (b.dataset.prefform) { bedFormPref[tool] = b.dataset.prefform; renderOptCtx(); renderOverlay(); toast(`New beds will be ${{ oval: 'ovals', rect: 'rectangles', round: 'rounded rectangles' }[b.dataset.prefform]}. Click the plan to place one.`); return; }
   if (b.dataset.drawbed !== undefined) { const sp = curSp[tool]; curSp.bedShape = sp; setTool('bedShape'); toast('Click around the plan to draw the bed. Double-click or click the first dot to finish.'); return; }
   if (b.dataset.drawsmooth) { drawSmooth[tool] = b.dataset.drawsmooth === 'curved'; renderOptCtx(); renderOverlay(); return; }
+  if (b.dataset.lotdone !== undefined) { setTool('select'); fit(); return; }
+  if (b.dataset.lotrect !== undefined) { const L = lot(); delete state.site.lotPts; state.site.w = r1(L.x2); state.site.h = r1(L.y2); baseKey = ''; renderBase(); renderOverlay(); renderOptCtx(); commit('Property line back to a rectangle'); return; }
+  if (b.dataset.preffinish) { toolPreset[tool] = Object.assign(toolPreset[tool] || {}, { finish: b.dataset.preffinish }); renderOptCtx(); renderOverlay(); return; }
+  if (b.dataset.preffence) { lastFence.style = b.dataset.preffence; lastFence.height = FENCE_HEIGHT[lastFence.style]; renderOptCtx(); return; }
   if (!one || one.locked) return;
+  if (b.dataset.setfinish) { one.finish = b.dataset.setfinish; renderItems([one.id]); renderProps(); commit('Change surface'); return; }
+  if (b.dataset.setfence) { one.style = b.dataset.setfence; one.height = FENCE_HEIGHT[one.style]; Object.assign(lastFence, { style: one.style, height: one.height }); renderItems([one.id]); renderProps(); commit('Change fence style'); return; }
   if (b.dataset.setform) { one.form = b.dataset.setform; renderItems([one.id]); renderProps(); commit('Change bed shape'); return; }
   if (b.dataset.freeform !== undefined) { makeFreeform(); return; }
   if (b.dataset.setsmooth) { one.smooth = b.dataset.setsmooth === 'curved'; renderItems([one.id]); renderProps(); commit(one.smooth ? 'Curved edges' : 'Straight edges'); }
@@ -2588,10 +2717,93 @@ function bedPerimeter(it) {
   return 2 * (it.w + it.h);
 }
 
+
+
+/* ------------------------------------------------------------------ library: Build and Outdoor living catalogs */
+const FENCE_ENTRIES = Object.keys(FENCE_STYLES).map((k) => ({ id: 'fence-' + k, name: FENCE_STYLES[k], tool: 'fence', preset: { style: k, height: FENCE_HEIGHT[k] }, icon: 'fence', note: 'Click each corner, double-click to finish' }));
+const CATALOG = {
+  build: [
+    ['Fences', [...FENCE_ENTRIES, { id: 'fencelot', name: 'Fence the whole property line', action: () => fenceLot(), icon: 'fence', note: 'One click: every lot line but the street side' }]],
+    ['Patios, rectangle', Object.keys(FINISHES).map((k) => ({ id: 'patio-' + k, name: `${FINISHES[k]} patio`, tool: 'patio', preset: { finish: k }, icon: 'patio', iconPreset: { finish: k } }))],
+    ['Patios, any shape', Object.keys(FINISHES).map((k) => ({ id: 'pave-' + k, name: `${FINISHES[k]}, draw any shape`, tool: 'paveShape', preset: { finish: k }, icon: 'paveShape', iconPreset: { finish: k }, note: 'Click each corner, then the first dot to close' }))],
+    ['Walks and paths', Object.keys(PATH_FINISHES).map((k) => ({ id: 'path-' + k, name: `${PATH_FINISHES[k]} walk`, tool: 'path', preset: { finish: k }, icon: 'path', iconPreset: { finish: k }, note: 'Click each corner, double-click to finish' }))],
+    ['Decks and buildings', [{ id: 'deck', name: 'Wood deck', tool: 'deck', icon: 'deck' }, { id: 'building', name: 'House, garage or shed (draw)', tool: 'building', icon: 'building', note: 'Click each corner' }]],
+    ['Garden', [{ id: 'veg', name: 'Raised vegetable garden', tool: 'veg', icon: 'veg' }, { id: 'wood', name: 'Firewood stockpile', tool: 'wood', icon: 'wood' }, { id: 'birdbath', name: 'Bird bath / feeder', tool: 'birdbath', icon: 'birdbath' }]],
+  ],
+  living: ['Furniture', 'Shade', 'Cooking & fire', 'Pools & spas', 'Play'].map((g) => [g, Object.entries(FURN_T).filter(([, v]) => v.group === g).map(([k, v]) => ({ id: k, name: v.name, tool: k, icon: k, note: `${v.d.w} × ${v.d.h} ft` }))
+    .concat(g === 'Pools & spas' ? [{ id: 'poolShape', name: 'Pool, draw any shape', tool: 'poolShape', icon: 'poolShape', note: 'Click around the edge, then the first dot to close' }] : [])]),
+};
+const ENTRY = {};
+for (const groups of Object.values(CATALOG)) for (const [, list] of groups) for (const e of list) ENTRY[e.id] = e;
+let libTab = 'plants';
+function entryThumb(e) {
+  const spec = ICON[e.icon] || {};
+  if (e.iconPreset) { const saved = Object.assign({}, spec); Object.assign(ICON[e.icon], e.iconPreset); const out = iconSVG(e.icon, 'render'); ICON[e.icon] = saved; return out; }
+  if (e.icon === 'fence' && e.preset) { const it = Object.assign({ id: 'icon-' + e.id, type: 'fence' }, clone(ICON.fence), e.preset); delete it.vb; return `<svg viewBox="${ICON.fence.vb.join(' ')}" aria-hidden="true">${drawItem(it, { u: 0.28, render: true, color: true, icon: true })}</svg>`; }
+  return iconSVG(e.icon, 'render');
+}
+function renderCatalog() {
+  const groups = CATALOG[libTab];
+  $('libList').innerHTML = `<p class="libhow">${libTab === 'build' ? 'Click an item, then click the plan. Fences, walks and any-shape patios: click each corner.' : 'Click an item, then click the plan, or drag it onto the plan. Drag its corner dot to resize; turn it with the yellow dot.'}</p>` +
+    groups.map(([g, list]) => `<div class="libcat">${esc(g)}</div>` + list.map((e) => `<button type="button" class="plant" data-el="${e.id}" aria-pressed="${tool === e.tool && (!e.preset || !toolPreset[e.tool] || JSON.stringify(e.preset) === JSON.stringify(e.tool === 'fence' ? { style: lastFence.style, height: lastFence.height } : toolPreset[e.tool]))}"><span class="thumb">${entryThumb(e)}</span><span class="pn"><b>${esc(e.name)}</b>${e.note ? `<i>${esc(e.note)}</i>` : ''}</span></button>`).join('')).join('');
+}
+function useEntry(id) {
+  const e = ENTRY[id];
+  if (!e) return;
+  if (e.action) { e.action(); return; }
+  if (e.tool === 'fence' && e.preset) Object.assign(lastFence, e.preset);
+  else if (e.preset) toolPreset[e.tool] = Object.assign({}, e.preset);
+  if (sel.length) select(null);
+  setTool(e.tool); renderCatalog();
+  const k = T[e.tool].kind;
+  toast(k === 'line' ? `Click each corner of the ${e.name.toLowerCase()}; double-click to finish` : k === 'shape' ? 'Click around the edge; click the first dot to close' : `Click the plan to place the ${e.name.toLowerCase()}`);
+}
+function dropEntry(id, cx, cy) {
+  const e = ENTRY[id];
+  if (!e) return;
+  const k = T[e.tool] && T[e.tool].kind;
+  if (e.action || k === 'line' || k === 'shape') { useEntry(id); return; }
+  if (e.preset) toolPreset[e.tool] = Object.assign({}, e.preset);
+  if (tool !== 'select') setTool('select');
+  const p = toWorld(cx, cy), it = newItem(e.tool, view.snap ? [Math.round(p[0] * 2) / 2, Math.round(p[1] * 2) / 2] : p);
+  addItem(it); sel = [it.id];
+  renderProps(); renderPlan(); commit('Place ' + e.name.toLowerCase());
+  toast(`${e.name} placed`);
+}
+function setLibTab(tab) {
+  libTab = tab;
+  document.querySelectorAll('[data-libtab]').forEach((b) => b.setAttribute('aria-selected', b.dataset.libtab === tab));
+  $('libPlantTools').hidden = tab !== 'plants';
+  $('libInfo').hidden = tab !== 'plants';
+  if (tab === 'plants') renderLib(); else renderCatalog();
+  markLibButtons(); saveView();
+}
+document.querySelectorAll('[data-libtab]').forEach((b) => b.addEventListener('click', () => { if (!view.lib) toggleLib(true); setLibTab(b.dataset.libtab); }));
+
+
+
+/* keep the lot size in step with a reshaped property line */
+function syncLotSize() {
+  if (isScott() || !state.site.lotPts) return;
+  const L = lot();
+  state.site.w = r1(L.x2); state.site.h = r1(L.y2);
+}
+function editLot() {
+  if (isScott()) { toast('The Scott lab lot is fixed. Use New → My own yard to shape your own.'); return; }
+  closeDialog(); select(null);
+  if (!view.site) { view.site = true; $('tSite').checked = true; baseKey = ''; renderPlan(); saveView(); }
+  setTool('lotedit'); fit();
+}
+
+
+
+function markLibButtons() { document.querySelectorAll('[data-openlib]').forEach((b) => b.setAttribute('aria-pressed', view.lib && b.dataset.openlib === libTab)); }
+
 (function boot() {
   try {
     const v = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null');
-    if (v) for (const k of ['site', 'grid', 'diagram', 'design', 'tags', 'base', 'snap', 'lib', 'floor', 'img', 'util']) if (typeof v[k] === 'boolean') view[k] = v[k];
+    if (v && ['plants', 'build', 'living'].includes(v.libTab)) libTab = v.libTab;
+    if (v) for (const k of ['site', 'grid', 'diagram', 'design', 'tags', 'base', 'snap', 'lib', 'floor', 'img', 'util', 'seeTrees']) if (typeof v[k] === 'boolean') view[k] = v[k];
     if (v && ['render', 'color', 'bw'].includes(v.style)) view.style = v.style;
   } catch (e) { /* ignore */ }
   if (innerWidth <= 1000) view.lib = false;
@@ -2605,6 +2817,7 @@ function bedPerimeter(it) {
   } catch (e) { state = blankState(); }
   if (!state.meta.date) { const d = new Date(); state.meta.date = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`; }
   renderMenubar(); renderRail(); renderLibControls(); renderLib();
+  if (libTab !== 'plants') setLibTab(libTab);
   syncMeta();
   setTool('select');
   registerCustom(state.customPlants); renderLib();

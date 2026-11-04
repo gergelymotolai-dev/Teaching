@@ -26,7 +26,15 @@ async function run(w, h, tag) {
   }, [x, y]);
   const toPlan = () => page.locator('#plan').scrollIntoViewIfNeeded();
   const click = async (x, y, opts) => { await toPlan(); const [a, b] = await scr(x, y); await page.mouse.click(a, b, opts); };
-  const tool = (t) => page.click(`[data-tool="${t}"]`);
+  /* vegetable garden, firewood and bird bath live in the Build library tab */
+  const tool = async (t) => {
+    if (['veg', 'wood', 'birdbath'].includes(t)) {
+      if (w < 1000) { await page.click('[data-openlib="build"]'); await page.click(`[data-el="${t}"]`); await page.click('[data-openlib="build"]'); }
+      else { await page.click('[data-libtab="build"]'); await page.click(`[data-el="${t}"]`); }
+      return;
+    }
+    await page.click(`[data-tool="${t}"]`);
+  };
   const items = () => page.evaluate(() => JSON.parse(localStorage.getItem('scottDesign.v1')).items);
   const count = async () => (await items()).length;
   const tab = (p) => page.click(`[data-pane="${p}"]`);
@@ -55,6 +63,7 @@ async function run(w, h, tag) {
 
   // 2. plant library: pick a species and plant it
   if (tag === 'desk') {
+    await page.click('[data-libtab="plants"]');
     await page.fill('#libSearch', 'redbud');
     await page.click('[data-sp="ceca"]');
     await click(30, 50); await press('Escape');

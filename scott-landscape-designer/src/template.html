@@ -83,10 +83,10 @@ header.top h1 span{color:var(--muted);font-weight:500;margin-left:6px}
 kbd{font-family:var(--body);font-size:11px;border:1px solid var(--line-2);border-bottom-width:2px;border-radius:2px;padding:0 4px;color:var(--text);background:#30312D}
 
 /* ---------- work area ---------- */
-.work{display:grid;grid-template-columns:50px auto minmax(0,1fr) 304px;min-height:0}
+.work{display:grid;grid-template-columns:88px auto minmax(0,1fr) 304px;min-height:0}
 aside{background:var(--panel);overflow-y:auto;min-height:0}
 aside.rail{background:var(--chrome-2);border-right:1px solid #000;padding:6px 0;display:flex;flex-direction:column;align-items:center;gap:2px;overflow-x:hidden}
-.rail .grp{display:flex;flex-direction:column;gap:2px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line);width:100%}
+.rail .grp{display:grid;grid-template-columns:repeat(2,38px);gap:2px;justify-content:center;padding:4px 0;border-bottom:1px solid var(--line);width:100%}
 .rail .grp:last-child{border-bottom:0}
 .tool{position:relative;display:grid;place-items:center;width:38px;height:38px;padding:0;border:1px solid transparent;border-radius:3px;background:transparent;color:var(--text)}
 .tool:hover{background:var(--hover);border-color:var(--line-2)}
@@ -108,6 +108,11 @@ aside.rail{background:var(--chrome-2);border-right:1px solid #000;padding:6px 0;
 .iconbtn{display:grid;place-items:center;width:24px;height:24px;border:0;border-radius:2px;background:transparent;color:var(--muted)}
 .iconbtn:hover{background:var(--hover);color:var(--text)}
 .iconbtn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.libtabs{display:flex;border-bottom:1px solid #000;background:var(--panel-h);flex:none}
+.libtabs button{flex:1;height:30px;white-space:nowrap;border:0;background:transparent;color:var(--dim);font-family:var(--display);font-weight:500;font-size:12px;letter-spacing:.06em;text-transform:uppercase;border-right:1px solid #1A1B19}
+.libtabs button[aria-selected="true"]{background:var(--panel);color:var(--text);box-shadow:inset 0 -2px 0 var(--gold)}
+.libtabs button:hover{color:var(--text)}
+.libtools[hidden],.libinfo[hidden]{display:none}
 .libtools{padding:8px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px;flex:none}
 .search{position:relative}
 .search svg{position:absolute;left:8px;top:7px;width:14px;height:14px;stroke:var(--dim);fill:none;stroke-width:2;stroke-linecap:round}
@@ -254,14 +259,14 @@ dialog::backdrop{background:rgba(10,12,10,.55)}
 .dlg table{border-collapse:collapse;width:100%;font-size:13px}
 .dlg td{padding:4px 6px;border-bottom:1px solid var(--line)}
 
-@media (max-width:1100px){ .lib{width:230px} aside.dock{width:auto} .work{grid-template-columns:50px auto minmax(0,1fr) 280px} }
+@media (max-width:1100px){ .lib{width:230px} aside.dock{width:auto} .work{grid-template-columns:88px auto minmax(0,1fr) 280px} }
 @media (max-width:1000px){
   .app{height:auto;min-height:100vh}
   .work{grid-template-columns:1fr;grid-template-rows:auto auto minmax(460px,66vh) auto}
   aside.rail{flex-direction:row;overflow-x:auto;overflow-y:hidden;border-right:0;border-bottom:1px solid #000;padding:0 6px;align-items:stretch}
   aside.rail{grid-row:1}.lib{grid-row:2}.stage{grid-row:3}aside.dock{grid-row:4}
   .dgroup:has(#nav){display:none}
-  .rail .grp{flex-direction:row;border-bottom:0;border-right:1px solid var(--line);width:auto;padding:4px 6px}
+  .rail .grp{display:flex;flex-direction:row;border-bottom:0;border-right:1px solid var(--line);width:auto;padding:4px 6px}
   .lib{width:auto;max-height:300px;border-right:0;border-bottom:1px solid #000}
   .stage{grid-template-columns:0 minmax(0,1fr);grid-template-rows:0 minmax(0,1fr)}
   .ruler,.corner{display:none}
@@ -321,9 +326,10 @@ dialog::backdrop{background:rgba(10,12,10,.55)}
 <div class="work">
 <aside class="rail" id="rail" aria-label="Tools"></aside>
 
-<section class="lib" id="lib" aria-label="Plant library">
-  <div class="phead"><h2>Plant library</h2><button class="iconbtn" id="libClose" aria-label="Hide plant library" title="Hide plant library"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button></div>
-  <div class="libtools">
+<section class="lib" id="lib" aria-label="Library">
+  <div class="phead"><h2>Library</h2><button class="iconbtn" id="libClose" aria-label="Hide plant library" title="Hide plant library"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button></div>
+  <div class="libtabs" role="tablist" aria-label="Library"><button type="button" role="tab" data-libtab="plants" aria-selected="true">Plants</button><button type="button" role="tab" data-libtab="build" aria-selected="false">Build</button><button type="button" role="tab" data-libtab="living" aria-selected="false" title="Outdoor living: furniture, shade, cooking and fire, pools and spas, play">Outdoor</button></div>
+  <div class="libtools" id="libPlantTools">
     <div class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="libSearch" type="search" placeholder="Search plants" aria-label="Search plants"></div>
     <select id="libCat" aria-label="Plant category"></select>
     <div class="libfilters" id="libSun" role="group" aria-label="Sun"></div>
@@ -362,6 +368,7 @@ dialog::backdrop{background:rgba(10,12,10,.55)}
     <div class="tabs" role="tablist"><button role="tab" data-pane="pObjects" aria-selected="true">Layers<span class="badge" id="objBadge"></span></button><button role="tab" data-pane="pLayers" aria-selected="false">Show</button></div>
     <div class="tabpane" id="pLayers" role="tabpanel" hidden><div class="list">
       <label class="layer"><input type="checkbox" id="tDiagram" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:repeating-linear-gradient(135deg,#C9DEF0 0 4px,#F1D9A6 4px 8px)"></span><span class="lname">Functional diagram</span></label>
+      <label class="layer"><input type="checkbox" id="tSee"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:radial-gradient(circle,#8DB862 0 55%,transparent 56%) 50%/18px 18px no-repeat,#C9C1B2;opacity:.75"></span><span class="lname">See-through tree canopies</span></label>
       <label class="layer"><input type="checkbox" id="tTypes"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#ECECE6;color:#1A1A1A;font:700 9px/16px var(--display);text-align:center">AR</span><span class="lname">Plant tags (key codes)</span></label>
       <label class="layer"><input type="checkbox" id="tDesign" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:radial-gradient(circle at 40% 40%,#8DB862,#4F7E36)"></span><span class="lname">Design (plants &amp; hardscape)</span></label>
       <label class="layer"><input type="checkbox" id="tSite"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#fff;color:#1A1A1A;font:600 8px/16px var(--display);text-align:center">ABC</span><span class="lname">Notes &amp; labels (dimensions, doors)</span></label>

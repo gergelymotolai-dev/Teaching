@@ -85,10 +85,10 @@ header.top h1 span{color:var(--muted);font-weight:500;margin-left:6px}
 kbd{font-family:var(--body);font-size:11px;border:1px solid var(--line-2);border-bottom-width:2px;border-radius:2px;padding:0 4px;color:var(--text);background:#30312D}
 
 /* ---------- work area ---------- */
-.work{display:grid;grid-template-columns:50px auto minmax(0,1fr) 304px;min-height:0}
+.work{display:grid;grid-template-columns:88px auto minmax(0,1fr) 304px;min-height:0}
 aside{background:var(--panel);overflow-y:auto;min-height:0}
 aside.rail{background:var(--chrome-2);border-right:1px solid #000;padding:6px 0;display:flex;flex-direction:column;align-items:center;gap:2px;overflow-x:hidden}
-.rail .grp{display:flex;flex-direction:column;gap:2px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line);width:100%}
+.rail .grp{display:grid;grid-template-columns:repeat(2,38px);gap:2px;justify-content:center;padding:4px 0;border-bottom:1px solid var(--line);width:100%}
 .rail .grp:last-child{border-bottom:0}
 .tool{position:relative;display:grid;place-items:center;width:38px;height:38px;padding:0;border:1px solid transparent;border-radius:3px;background:transparent;color:var(--text)}
 .tool:hover{background:var(--hover);border-color:var(--line-2)}
@@ -110,6 +110,11 @@ aside.rail{background:var(--chrome-2);border-right:1px solid #000;padding:6px 0;
 .iconbtn{display:grid;place-items:center;width:24px;height:24px;border:0;border-radius:2px;background:transparent;color:var(--muted)}
 .iconbtn:hover{background:var(--hover);color:var(--text)}
 .iconbtn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.libtabs{display:flex;border-bottom:1px solid #000;background:var(--panel-h);flex:none}
+.libtabs button{flex:1;height:30px;white-space:nowrap;border:0;background:transparent;color:var(--dim);font-family:var(--display);font-weight:500;font-size:12px;letter-spacing:.06em;text-transform:uppercase;border-right:1px solid #1A1B19}
+.libtabs button[aria-selected="true"]{background:var(--panel);color:var(--text);box-shadow:inset 0 -2px 0 var(--gold)}
+.libtabs button:hover{color:var(--text)}
+.libtools[hidden],.libinfo[hidden]{display:none}
 .libtools{padding:8px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px;flex:none}
 .search{position:relative}
 .search svg{position:absolute;left:8px;top:7px;width:14px;height:14px;stroke:var(--dim);fill:none;stroke-width:2;stroke-linecap:round}
@@ -256,14 +261,14 @@ dialog::backdrop{background:rgba(10,12,10,.55)}
 .dlg table{border-collapse:collapse;width:100%;font-size:13px}
 .dlg td{padding:4px 6px;border-bottom:1px solid var(--line)}
 
-@media (max-width:1100px){ .lib{width:230px} aside.dock{width:auto} .work{grid-template-columns:50px auto minmax(0,1fr) 280px} }
+@media (max-width:1100px){ .lib{width:230px} aside.dock{width:auto} .work{grid-template-columns:88px auto minmax(0,1fr) 280px} }
 @media (max-width:1000px){
   .app{height:auto;min-height:100vh}
   .work{grid-template-columns:1fr;grid-template-rows:auto auto minmax(460px,66vh) auto}
   aside.rail{flex-direction:row;overflow-x:auto;overflow-y:hidden;border-right:0;border-bottom:1px solid #000;padding:0 6px;align-items:stretch}
   aside.rail{grid-row:1}.lib{grid-row:2}.stage{grid-row:3}aside.dock{grid-row:4}
   .dgroup:has(#nav){display:none}
-  .rail .grp{flex-direction:row;border-bottom:0;border-right:1px solid var(--line);width:auto;padding:4px 6px}
+  .rail .grp{display:flex;flex-direction:row;border-bottom:0;border-right:1px solid var(--line);width:auto;padding:4px 6px}
   .lib{width:auto;max-height:300px;border-right:0;border-bottom:1px solid #000}
   .stage{grid-template-columns:0 minmax(0,1fr);grid-template-rows:0 minmax(0,1fr)}
   .ruler,.corner{display:none}
@@ -323,9 +328,10 @@ dialog::backdrop{background:rgba(10,12,10,.55)}
 <div class="work">
 <aside class="rail" id="rail" aria-label="Tools"></aside>
 
-<section class="lib" id="lib" aria-label="Plant library">
-  <div class="phead"><h2>Plant library</h2><button class="iconbtn" id="libClose" aria-label="Hide plant library" title="Hide plant library"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button></div>
-  <div class="libtools">
+<section class="lib" id="lib" aria-label="Library">
+  <div class="phead"><h2>Library</h2><button class="iconbtn" id="libClose" aria-label="Hide plant library" title="Hide plant library"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button></div>
+  <div class="libtabs" role="tablist" aria-label="Library"><button type="button" role="tab" data-libtab="plants" aria-selected="true">Plants</button><button type="button" role="tab" data-libtab="build" aria-selected="false">Build</button><button type="button" role="tab" data-libtab="living" aria-selected="false" title="Outdoor living: furniture, shade, cooking and fire, pools and spas, play">Outdoor</button></div>
+  <div class="libtools" id="libPlantTools">
     <div class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="libSearch" type="search" placeholder="Search plants" aria-label="Search plants"></div>
     <select id="libCat" aria-label="Plant category"></select>
     <div class="libfilters" id="libSun" role="group" aria-label="Sun"></div>
@@ -364,6 +370,7 @@ dialog::backdrop{background:rgba(10,12,10,.55)}
     <div class="tabs" role="tablist"><button role="tab" data-pane="pObjects" aria-selected="true">Layers<span class="badge" id="objBadge"></span></button><button role="tab" data-pane="pLayers" aria-selected="false">Show</button></div>
     <div class="tabpane" id="pLayers" role="tabpanel" hidden><div class="list">
       <label class="layer"><input type="checkbox" id="tDiagram" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:repeating-linear-gradient(135deg,#C9DEF0 0 4px,#F1D9A6 4px 8px)"></span><span class="lname">Functional diagram</span></label>
+      <label class="layer"><input type="checkbox" id="tSee"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:radial-gradient(circle,#8DB862 0 55%,transparent 56%) 50%/18px 18px no-repeat,#C9C1B2;opacity:.75"></span><span class="lname">See-through tree canopies</span></label>
       <label class="layer"><input type="checkbox" id="tTypes"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#ECECE6;color:#1A1A1A;font:700 9px/16px var(--display);text-align:center">AR</span><span class="lname">Plant tags (key codes)</span></label>
       <label class="layer"><input type="checkbox" id="tDesign" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:radial-gradient(circle at 40% 40%,#8DB862,#4F7E36)"></span><span class="lname">Design (plants &amp; hardscape)</span></label>
       <label class="layer"><input type="checkbox" id="tSite"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#fff;color:#1A1A1A;font:600 8px/16px var(--display);text-align:center">ABC</span><span class="lname">Notes &amp; labels (dimensions, doors)</span></label>
@@ -1069,6 +1076,213 @@ function bedMix(it) {
   return list.map((m) => ({ sp: m.sp, w: m.w / tot }));
 }
 const layerOf = (it) => (T[it.type].layer === 'diagram' ? 'diagram' : 'design');
+/* ------------------------------------------------------------------ outdoor living: furniture, cooking and fire, pools, play
+ * Box items drawn in local feet around (0,0). Each works in the rendered style (o.render) and the drafting styles. */
+const FURN_T = {
+  table_round: { name: 'Round dining table', group: 'Furniture', d: { w: 7, h: 7 }, band: 3.5 },
+  table_rect:  { name: 'Dining table, 6 chairs', group: 'Furniture', d: { w: 9, h: 6.5 }, band: 3.5 },
+  sofa:        { name: 'Outdoor sofa', group: 'Furniture', d: { w: 7, h: 3 }, band: 3.5 },
+  sectional:   { name: 'L-shaped sectional', group: 'Furniture', d: { w: 9, h: 9 }, band: 3.5 },
+  chair:       { name: 'Lounge chair', group: 'Furniture', d: { w: 3, h: 3 }, band: 3.5 },
+  lounge:      { name: 'Chaise lounge', group: 'Furniture', d: { w: 2.5, h: 6.5 }, band: 3.5 },
+  bench:       { name: 'Garden bench', group: 'Furniture', d: { w: 6, h: 2 }, band: 3.5 },
+  umbrella:    { name: 'Patio umbrella', group: 'Shade', d: { w: 9, h: 9 }, band: 4.6, overhead: true },
+  pergola:     { name: 'Pergola', group: 'Shade', d: { w: 12, h: 12 }, band: 4.7, overhead: true },
+  grill:       { name: 'Grill', group: 'Cooking & fire', d: { w: 5, h: 2.5 }, band: 3.5 },
+  kitchen:     { name: 'Outdoor kitchen', group: 'Cooking & fire', d: { w: 10, h: 3 }, band: 3.5 },
+  firepit:     { name: 'Fire pit, round', group: 'Cooking & fire', d: { w: 5, h: 5 }, band: 3 },
+  firetable:   { name: 'Fire table, square', group: 'Cooking & fire', d: { w: 5, h: 5 }, band: 3 },
+  pool:        { name: 'Pool, rectangle', group: 'Pools & spas', d: { w: 16, h: 32 }, band: 1.5 },
+  pool_kidney: { name: 'Pool, kidney', group: 'Pools & spas', d: { w: 16, h: 30 }, band: 1.5 },
+  hottub:      { name: 'Hot tub', group: 'Pools & spas', d: { w: 7.5, h: 7.5 }, band: 2.5 },
+  playset:     { name: 'Play set with slide', group: 'Play', d: { w: 12, h: 10 }, band: 3.5 },
+  swing:       { name: 'Swing set', group: 'Play', d: { w: 14, h: 6 }, band: 3.5 },
+  sandbox:     { name: 'Sandbox', group: 'Play', d: { w: 6, h: 6 }, band: 2.5 },
+  trampoline:  { name: 'Trampoline', group: 'Play', d: { w: 12, h: 12 }, band: 3.5 },
+};
+const poolT = { name: 'Pool (draw any shape)', group: 'Pools & spas', band: 1.5 };
+
+/* colors: rendered look, or drafting (white with a light tint when Color is on) */
+const pc = (o, rendered, tint) => (o.render ? rendered : (o.color && tint ? tint : '#fff'));
+const ink = (o, rendered) => (o.render ? rendered : INK);
+const sw = (o, k) => n(o.u * k);
+const rr = (x, y, w, h, r, fill, stroke, wd, extra) => `<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" rx="${n(r)}" fill="${fill}"${stroke ? ` stroke="${stroke}" stroke-width="${wd}"` : ''}${extra || ''}/>`;
+const shadowBox = (o, w, h, r) => (o.render && !o.icon ? rr(-w / 2 - 0.25, -h / 2 + 0.25, w, h, r || 0.2, '#0E1408', '', '', ' fill-opacity="0.3" filter="url(#ld-soft)"') : '');
+function seat(o, x, y, w, h, rot) {
+  return `<g transform="translate(${n(x)} ${n(y)}) rotate(${n(rot || 0)})">${rr(-w / 2, -h / 2, w, h, Math.min(w, h) * 0.22, pc(o, '#3F4A52', '#E9EDF0'), ink(o, '#22292E'), sw(o, 0.8))}` +
+    `${rr(-w / 2 + w * 0.12, -h / 2 + h * 0.22, w * 0.76, h * 0.66, Math.min(w, h) * 0.15, pc(o, '#D9CBB0', '#fff'), ink(o, '#A99A7E'), sw(o, 0.5))}</g>`;
+}
+function poolWater(d, o, rng, bb) {
+  if (!o.render) return `<path d="${d}" fill="${o.color ? '#D7ECF6' : '#fff'}"/>` + `<path d="${d}" fill="url(#dd-water)"/>`;
+  let s = `<path d="${d}" fill="url(#ld-pool)"/>`;
+  for (let i = 0, k = Math.round((bb[2] - bb[0]) * (bb[3] - bb[1]) / 18); i < k; i++) {
+    const x = bb[0] + rng() * (bb[2] - bb[0]), y = bb[1] + rng() * (bb[3] - bb[1]), L = 0.8 + rng() * 1.6;
+    s += `<path d="M${n(x)},${n(y)}q${n(L / 2)},${n(-0.35)} ${n(L)},0" stroke="#fff" stroke-opacity="0.45" stroke-width="0.1" fill="none" clip-path="none"/>`;
+  }
+  return s;
+}
+const KIDNEY = (w, h) => {
+  const P = (x, y) => `${n(x * w)},${n(y * h)}`;
+  return `M${P(-0.05, -0.5)}C${P(0.32, -0.5)} ${P(0.5, -0.36)} ${P(0.5, -0.12)}C${P(0.5, 0.06)} ${P(0.3, 0.1)} ${P(0.32, 0.22)}C${P(0.36, 0.42)} ${P(0.2, 0.5)} ${P(0.0, 0.5)}C${P(-0.32, 0.5)} ${P(-0.5, 0.34)} ${P(-0.5, 0.1)}C${P(-0.5, -0.06)} ${P(-0.3, -0.12)} ${P(-0.36, -0.28)}C${P(-0.42, -0.46)} ${P(-0.28, -0.5)} ${P(-0.05, -0.5)}Z`;
+};
+const FURN = {
+  table_round(it, o) {
+    const R = Math.min(it.w, it.h) / 2, tr = R * 0.5, k = clamp(Math.round(2 * Math.PI * (tr + 1) / 2.4), 4, 10);
+    let s = '';
+    for (let i = 0; i < k; i++) { const a = 2 * Math.PI * i / k, d = tr + 0.95; s += seat(o, d * Math.cos(a), d * Math.sin(a), 1.7, 1.7, a * 180 / Math.PI + 90); }
+    return s + (o.render && !o.icon ? `<circle cx="-0.2" cy="0.2" r="${n(tr)}" fill="#0E1408" fill-opacity="0.3" filter="url(#ld-soft)"/>` : '') +
+      `<circle r="${n(tr)}" fill="${pc(o, '#B98A5A', '#F1E6D6')}" stroke="${ink(o, '#5E4129')}" stroke-width="${sw(o, 1)}"/>` + (o.render ? `<circle r="${n(tr * 0.75)}" fill="none" stroke="#C99C69" stroke-width="0.06"/>` : '');
+  },
+  table_rect(it, o) {
+    const tw = Math.max(2, it.w - 3.4), th = Math.max(2, it.h - 3.4), per = Math.max(1, Math.floor(tw / 2.4));
+    let s = '';
+    for (let i = 0; i < per; i++) { const x = -tw / 2 + tw * (i + 0.5) / per; s += seat(o, x, -th / 2 - 0.95, 1.7, 1.7, 180) + seat(o, x, th / 2 + 0.95, 1.7, 1.7, 0); }
+    if (it.w >= 7.5) s += seat(o, -tw / 2 - 0.95, 0, 1.7, 1.7, 90) + seat(o, tw / 2 + 0.95, 0, 1.7, 1.7, -90);
+    let slats = '';
+    if (o.render) for (let x = -tw / 2 + 0.5; x < tw / 2; x += 0.5) slats += `M${n(x)},${n(-th / 2)}V${n(th / 2)}`;
+    return s + shadowBox(o, tw, th) + rr(-tw / 2, -th / 2, tw, th, 0.15, pc(o, '#B98A5A', '#F1E6D6'), ink(o, '#5E4129'), sw(o, 1)) + (slats ? `<path d="${slats}" stroke="#8E6640" stroke-width="0.05"/>` : '');
+  },
+  sofa(it, o) {
+    const w = it.w, h = it.h, arm = Math.min(0.7, w * 0.1), back = h * 0.3, n3 = Math.max(1, Math.round((w - 2 * arm) / 2.2));
+    let s = shadowBox(o, w, h, 0.3) + rr(-w / 2, -h / 2, w, h, 0.3, pc(o, '#3F4A52', '#E9EDF0'), ink(o, '#22292E'), sw(o, 1));
+    s += rr(-w / 2 + arm, -h / 2 + 0.1, w - 2 * arm, back, 0.2, pc(o, '#C9BBA0', '#fff'), ink(o, '#A99A7E'), sw(o, 0.5));
+    for (let i = 0; i < n3; i++) { const cw = (w - 2 * arm) / n3; s += rr(-w / 2 + arm + i * cw + 0.05, -h / 2 + back + 0.15, cw - 0.1, h - back - 0.3, 0.2, pc(o, '#D9CBB0', '#fff'), ink(o, '#A99A7E'), sw(o, 0.5)); }
+    return s;
+  },
+  sectional(it, o) {
+    const w = it.w, h = it.h, d = Math.min(3, w * 0.35, h * 0.35);
+    const L = `M${n(-w / 2)},${n(-h / 2)}H${n(w / 2)}V${n(-h / 2 + d)}H${n(-w / 2 + d)}V${n(h / 2)}H${n(-w / 2)}Z`;
+    let s = (o.render && !o.icon ? `<path d="${L}" transform="translate(-0.25 0.25)" fill="#0E1408" fill-opacity="0.3" filter="url(#ld-soft)"/>` : '') + `<path d="${L}" fill="${pc(o, '#3F4A52', '#E9EDF0')}" stroke="${ink(o, '#22292E')}" stroke-width="${sw(o, 1)}"/>`;
+    const cush = (x, y, cw, ch) => rr(x, y, cw, ch, 0.2, pc(o, '#D9CBB0', '#fff'), ink(o, '#A99A7E'), sw(o, 0.5));
+    const nx = Math.max(1, Math.round((w - d) / 2.3)), ny = Math.max(1, Math.round((h - d) / 2.3));
+    for (let i = 0; i < nx; i++) { const cw = (w - d - 0.3) / nx; s += cush(-w / 2 + d + 0.1 + i * cw, -h / 2 + d * 0.32, cw - 0.1, d * 0.6); }
+    for (let i = 0; i < ny; i++) { const ch = (h - d - 0.3) / ny; s += cush(-w / 2 + d * 0.32, -h / 2 + d + 0.1 + i * ch, d * 0.6, ch - 0.1); }
+    return s + cush(-w / 2 + d * 0.32, -h / 2 + d * 0.32, d * 0.6, d * 0.6);
+  },
+  chair(it, o) { return shadowBox(o, it.w, it.h, 0.3) + seat(o, 0, 0, it.w, it.h, 0); },
+  lounge(it, o) {
+    const w = it.w, h = it.h;
+    return shadowBox(o, w, h, 0.3) + rr(-w / 2, -h / 2, w, h, 0.3, pc(o, '#E8E4DC', '#F3F3F3'), ink(o, '#8A8478'), sw(o, 0.9)) +
+      rr(-w / 2 + 0.2, -h / 2 + 0.2, w - 0.4, h * 0.3, 0.2, pc(o, '#5B8FB0', '#fff'), ink(o, '#3F6E8C'), sw(o, 0.5)) +
+      rr(-w / 2 + 0.2, -h / 2 + h * 0.3 + 0.3, w - 0.4, h * 0.7 - 0.5, 0.2, pc(o, '#6FA3C4', '#fff'), ink(o, '#3F6E8C'), sw(o, 0.5));
+  },
+  bench(it, o) {
+    const w = it.w, h = it.h;
+    let sl = '';
+    for (let y = -h / 2 + h / 4; y < h / 2 - 0.05; y += h / 4) sl += `M${n(-w / 2 + 0.1)},${n(y)}H${n(w / 2 - 0.1)}`;
+    return shadowBox(o, w, h) + rr(-w / 2, -h / 2, w, h, 0.1, pc(o, '#A97B4D', '#F1E6D6'), ink(o, '#4E3622'), sw(o, 0.9)) + `<path d="${sl}" stroke="${ink(o, '#6E4E30')}" stroke-width="${sw(o, 0.5)}"/>`;
+  },
+  umbrella(it, o) {
+    const R = Math.min(it.w, it.h) / 2, k = 8;
+    let s = o.render && !o.icon ? `<circle cx="-0.8" cy="0.8" r="${n(R)}" fill="#0E1408" fill-opacity="0.22" filter="url(#ld-soft)"/>` : '';
+    for (let i = 0; i < k; i++) {
+      const a0 = 2 * Math.PI * i / k, a1 = 2 * Math.PI * (i + 1) / k;
+      s += `<path d="M0,0L${n(R * Math.cos(a0))},${n(R * Math.sin(a0))}L${n(R * Math.cos(a1))},${n(R * Math.sin(a1))}Z" fill="${pc(o, i % 2 ? '#E7DCC6' : '#D6C8AC', '#FBF8F2')}" stroke="${ink(o, '#9C8C70')}" stroke-width="${sw(o, 0.6)}" stroke-linejoin="round"/>`;
+    }
+    return s + `<circle r="${n(Math.max(0.2, R * 0.06))}" fill="${ink(o, '#5E5240')}"/>`;
+  },
+  pergola(it, o) {
+    const w = it.w, h = it.h, ps = 0.55;
+    let s = '';
+    let raft = '';
+    for (let x = -w / 2 + 0.6; x < w / 2; x += 1) raft += `M${n(x)},${n(-h / 2 - 0.6)}V${n(h / 2 + 0.6)}`;
+    s += `<path d="${raft}" stroke="${ink(o, '#8E6640')}" stroke-width="${o.render ? 0.28 : sw(o, 0.7)}"${o.render ? ' stroke-opacity="0.92"' : ''}/>`;
+    s += `<path d="M${n(-w / 2 - 0.9)},${n(-h / 2 + 0.3)}H${n(w / 2 + 0.9)}M${n(-w / 2 - 0.9)},${n(h / 2 - 0.3)}H${n(w / 2 + 0.9)}" stroke="${ink(o, '#6E4E30')}" stroke-width="${o.render ? 0.45 : sw(o, 1.2)}"/>`;
+    for (const [x, y] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) s += rr(x * (w / 2 - 0.3) - ps / 2, y * (h / 2 - 0.3) - ps / 2, ps, ps, 0, ink(o, '#4E3622'));
+    return s;
+  },
+  grill(it, o) {
+    const w = it.w, h = it.h, bw = w * 0.55;
+    let gr = '';
+    for (let x = -bw / 2 + 0.25; x < bw / 2; x += 0.25) gr += `M${n(x)},${n(-h / 2 + 0.35)}V${n(h / 2 - 0.35)}`;
+    return shadowBox(o, w, h) + rr(-w / 2, -h / 2 + 0.3, w, h - 0.6, 0.1, pc(o, '#9AA0A5', '#F3F3F3'), ink(o, '#5F666B'), sw(o, 0.8)) +
+      rr(-bw / 2, -h / 2, bw, h, 0.4, pc(o, '#2E2F31', '#fff'), ink(o, '#111'), sw(o, 1)) + `<path d="${gr}" stroke="${o.render ? '#6E6F72' : INK}" stroke-width="${sw(o, 0.4)}"/>`;
+  },
+  kitchen(it, o) {
+    const w = it.w, h = it.h;
+    let s = shadowBox(o, w, h) + rr(-w / 2, -h / 2, w, h, 0.1, pc(o, '#CFC6B4', '#F3F1EC'), ink(o, '#6E655A'), sw(o, 1));
+    s += rr(-w * 0.32, -h / 2 + 0.35, w * 0.3, h - 0.7, 0.3, pc(o, '#2E2F31', '#fff'), ink(o, '#111'), sw(o, 0.8));
+    let gr = '';
+    for (let x = -w * 0.32 + 0.25; x < -w * 0.02; x += 0.25) gr += `M${n(x)},${n(-h / 2 + 0.55)}V${n(h / 2 - 0.55)}`;
+    s += `<path d="${gr}" stroke="${o.render ? '#6E6F72' : INK}" stroke-width="${sw(o, 0.4)}"/>`;
+    s += rr(w * 0.12, -h / 2 + 0.45, w * 0.18, h - 0.9, 0.3, pc(o, '#B9C2C8', '#fff'), ink(o, '#5F666B'), sw(o, 0.7)) + `<circle cx="${n(w * 0.21)}" cy="0" r="0.1" fill="${ink(o, '#5F666B')}"/>`;
+    return s;
+  },
+  firepit(it, o) {
+    const R = Math.min(it.w, it.h) / 2;
+    let s = o.render && !o.icon ? `<circle cx="-0.3" cy="0.3" r="${n(R)}" fill="#0E1408" fill-opacity="0.35" filter="url(#ld-soft)"/>` : '';
+    s += `<circle r="${n(R)}" fill="${o.render ? 'url(#ld-flagstone)' : pc(o, '', '#EDE6DA')}" stroke="${ink(o, '#5E564C')}" stroke-width="${sw(o, 1)}"/>`;
+    s += `<circle r="${n(R * 0.62)}" fill="${o.render ? 'url(#ld-fire)' : '#fff'}" stroke="${ink(o, '#3A332B')}" stroke-width="${sw(o, 0.8)}"/>`;
+    if (!o.render) s += `<path d="M${n(-R * 0.25)},${n(R * 0.2)}q${n(R * 0.1)},${n(-R * 0.45)} ${n(R * 0.25)},${n(-R * 0.5)}q${n(R * 0.15)},${n(R * 0.3)} ${n(R * 0.25)},${n(R * 0.5)}" fill="none" stroke="${INK}" stroke-width="${sw(o, 0.7)}"/>`;
+    return s;
+  },
+  firetable(it, o) {
+    const w = it.w, h = it.h;
+    return shadowBox(o, w, h) + rr(-w / 2, -h / 2, w, h, 0.2, pc(o, '#8C8984', '#EDEDEA'), ink(o, '#3E3C39'), sw(o, 1)) +
+      rr(-w * 0.32, -h * 0.32, w * 0.64, h * 0.64, 0.2, o.render ? 'url(#ld-fire)' : '#fff', ink(o, '#3A332B'), sw(o, 0.7));
+  },
+  pool(it, o, rng) {
+    const w = it.w, h = it.h, c = 1.2, d = `M${n(-w / 2 + c)},${n(-h / 2 + c)}H${n(w / 2 - c)}V${n(h / 2 - c)}H${n(-w / 2 + c)}Z`;
+    let s = rr(-w / 2, -h / 2, w, h, 0.4, o.render ? '#D8D0BF' : pc(o, '', '#F1EFEA'), ink(o, '#8E8676'), sw(o, 1));
+    s += poolWater(d, o, rng, [-w / 2 + c, -h / 2 + c, w / 2 - c, h / 2 - c]) + `<path d="${d}" fill="none" stroke="${ink(o, '#3C82AE')}" stroke-width="${sw(o, 1)}"/>`;
+    let st = '';
+    for (let i = 1; i <= 3; i++) st += `M${n(-w / 2 + c)},${n(-h / 2 + c + i * 1)}H${n(-w / 2 + c + Math.min(6, w * 0.4))}`;
+    return s + `<path d="${st}" stroke="${o.render ? '#fff' : INK}" stroke-opacity="${o.render ? 0.8 : 1}" stroke-width="${sw(o, 0.7)}"/>`;
+  },
+  pool_kidney(it, o, rng) {
+    const w = it.w, h = it.h, outer = KIDNEY(w, h), inner = KIDNEY(w - 2.4, h - 2.4);
+    return `<path d="${outer}" fill="${o.render ? '#D8D0BF' : pc(o, '', '#F1EFEA')}" stroke="${ink(o, '#8E8676')}" stroke-width="${sw(o, 1)}"/>` +
+      poolWater(inner, o, rng, [-w / 2 + 1.2, -h / 2 + 1.2, w / 2 - 1.2, h / 2 - 1.2]) + `<path d="${inner}" fill="none" stroke="${ink(o, '#3C82AE')}" stroke-width="${sw(o, 1)}"/>`;
+  },
+  hottub(it, o, rng) {
+    const w = it.w, h = it.h, c = 0.8;
+    let s = shadowBox(o, w, h, 1) + rr(-w / 2, -h / 2, w, h, 1, pc(o, '#7A5B3C', '#EFE8DE'), ink(o, '#4E3622'), sw(o, 1));
+    const d = `M${n(-w / 2 + c + 0.6)},${n(-h / 2 + c)}H${n(w / 2 - c - 0.6)}Q${n(w / 2 - c)},${n(-h / 2 + c)} ${n(w / 2 - c)},${n(-h / 2 + c + 0.6)}V${n(h / 2 - c - 0.6)}Q${n(w / 2 - c)},${n(h / 2 - c)} ${n(w / 2 - c - 0.6)},${n(h / 2 - c)}H${n(-w / 2 + c + 0.6)}Q${n(-w / 2 + c)},${n(h / 2 - c)} ${n(-w / 2 + c)},${n(h / 2 - c - 0.6)}V${n(-h / 2 + c + 0.6)}Q${n(-w / 2 + c)},${n(-h / 2 + c)} ${n(-w / 2 + c + 0.6)},${n(-h / 2 + c)}Z`;
+    s += poolWater(d, o, rng, [-w / 2 + c, -h / 2 + c, w / 2 - c, h / 2 - c]) + `<path d="${d}" fill="none" stroke="${ink(o, '#3C82AE')}" stroke-width="${sw(o, 0.8)}"/>`;
+    s += `<circle r="${n(Math.min(w, h) * 0.22)}" fill="none" stroke="${o.render ? '#fff' : INK}" stroke-opacity="${o.render ? 0.6 : 1}" stroke-width="${sw(o, 0.6)}"/>`;
+    for (const [x, y] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) s += `<circle cx="${n(x * (w / 2 - c - 0.7))}" cy="${n(y * (h / 2 - c - 0.7))}" r="0.15" fill="${o.render ? '#fff' : INK}"/>`;
+    return s;
+  },
+  playset(it, o) {
+    const w = it.w, h = it.h, dk = Math.min(w * 0.4, h * 0.55);
+    const x0 = -w / 2, y0 = -h / 2;
+    let s = shadowBox(o, dk, dk);
+    // slide running out from the deck
+    s += rr(x0 + dk - 0.2, y0 + dk * 0.3, w - dk + 0.2, 1.8, 0.9, pc(o, '#2F8F4E', '#E6F2E9'), ink(o, '#1D5F33'), sw(o, 0.9)) + `<path d="M${n(x0 + dk)},${n(y0 + dk * 0.3 + 0.9)}H${n(w / 2 - 0.9)}" stroke="${o.render ? '#7FC796' : INK}" stroke-width="${sw(o, 0.5)}"/>`;
+    // climbing wall / ladder below the deck
+    s += rr(x0 + dk * 0.2, y0 + dk - 0.1, dk * 0.6, h - dk + 0.1, 0.1, pc(o, '#B98A5A', '#F1E6D6'), ink(o, '#5E4129'), sw(o, 0.8));
+    for (let y = y0 + dk + 0.6; y < h / 2 - 0.2; y += 0.8) s += `<circle cx="${n(x0 + dk * 0.35)}" cy="${n(y)}" r="0.14" fill="${pc(o, '#E2552F', INK)}"/><circle cx="${n(x0 + dk * 0.65)}" cy="${n(y + 0.4)}" r="0.14" fill="${pc(o, '#F2B705', INK)}"/>`;
+    // deck with a striped roof
+    s += rr(x0, y0, dk, dk, 0.1, pc(o, '#A97B4D', '#F1E6D6'), ink(o, '#4E3622'), sw(o, 1));
+    if (o.render) for (let i = 0; i < 6; i++) s += `<path d="M${n(x0 + dk / 2)},${n(y0 + dk / 2)}L${n(x0 + (i < 3 ? dk * i / 2 : dk))},${n(y0 + (i < 3 ? 0 : dk * (i - 3) / 2))}" stroke="none"/>`;
+    s += `<path d="M${n(x0)},${n(y0)}L${n(x0 + dk / 2)},${n(y0 + dk / 2)}L${n(x0 + dk)},${n(y0)}M${n(x0)},${n(y0 + dk)}L${n(x0 + dk / 2)},${n(y0 + dk / 2)}L${n(x0 + dk)},${n(y0 + dk)}" stroke="${ink(o, '#4E3622')}" stroke-width="${sw(o, 0.7)}" fill="none"/>`;
+    if (o.render) s += `<path d="M${n(x0)},${n(y0)}L${n(x0 + dk / 2)},${n(y0 + dk / 2)}L${n(x0 + dk)},${n(y0)}Z" fill="#2F7DB8" fill-opacity="0.85"/><path d="M${n(x0)},${n(y0 + dk)}L${n(x0 + dk / 2)},${n(y0 + dk / 2)}L${n(x0 + dk)},${n(y0 + dk)}Z" fill="#2F7DB8" fill-opacity="0.7"/>`;
+    return s;
+  },
+  swing(it, o) {
+    const w = it.w, h = it.h, n2 = Math.max(1, Math.round((w - 2) / 3.2));
+    let s = `<path d="M${n(-w / 2)},${n(-h / 2)}L${n(-w / 2 + 1)},0L${n(-w / 2)},${n(h / 2)}M${n(w / 2)},${n(-h / 2)}L${n(w / 2 - 1)},0L${n(w / 2)},${n(h / 2)}" stroke="${ink(o, '#5E4129')}" stroke-width="${o.render ? 0.4 : sw(o, 1.2)}" fill="none" stroke-linecap="round"/>`;
+    s += `<path d="M${n(-w / 2 + 1)},0H${n(w / 2 - 1)}" stroke="${ink(o, '#6E4E30')}" stroke-width="${o.render ? 0.5 : sw(o, 1.4)}"/>`;
+    for (let i = 0; i < n2; i++) { const x = -w / 2 + 1 + (w - 2) * (i + 0.5) / n2; s += rr(x - 0.8, -0.35, 1.6, 0.7, 0.2, pc(o, ['#E2552F', '#2F7DB8', '#F2B705'][i % 3], '#fff'), ink(o, '#222'), sw(o, 0.6)); }
+    return s;
+  },
+  sandbox(it, o) {
+    const w = it.w, h = it.h;
+    return shadowBox(o, w, h) + rr(-w / 2, -h / 2, w, h, 0.1, pc(o, '#A97B4D', '#F1E6D6'), ink(o, '#4E3622'), sw(o, 1)) +
+      rr(-w / 2 + 0.4, -h / 2 + 0.4, w - 0.8, h - 0.8, 0.05, o.render ? 'url(#ld-sand)' : '#fff', o.render ? '' : INK, sw(o, 0.5)) + (o.render ? '' : rr(-w / 2 + 0.4, -h / 2 + 0.4, w - 0.8, h - 0.8, 0.05, 'url(#dd-dots)'));
+  },
+  trampoline(it, o) {
+    const R = Math.min(it.w, it.h) / 2;
+    return (o.render && !o.icon ? `<circle cx="-0.5" cy="0.5" r="${n(R)}" fill="#0E1408" fill-opacity="0.28" filter="url(#ld-soft)"/>` : '') +
+      `<circle r="${n(R)}" fill="${pc(o, '#2F7DB8', '#E6F0F8')}" stroke="${ink(o, '#1F5A86')}" stroke-width="${sw(o, 1)}"/>` +
+      `<circle r="${n(R * 0.82)}" fill="${pc(o, '#232527', '#fff')}" stroke="${ink(o, '#111')}" stroke-width="${sw(o, 0.6)}"/>` +
+      `<circle r="${n(R * 0.95)}" fill="none" stroke="${o.render ? '#fff' : INK}" stroke-opacity="${o.render ? 0.5 : 1}" stroke-width="${sw(o, 0.5)}" stroke-dasharray="${n(R * 0.08)} ${n(R * 0.08)}"/>`;
+  },
+};
+
+for (const [k, v] of Object.entries(FURN_T)) T[k] = Object.assign({ id: k, kind: 'box', furn: true }, v, { d: Object.assign({}, v.d) });
+T.poolShape = Object.assign({ id: 'poolShape', kind: 'shape', furn: true, d: { smooth: true } }, poolT);
+
 
 /* ------------------------------------------------------------------ shared defs (patterns, filters) */
 function makeDefs() {
@@ -1138,6 +1352,10 @@ function makeDefs() {
     d += pat('ld-deck', 12, 1.5, body);
   }
   d += pat('ld-roof', 1.5, 0.75, '<rect width="1.5" height="0.75" fill="#CDC7BD"/><path d="M0,0.72H1.5M0.4,0V0.36M1.15,0.36V0.75" stroke="#B2AB9F" stroke-width="0.05"/>');
+  d += '<linearGradient id="ld-pool" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8FD3EE"/><stop offset="0.55" stop-color="#4FB0DA"/><stop offset="1" stop-color="#2E86B8"/></linearGradient>';
+  d += '<radialGradient id="ld-fire"><stop offset="0" stop-color="#FFE08A"/><stop offset="0.35" stop-color="#F59A2A"/><stop offset="0.7" stop-color="#C2411B"/><stop offset="1" stop-color="#2B201A"/></radialGradient>';
+  d += pat('ld-sand', 1.5, 1.5, '<rect width="1.5" height="1.5" fill="#E8D7A8"/>' + specks(1.5, 1.5, 24, ['#D6C28E', '#F2E6C4', '#CBB57D'], 0.03, 0.07));
+  d += pat('dd-water', 3, 1.5, `<path d="M0,0.75q0.75,-0.35 1.5,0t1.5,0" stroke="${INK}" stroke-width="0.05" fill="none"/>`);
   // drafting hatches (black ink)
   d += pat('dd-dots', 1.2, 1.2, `<circle cx="0.3" cy="0.4" r="0.06" fill="${INK}"/><circle cx="0.9" cy="1" r="0.05" fill="${INK}"/>`);
   d += pat('dd-sparse', 3, 3, `<circle cx="0.6" cy="0.8" r="0.07" fill="${INK}" fill-opacity="0.6"/><circle cx="2.2" cy="2.3" r="0.07" fill="${INK}" fill-opacity="0.6"/><circle cx="2.4" cy="0.7" r="0.06" fill="${INK}" fill-opacity="0.6"/>`);
@@ -1645,6 +1863,12 @@ function bedRender(it, o, rng) {
 }
 function shapeRender(it, o, rng) {
   const d = shapeD(it.pts, it.smooth);
+  if (it.type === 'poolShape') {
+    const poly = shapePoly(it.pts, it.smooth), xs = poly.map((q) => q[0]), ys = poly.map((q) => q[1]);
+    return `<path d="${d}" fill="none" stroke="${o.render ? '#D8D0BF' : INK}" stroke-width="${o.render ? 2.4 : n(o.u * 1.2)}" stroke-linejoin="round"/>` +
+      (o.render ? `<path d="${d}" fill="none" stroke="#8E8676" stroke-width="2.5" stroke-opacity="0.35" stroke-linejoin="round" transform="translate(0 0)"/>` : '') +
+      poolWater(d, o, rngFor(it.id), [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]) + `<path d="${d}" fill="none" stroke="${o.render ? '#3C82AE' : INK}" stroke-width="${n(o.u)}"/>`;
+  }
   if (it.type === 'building') {
     if (!o.render) return `<path d="${d}" fill="${o.color ? '#EFEEE9' : '#fff'}" stroke="${INK}" stroke-width="${n(Math.max(0.3, o.u * 2.6))}" stroke-linejoin="miter"/>`;
     return (o.icon ? '' : `<path d="${d}" transform="translate(-1.6 0.9)" fill="#0E1408" fill-opacity="0.3" filter="url(#ld-soft)"/>`) +
@@ -1801,7 +2025,10 @@ const DDRAW = {
   building(it, o, rng) { return shapeRender(it, o, rng); },
 };
 
-/* draw one item. o: {u: ink width (ft), render, color, tags, hit, icon} */
+for (const k of Object.keys(FURN)) { RDRAW[k] = FURN[k]; DDRAW[k] = FURN[k]; }
+RDRAW.poolShape = DDRAW.poolShape = (it, o, rng) => shapeRender(it, o, rng);
+
+/* draw one item. o: {u: ink width (ft), render, color, tags, hit, icon, seeTrees} */
 function drawItem(it, o) {
   const t = T[it.type], rng = rngFor(it.id);
   const fn = (o.render && RDRAW[it.type]) || DDRAW[it.type];
@@ -1814,7 +2041,8 @@ function drawItem(it, o) {
     if (o.hit && t.kind === 'line') g += `<path d="${ptsD(it.pts)}" fill="none" stroke="transparent" stroke-width="${n(Math.max(2, (it.width || 0) + 1))}" stroke-linejoin="round"/>`;
   }
   if (!o.icon) g += itemLabel(it, o);
-  return `<g${o.hit ? ` data-id="${esc(it.id)}"` : ''}${it.hidden ? ' display="none"' : ''}>${g}</g>`;
+  const op = it.op !== undefined ? it.op : (o.seeTrees && t.tree && !o.icon ? 0.5 : null);
+  return `<g${o.hit ? ` data-id="${esc(it.id)}"` : ''}${it.hidden ? ' display="none"' : ''}${op !== null && op < 1 ? ` opacity="${op}"` : ''}>${g}</g>`;
 }
 function itemCenter(it) {
   const k = T[it.type].kind;
@@ -1867,6 +2095,8 @@ const ICON = {
   arrow: { pts: [[-4.5, 3], [0, -1], [4.5, -1]], vb: [-5.6, -4.8, 11.2, 9.6] },
 };
 const CIRCLE_VB = [-5.6, -5.6, 11.2, 11.2];
+for (const [k, v] of Object.entries(FURN_T)) { const w = v.d.w, h = v.d.h, m = Math.max(w, h) * 0.08; ICON[k] = { w, h, vb: [-w / 2 - m, -h / 2 - m, w + 2 * m, h + 2 * m] }; }
+ICON.poolShape = { pts: [[-4.5, -3], [1, -4], [4.6, -1], [3.5, 3.6], [-2, 3.8], [-4.8, 1]], smooth: true, vb: [-6, -5.2, 12, 10.4] };
 function iconItem(type, sp) {
   const spec = ICON[type] || {};
   const it = Object.assign({ id: 'icon-' + type + (sp || ''), type, x: 0, y: 0, rot: 0 }, clone(spec));
@@ -1950,10 +2180,13 @@ const LINE_ICO = {
   hand: '<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V11"/><path d="M11 10.5V4.5a1.5 1.5 0 0 1 3 0V11"/><path d="M14 10.5V6a1.5 1.5 0 0 1 3 0v6"/><path d="M8 12.5 6.6 11a1.6 1.6 0 0 0-2.3 2.2L8 18c1.5 2 3 3 5.5 3H14a5 5 0 0 0 5-5v-4.5a1.5 1.5 0 0 0-3 0"/>',
   label: '<path d="M5 6V4h14v2"/><path d="M12 4v16"/><path d="M9 20h6"/>',
   measure: '<path d="M3 17 17 3l4 4L7 21z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/>',
+  lotedit: '<path d="M4 6 18 4l2 13-12 3z" stroke-dasharray="3 2"/><circle cx="4" cy="6" r="1.6"/><circle cx="18" cy="4" r="1.6"/><circle cx="20" cy="17" r="1.6"/><circle cx="8" cy="20" r="1.6"/>',
   imgscale: '<rect x="3" y="5" width="18" height="14" rx="1"/><path d="M6 15 18 9"/><circle cx="6" cy="15" r="1.5"/><circle cx="18" cy="9" r="1.5"/>',
+  buildlib: '<path d="M3 20h18"/><path d="M5 20V9l7-5 7 5v11"/><path d="M9 20v-6h6v6"/>',
+  livinglib: '<path d="M4 13h16v4H4z"/><path d="M6 17v3M18 17v3M6 13V9a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4"/><path d="M12 3v2"/>',
   library: '<path d="M4 19V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z"/><path d="M4 19a2 2 0 0 1 2-2h12"/><path d="M12 7c-2 0-3 1.4-3 3 2 0 3-1.4 3-3zm0 0c2 0 3 1.4 3 3-2 0-3-1.4-3-3zm0 0v6"/>',
 };
-const BASIC_NAMES = { select: 'Select / move', hand: 'Hand (pan)', label: 'Text label', measure: 'Measure', imgscale: 'Set image scale' };
+const BASIC_NAMES = { select: 'Select / move', hand: 'Hand (pan)', label: 'Text label', measure: 'Measure', imgscale: 'Set image scale', lotedit: 'Edit property line' };
 const TIPS = {
   select: 'Click to select, Shift-click to add. Drag empty space to box-select. Alt-drag copies.',
   hand: 'Drag to move around the plan. Hold Space for the hand from any tool.',
@@ -1973,7 +2206,7 @@ const RAIL = [
   ['select', 'hand', 'label', 'measure'],
   ['dtree', 'etree', 'bshrub', 'dshrub'],
   ['perennial', 'annual', 'groundcover', 'bedShape'],
-  ['building', 'lawn', 'lawnShape', 'patio', 'paveShape', 'deck', 'path', 'fence', 'veg', 'wood', 'birdbath'],
+  ['building', 'lawn', 'lawnShape', 'patio', 'paveShape', 'deck', 'path', 'fence'],
   ['bubble', 'arrow'],
 ];
 
@@ -1983,15 +2216,26 @@ const uid = () => 'i' + Date.now().toString(36) + (idSeq++).toString(36) + Math.
 const scottWants = () => WANTS.map((t) => ({ t, d: false }));
 function blankState() { return { version: 3, pid: uid(), meta: { name: '', section: '', date: '' }, wants: scottWants(), items: [] }; }
 const isScott = () => !state.site;
-const lot = () => (isScott() ? LOT : { w: state.site.w, h: state.site.h });
+function lotPoly() {
+  if (isScott()) return [[0, 0], [82, 0], [82, 111], [0, 111]];
+  const st = state.site;
+  return Array.isArray(st.lotPts) && st.lotPts.length >= 3 ? st.lotPts : [[0, 0], [st.w, 0], [st.w, st.h], [0, st.h]];
+}
+/* lot bounds; w/h are the far edges (the lot usually starts at 0,0) */
+function lot() {
+  const P = lotPoly(), xs = P.map((q) => q[0]), ys = P.map((q) => q[1]);
+  const x1 = Math.min(...xs), y1 = Math.min(...ys), x2 = Math.max(...xs), y2 = Math.max(...ys);
+  return { x1, y1, x2, y2, w: x2, h: y2, poly: P };
+}
+const SCALES = [8, 10, 20, 30, 40, 50, 60, 100];
 const projName = () => (isScott() ? 'Scott Residence' : (state.site.name || 'My yard'));
 const clientName = () => (isScott() ? 'The Scott family' : (state.site.client || ''));
 function fitRect() {
   if (isScott()) return FIT;
-  const st = state.site, m = 6, sw = 16;
-  let x = -m, y = -m, x2 = st.w + m, y2 = st.h + m;
-  if (st.street === 'bottom') y2 = st.h + sw; if (st.street === 'top') y = -sw;
-  if (st.street === 'left') x = -sw; if (st.street === 'right') x2 = st.w + sw;
+  const st = state.site, m = 6, sw = 16, L = lot();
+  let x = L.x1 - m, y = L.y1 - m, x2 = L.x2 + m, y2 = L.y2 + m;
+  if (st.street === 'bottom') y2 = L.y2 + sw; if (st.street === 'top') y = L.y1 - sw;
+  if (st.street === 'left') x = L.x1 - sw; if (st.street === 'right') x2 = L.x2 + sw;
   return { x, y, w: x2 - x, h: y2 - y };
 }
 /* what prints in the title block and sheet header. The Scott lab has defaults; an own-yard design prints only what the student typed */
@@ -2028,13 +2272,14 @@ let hist = [], hIdx = -1, commitTimer = null, pendingLabel = 'Edit';
 let checkRun = false;
 let draft = null, hover = null, measure = null, marquee = null, snapMark = null;
 let clip = [], pasteN = 0;
+const toolPreset = {};
 const bedFormPref = { perennial: 'oval', annual: 'oval', groundcover: 'round' };
 const drawSmooth = { bedShape: true, lawnShape: true, paveShape: false };
 const lastFence = { style: 'privacy', height: 6 };
 const byId = (id) => state.items.find((i) => i.id === id);
 const selItems = () => sel.map(byId).filter(Boolean);
 const single = () => (sel.length === 1 ? byId(sel[0]) || null : null);
-const drawOpts = (extra) => Object.assign({ u: 0.125, render: view.style === 'render', color: view.style !== 'bw', tags: view.tags }, extra || {});
+const drawOpts = (extra) => Object.assign({ u: 0.125, render: view.style === 'render', color: view.style !== 'bw', tags: view.tags, seeTrees: view.seeTrees }, extra || {});
 
 /* ------------------------------------------------------------------ history */
 const snapshot = () => JSON.stringify(state);
@@ -2079,7 +2324,7 @@ function autosave(s) {
   }
 }
 function saveView() {
-  try { localStorage.setItem(VIEW_KEY, JSON.stringify({ site: view.site, grid: view.grid, diagram: view.diagram, design: view.design, tags: view.tags, base: view.base, style: view.style, snap: view.snap, lib: view.lib, floor: view.floor, img: view.img, util: view.util })); } catch (e) { /* ignore */ }
+  try { localStorage.setItem(VIEW_KEY, JSON.stringify({ site: view.site, grid: view.grid, diagram: view.diagram, design: view.design, tags: view.tags, base: view.base, style: view.style, snap: view.snap, lib: view.lib, floor: view.floor, img: view.img, util: view.util, seeTrees: view.seeTrees, libTab })); } catch (e) { /* ignore */ }
 }
 
 /* ------------------------------------------------------------------ validation */
@@ -2106,6 +2351,10 @@ function cleanState(raw) {
     try { w = numOr(r.w, 10, 2000); h = numOr(r.h, 10, 2000); } catch (e) { throw new Error('The lot size in this file is missing or not a number.'); }
     st.site = { kind: 'custom', name: typeof r.name === 'string' ? r.name.slice(0, 60) : 'My yard', client: typeof r.client === 'string' ? r.client.slice(0, 60) : '',
       w, h, street: STREETS[r.street] ? r.street : 'bottom', north: r.north === undefined ? 0 : toNorthDeg(r.north), streetName: typeof r.streetName === 'string' ? r.streetName.slice(0, 40) : '' };
+    if (Array.isArray(r.lotPts) && r.lotPts.length >= 3 && r.lotPts.length <= 60) {
+      try { st.site.lotPts = r.lotPts.map((q) => [numOr(q[0], -2000, 4000), numOr(q[1], -2000, 4000)]); } catch (e) { /* keep the rectangle */ }
+    }
+    if (SCALES.includes(+r.scale)) st.site.scale = +r.scale;
     const im = r.img;
     if (im && typeof im === 'object' && typeof im.src === 'string' && /^data:image\/(png|jpeg|webp);base64,/.test(im.src) && im.src.length < 6e6) {
       try { st.site.img = { src: im.src, x: numOr(im.x, -2000, 4000), y: numOr(im.y, -2000, 4000), w: numOr(im.w, 1, 6000), h: numOr(im.h, 1, 6000), op: numOr(im.op, 0.05, 1, 0.6) }; } catch (e) { /* drop a broken image */ }
@@ -2156,6 +2405,7 @@ function cleanState(raw) {
     }
     if (['perennial', 'annual', 'groundcover'].includes(r.type) && ['oval', 'rect', 'round'].includes(r.form)) it.form = r.form;
     if (isBedType(r.type) && EDGES[r.edge]) it.edge = r.edge;
+    if (Number.isFinite(+r.op) && +r.op >= 0.1 && +r.op < 1) it.op = Math.round(+r.op * 100) / 100;
     if (r.locked) it.locked = true;
     if (r.hidden) it.hidden = true;
     st.items.push(it);
@@ -2196,6 +2446,7 @@ css.textContent = `
 .props-h{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:500;font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.05em}
 .props-h .chip{width:28px;height:24px}.props-h .chip svg{width:26px;height:22px}
 .mixrow{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.sw6{width:14px;height:14px;border-radius:2px;flex:none;outline:1px solid #000}
 .obj .grip{display:grid;place-items:center;width:14px;color:var(--dim)}
 .obj .grip svg{width:14px;height:14px;stroke:currentColor;stroke-width:3;stroke-linecap:round}
 .obj{touch-action:none;cursor:grab}
@@ -2379,7 +2630,7 @@ function customBase(o) {
   const st = state.site, L = lot();
   let s = '';
   const sw = 9, g = '#E6E7E2';
-  const band = { bottom: [-4, L.h + 2, L.w + 8, sw], top: [-4, -2 - sw, L.w + 8, sw], left: [-2 - sw, -4, sw, L.h + 8], right: [L.w + 2, -4, sw, L.h + 8] }[st.street];
+  const band = { bottom: [L.x1 - 4, L.y2 + 2, L.x2 - L.x1 + 8, sw], top: [L.x1 - 4, L.y1 - 2 - sw, L.x2 - L.x1 + 8, sw], left: [L.x1 - 2 - sw, L.y1 - 4, sw, L.y2 - L.y1 + 8], right: [L.x2 + 2, L.y1 - 4, sw, L.y2 - L.y1 + 8] }[st.street];
   if (band) {
     const [x, y, w, h] = band, vert = st.street === 'left' || st.street === 'right';
     s += `<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" fill="${g}"/>`;
@@ -2387,7 +2638,7 @@ function customBase(o) {
     const name = esc((st.streetName || 'STREET').toUpperCase());
     s += `<text x="${n(x + w / 2)}" y="${n(y + h / 2)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-weight="600" font-size="2.1" letter-spacing="0.3em" fill="${INK}"${vert ? ` transform="rotate(-90 ${n(x + w / 2)} ${n(y + h / 2)})"` : ''}>${name}</text>`;
   }
-  s += `<rect x="0" y="0" width="${n(L.w)}" height="${n(L.h)}" fill="none" stroke="${INK}" stroke-width="0.19" stroke-dasharray="2.7 0.5 0.4 0.5 0.4 0.5"/>`;
+  s += `<path d="${ptsD(L.poly)}Z" fill="none" stroke="${INK}" stroke-width="0.19" stroke-dasharray="2.7 0.5 0.4 0.5 0.4 0.5" stroke-linejoin="round"/>`;
   return s;
 }
 function northArrow(x, y, size) {
@@ -2404,6 +2655,22 @@ function customSite() {
   };
   const ftl = (v) => `${Math.floor(v)}'-${Math.round((v % 1) * 12)}"`;
   const sw = state.site.street;
+  if (state.site.lotPts) {
+    const P = L.poly, N = P.length, cx = P.reduce((a, q) => a + q[0], 0) / N, cy = P.reduce((a, q) => a + q[1], 0) / N;
+    let t = '';
+    for (let i = 0; i < N; i++) {
+      const a = P[i], b = P[(i + 1) % N], len = dist(a, b);
+      if (len < 2) continue;
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      let nx = -(b[1] - a[1]) / len, ny = (b[0] - a[0]) / len;
+      if ((mx - cx) * nx + (my - cy) * ny < 0) { nx = -nx; ny = -ny; }
+      let ang = Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI;
+      if (ang > 90) ang -= 180; if (ang < -90) ang += 180;
+      const tx = mx + nx * 1.6, ty = my + ny * 1.6;
+      t += `<text x="${n(tx)}" y="${n(ty)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-size="1.4" font-weight="500" fill="${INK}" paint-order="stroke" stroke="#fff" stroke-width="0.7" transform="rotate(${n(ang)} ${n(tx)} ${n(ty)})">${ftl(len)}</text>`;
+    }
+    return t + northArrow(L.x2 - 4, L.y1 + 5, 2.4);
+  }
   return dim(0, sw === 'top' ? L.h + 3.5 : -3.5, L.w, sw === 'top' ? L.h + 3.5 : -3.5, ftl(L.w)) + dim(sw === 'left' ? L.w + 3.5 : -3.5, 0, sw === 'left' ? L.w + 3.5 : -3.5, L.h, ftl(L.h), true) +
     northArrow(sw === 'right' ? 4 : L.w - 4, sw === 'top' ? L.h - 5 : 5, 2.4);
 }
@@ -2448,8 +2715,9 @@ function renderBase() {
 function gridMarkup() {
   let d = '';
   const L = lot();
-  for (let x = 0; x <= L.w; x += 10) d += `M${x},0V${L.h}`;
-  for (let y = 0; y <= L.h; y += 10) d += `M0,${y}H${L.w}`;
+  const gx0 = Math.floor(L.x1 / 10) * 10, gy0 = Math.floor(L.y1 / 10) * 10;
+  for (let x = gx0; x <= L.x2; x += 10) d += `M${x},${gy0}V${L.y2}`;
+  for (let y = gy0; y <= L.y2; y += 10) d += `M${gx0},${y}H${L.x2}`;
   return `<path d="${d}" stroke="#4F86B3" stroke-opacity="0.6" stroke-width="0.07" fill="none"/>`;
 }
 /* the items array is the stacking order, bottom first; students can restack freely */
@@ -2554,6 +2822,12 @@ function renderOverlay() {
     }
     draft.pts.forEach((p, i) => { s += `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${n((i === 0 && t.kind === 'shape' ? 6 : 4) / k)}" fill="${i === 0 ? '#fff' : SEL}" stroke="${SEL}" stroke-width="${n(1.5 / k)}" pointer-events="none"/>`; });
   }
+  if (tool === 'lotedit' && !isScott()) {
+    const P = lotPoly(), N = P.length;
+    s += `<path d="${ptsD(P)}Z" fill="rgba(44,123,192,.06)" stroke="${SEL}" stroke-width="${n(2 / k)}" stroke-dasharray="${n(6 / k)} ${n(4 / k)}"/>`;
+    for (let i = 0; i < N; i++) { const a = P[i], b = P[(i + 1) % N]; s += handle((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 'lm' + i, k, '#2C7BC0', 4); }
+    P.forEach((q, i) => { s += handle(q[0], q[1], 'lv' + i, k, '#fff', 7); });
+  }
   if (snapMark) s += `<rect x="${n(snapMark[0] - 5 / k)}" y="${n(snapMark[1] - 5 / k)}" width="${n(10 / k)}" height="${n(10 / k)}" fill="none" stroke="#E08A00" stroke-width="${n(1.6 / k)}" transform="rotate(45 ${n(snapMark[0])} ${n(snapMark[1])})" pointer-events="none"/>`;
   if (marquee) {
     const x = Math.min(marquee.a[0], marquee.b[0]), y = Math.min(marquee.a[1], marquee.b[1]);
@@ -2604,15 +2878,18 @@ function renderRail() {
     const line = !!LINE_ICO[tl];
     return `<button type="button" class="tool${line ? ' line' : ''}" data-tool="${tl}" aria-pressed="${tool === tl}" aria-label="${esc(toolName(tl))} (${KEYS[tl]})" aria-keyshortcuts="${KEYS[tl]}">${line ? toolIcon(tl) : `<span class="chip">${toolIcon(tl)}</span>`}<span class="key" aria-hidden="true">${KEYS[tl]}</span></button>`;
   }).join('')}</div>`).join('');
-  h += `<div class="grp"><button type="button" class="tool line" id="bLib" aria-pressed="${view.lib}" aria-label="Plant library">${toolIcon('library')}</button></div>`;
+  h += `<div class="grp"><button type="button" class="tool line" data-openlib="plants" aria-label="Plant library">${toolIcon('library')}</button><button type="button" class="tool line" data-openlib="build" aria-label="Build library: fences, patios, walks">${toolIcon('buildlib')}</button><button type="button" class="tool line" data-openlib="living" aria-label="Outdoor living library: furniture, pools, play, fire">${toolIcon('livinglib')}</button></div>`;
   $('rail').innerHTML = h;
   $('rail').querySelectorAll('[data-tool]').forEach((b) => {
     b.addEventListener('click', () => setTool(b.dataset.tool));
     bindTip(b, () => `<b>${esc(toolName(b.dataset.tool))}</b> &nbsp;<kbd>${KEYS[b.dataset.tool]}</kbd><small>${esc(TIPS[b.dataset.tool] || '')}</small>`);
   });
-  const bl = $('bLib');
-  bl.addEventListener('click', () => toggleLib());
-  bindTip(bl, () => '<b>Plant library</b><small>Show or hide the plant library.</small>');
+  const LIBTIP = { plants: ['Plant library', 'Trees, shrubs, perennials, grasses and your own plants.'], build: ['Build', 'Fences, patios by surface, walks, decks, sheds, vegetable garden, firewood, bird bath.'], living: ['Outdoor living', 'Furniture, umbrellas, pergola, grill, kitchen, fire pits, pools, hot tub, play set, swings, trampoline.'] };
+  $('rail').querySelectorAll('[data-openlib]').forEach((b) => {
+    b.addEventListener('click', () => { const tab = b.dataset.openlib; if (view.lib && libTab === tab) toggleLib(false); else { if (!view.lib) toggleLib(true); setLibTab(tab); } markLibButtons(); });
+    bindTip(b, () => `<b>${LIBTIP[b.dataset.openlib][0]}</b><small>${LIBTIP[b.dataset.openlib][1]}</small>`);
+  });
+  markLibButtons();
 }
 const tipEl = $('tip');
 function bindTip(b, html) {
@@ -2633,6 +2910,7 @@ function hintFor(tl) {
   if (tl === 'select') return touch ? 'Tap to select. Drag to pan, pinch to zoom.' : 'Click to select, Shift-click to add more, drag empty space to box-select. Alt-drag copies. Right-click for more.';
   if (tl === 'hand') return 'Drag to move around the plan.';
   if (tl === 'measure') return 'Drag between two points to measure the distance in feet.';
+  if (tl === 'lotedit') return 'Drag the white corners to reshape the property line. Drag a blue dot to add a corner; Alt-click a corner to remove it. Esc or Done when finished.';
   if (tl === 'imgscale') return 'Drag along something on the image whose length you know, like a lot line or a house wall. Then type its real length.';
   if (tl === 'label') return `${click} where the label should go, then type it in Properties.`;
   if (t.kind === 'line' || t.kind === 'shape') {
@@ -2694,8 +2972,9 @@ function renderLibControls() {
 }
 function renderLib() {
   $('lib').classList.toggle('collapsed', !view.lib);
-  const bl = $('bLib'); if (bl) bl.setAttribute('aria-pressed', view.lib);
+  if (typeof markLibButtons === 'function') markLibButtons();
   if (!view.lib) return;
+  if (libTab !== 'plants') { renderCatalog(); return; }
   $('libCat').value = libCat;
   $('libSun').querySelectorAll('[data-sun]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.sun === libSun));
   const q = libQ.trim().toLowerCase();
@@ -2762,9 +3041,9 @@ const ghostEl = document.createElement('div');
 ghostEl.className = 'dragghost'; ghostEl.setAttribute('aria-hidden', 'true');
 document.body.appendChild(ghostEl);
 $('libList').addEventListener('pointerdown', (e) => {
-  const b = e.target.closest('[data-sp]');
+  const b = e.target.closest('[data-sp],[data-el]');
   if (!b || (e.pointerType === 'mouse' && e.button !== 0)) return;
-  libDrag = { id: b.dataset.sp, x: e.clientX, y: e.clientY, on: false, touch: e.pointerType !== 'mouse', pid: e.pointerId };
+  libDrag = { id: b.dataset.sp || b.dataset.el, el: !!b.dataset.el, x: e.clientX, y: e.clientY, on: false, touch: e.pointerType !== 'mouse', pid: e.pointerId };
 });
 document.addEventListener('pointermove', (e) => {
   const d = libDrag;
@@ -2773,8 +3052,8 @@ document.addEventListener('pointermove', (e) => {
   if (!d.on) {
     if (d.touch ? Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) : Math.hypot(dx, dy) > 6) {
       d.on = true;
-      const sp = PLANT_BY_ID[d.id];
-      ghostEl.innerHTML = `<span class="thumb">${plantThumb(sp)}</span>${esc(sp.cn)}`;
+      if (d.el) { const en = ENTRY[d.id]; ghostEl.innerHTML = `<span class="thumb">${entryThumb(en)}</span>${esc(en.name)}`; }
+      else { const sp = PLANT_BY_ID[d.id]; ghostEl.innerHTML = `<span class="thumb">${plantThumb(sp)}</span>${esc(sp.cn)}`; }
       ghostEl.classList.add('show');
     } else if (d.touch && Math.abs(dy) > 12) libDrag = null;   // vertical swipe scrolls the list
     if (!d.on) return;
@@ -2794,15 +3073,17 @@ function endLibDrag(e, cancel) {
   libNoClick = true; setTimeout(() => { libNoClick = false; }, 50);
   if (cancel) return;
   const r = svg.getBoundingClientRect();
-  if (e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom) dropPlant(d.id, e.clientX, e.clientY);
-  else toast('Drop the plant on the plan');
+  if (e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom) { if (d.el) dropEntry(d.id, e.clientX, e.clientY); else dropPlant(d.id, e.clientX, e.clientY); }
+  else toast('Drop it on the plan');
 }
 document.addEventListener('pointerup', (e) => endLibDrag(e, false));
 document.addEventListener('pointercancel', (e) => endLibDrag(e, true));
 $('libList').addEventListener('click', (e) => {
+  if (libNoClick) return;
+  const el = e.target.closest('[data-el]');
+  if (el) { useEntry(el.dataset.el); return; }
   const b = e.target.closest('[data-sp]');
-  if (!b || libNoClick) return;
-  pickPlant(b.dataset.sp);
+  if (b) pickPlant(b.dataset.sp);
 });
 function renderLibInfo(id) { const sp = PLANT_BY_ID[id || libShown || libSp]; $('libInfo').innerHTML = sp ? speciesInfo(sp) : ''; }
 let libShown = null;
@@ -2913,6 +3194,7 @@ function renderProps() {
   if (t.kind === 'line') h += `<p class="muted" style="margin-bottom:8px">${polyLen(it.pts).toFixed(1)} ft long. Drag a white dot to move a corner, a blue dot to add one.</p>`;
   if (t.kind === 'text') { h += fld('Text', `<input type="text" data-f="text" value="${esc(it.text || '')}" maxlength="200" aria-label="Label text"${dis}>`); h += fld('Text size ft', numIn('size', it.size, 0.5, 20, 0.25, 'Text size')); }
   else h += fld(it.type === 'bubble' ? 'Label (blank shows the zone)' : 'Label', `<input type="text" data-f="label" value="${esc(it.label || '')}" placeholder="${t.tree ? 'e.g. Shade for patio' : 'Optional'}" maxlength="120" aria-label="Label"${dis}>`);
+  h += `<div class="field"><label>Opacity ${Math.round((it.op ?? 1) * 100)}%${T[it.type].tree ? ' · lower it to see what is under the canopy' : ''}</label><input type="range" data-f="op" min="10" max="100" step="5" value="${Math.round((it.op ?? 1) * 100)}" aria-label="Opacity"${dis} style="height:auto;padding:0"></div>`;
   h += `<label class="check" style="margin:2px 0 10px"><input type="checkbox" data-f="locked" ${it.locked ? 'checked' : ''}> Lock (can't be moved or changed)</label>`;
   h += `<div class="btnrow"><button type="button" class="btn" data-act="dup">Duplicate</button><button type="button" class="btn" data-act="fwd" title="Bring forward (Ctrl+])">Forward</button><button type="button" class="btn" data-act="bwd" title="Send backward (Ctrl+[)">Backward</button><button type="button" class="btn" data-act="front" title="Bring to front (Ctrl+Shift+])">To front</button><button type="button" class="btn" data-act="back" title="Send to back (Ctrl+Shift+[)">To back</button><button type="button" class="btn danger" data-act="del"${dis}>Delete</button></div>`;
   P.innerHTML = h;
@@ -2941,6 +3223,7 @@ $('props').addEventListener('input', (e) => {
     case 'size': if (ok) it.size = clamp(num, 0.5, 20); break;
     case 'text': it.text = v.slice(0, 200); break;
     case 'label': if (v) it.label = v.slice(0, 120); else delete it.label; break;
+    case 'op': { if (ok) { if (num >= 100) delete it.op; else it.op = clamp(num, 10, 100) / 100; } const lb = e.target.closest('.field').querySelector('label'); if (lb) lb.firstChild.textContent = `Opacity ${Math.round((it.op ?? 1) * 100)}%`; break; }
     default: return;
   }
   renderItems([it.id]);
@@ -3092,6 +3375,7 @@ function newItem(type, p) {
   const it = Object.assign({ id: uid(), type }, clone(t.d));
   if (spCats(type).length) { if (PLANT_BY_ID[curSp[type]]) it.sp = curSp[type]; else delete it.sp; }
   if (type === 'fence') Object.assign(it, lastFence);
+  if (toolPreset[type]) Object.assign(it, clone(toolPreset[type]));
   if (t.kind === 'shape' && drawSmooth[type] !== undefined) it.smooth = drawSmooth[type];
   if (t.kind === 'line' || t.kind === 'shape') return it;
   it.x = r1(p[0]); it.y = r1(p[1]);
@@ -3108,7 +3392,7 @@ function snapPt(p, exceptId) {
   const tol = 10 / view.k;
   let best = null, bd = tol;
   const L = lot();
-  const cand = isScott() ? SNAP_PTS.slice() : [[0, 0], [L.w, 0], [L.w, L.h], [0, L.h]];
+  const cand = isScott() ? SNAP_PTS.slice() : L.poly.slice();
   for (const it of state.items) {
     if (it.id === exceptId || it.hidden) continue;
     const k = T[it.type].kind;
@@ -3211,6 +3495,15 @@ svg.addEventListener('pointerdown', (e) => {
     marquee = { a: p, b: p };
     return;
   }
+  if (tool === 'lotedit' && !isScott()) {
+    const hEl = e.target.closest('[data-h]'), h = hEl && hEl.getAttribute('data-h');
+    if (!state.site.lotPts) state.site.lotPts = lotPoly().map((q) => q.slice());
+    const P = state.site.lotPts;
+    if (h && h.startsWith('lv') && e.altKey) { if (P.length > 3) { P.splice(+h.slice(2), 1); baseKey = ''; renderBase(); renderOverlay(); commit('Remove property corner'); } else toast('A lot needs at least 3 corners'); return; }
+    if (h && h.startsWith('lm')) { const i = +h.slice(2); P.splice(i + 1, 0, [r1(p[0]), r1(p[1])]); drag = { mode: 'lot', i: i + 1, moved: true }; renderOverlay(); return; }
+    if (h && h.startsWith('lv')) { drag = { mode: 'lot', i: +h.slice(2), moved: false }; return; }
+    drag = startPan(); svg.classList.add('panning'); return;
+  }
   if (tool === 'measure' || tool === 'imgscale') { const q = tool === 'measure' ? snapPt(p) : p; measure = { a: q, b: q }; drag = { mode: 'measure' }; renderOverlay(); return; }
   drag = Object.assign(startPan(), { mode: 'tap', p });
 });
@@ -3283,6 +3576,12 @@ svg.addEventListener('pointermove', (e) => {
       break;
     }
     case 'measure': measure.b = tool === 'measure' ? snapPt(p) : p; renderOverlay(); break;
+    case 'lot': {
+      const q = view.snap && !e.ctrlKey ? [Math.round(p[0] * 2) / 2, Math.round(p[1] * 2) / 2] : [r1(p[0]), r1(p[1])];
+      state.site.lotPts[drag.i] = q; drag.moved = true;
+      baseKey = ''; renderBase(); renderOverlay(); trackCursor(q); renderOptCtx();
+      break;
+    }
   }
 });
 function endPointer(e, cancelled) {
@@ -3295,6 +3594,7 @@ function endPointer(e, cancelled) {
   if (!d) return;
   if ((d.mode === 'move' || d.mode === 'handle') && (d.moved || d.copied)) { snapMark = null; renderPlan(); commit(d.label); renderProps(); }
   if (d.mode === 'marquee') { marquee = null; setSel(sel); }
+  if (d.mode === 'lot' && d.moved) { syncLotSize(); commit('Edit property line'); }
   if (d.mode === 'measure' && tool === 'imgscale' && !cancelled) askScale();
   if (d.mode === 'tap' && !cancelled) {
     const t = T[tool];
@@ -3329,7 +3629,7 @@ const MI = {};
 function mi(id, l, act, opts) { MI[id] = Object.assign({ id, l, act }, opts || {}); return MI[id]; }
 const MENUS = [
   ['File', [mi('new', 'New design…', () => showNew(), { k: 'Ctrl+Alt+N' }), mi('mine', 'My designs…', () => showMine()), mi('open', 'Open design file…', () => showOpen(), { k: 'Ctrl+O' }), mi('save', 'Save design file', () => saveDesign(), { k: 'Ctrl+S' }), '-',
-    mi('site', 'Lot and project settings…', () => showSiteSettings(), { en: () => !isScott() }), mi('img', 'Import trace image…', () => pickImage(), { en: () => !isScott() }), '-',
+    mi('site', 'Lot and project settings…', () => showSiteSettings(), { en: () => !isScott() }), mi('lotedit', 'Edit property line shape', () => editLot(), { en: () => !isScott() }), mi('img', 'Import trace image…', () => pickImage(), { en: () => !isScott() }), '-',
     mi('export', 'Export to turn in…', () => $('bExport').click(), { k: 'Ctrl+E' }), mi('clear', 'Start over (clear this plan)…', () => $('bClear').click())]],
   ['Edit', [mi('undo', 'Undo', undo, { k: 'Ctrl+Z', en: () => hIdx > 0 }), mi('redo', 'Redo', redo, { k: 'Ctrl+Y', en: () => hIdx < hist.length - 1 }), '-',
     mi('cut', 'Cut', () => copySel(true), { k: 'Ctrl+X', en: hasSel }), mi('copy', 'Copy', () => copySel(false), { k: 'Ctrl+C', en: hasSel }), mi('paste', 'Paste', paste, { k: 'Ctrl+V', en: () => clip.length > 0 }),
@@ -3474,7 +3774,7 @@ function runCheck() {
     }
     if (layerOf(it) !== 'design' || t.kind === 'text') continue;
     const fp = t.kind === 'line' ? it.pts : itemPoly(it);
-    if (fp.some(([x, y]) => x < -0.05 || y < -0.05 || x > L.w + 0.05 || y > L.h + 0.05)) issues.push({ id: it.id, msg: `${nameOf(it)} goes outside the property line.` });
+    if (fp.some((q) => polyDist(q, L.poly) > 0.05)) issues.push({ id: it.id, msg: `${nameOf(it)} goes outside the property line.` });
     if (t.kind !== 'line' && it.type !== 'building') {
       const [cx, cy] = itemCenter(it);
       if (scott && cx > DRIVE.x1 && cx < DRIVE.x2 && cy > DRIVE.y1 && cy < DRIVE.y2) issues.push({ id: it.id, msg: `${nameOf(it)} sits on the driveway.` });
@@ -3535,6 +3835,10 @@ function takeoff() {
     if (it.type === 'veg') addM('veg', 'Raised vegetable beds', 'veg', a, 'sq ft');
     if (it.type === 'wood') addM('wood', 'Firewood stockpile', 'wood', 1, 'ea');
     if (it.type === 'birdbath') addM('bird', 'Bird bath / feeder', 'birdbath', 1, 'ea');
+    if (it.type === 'pool' || it.type === 'pool_kidney' || it.type === 'poolShape') {
+      const wa = it.type === 'poolShape' ? a : it.type === 'pool' ? (it.w - 2.4) * (it.h - 2.4) : (it.w - 2.4) * (it.h - 2.4) * 0.8;
+      addM('pool', 'Swimming pool (water area)', it.type, wa, 'sq ft');
+    } else if (t.furn) addM('furn-' + it.type, t.name, it.type, 1, 'ea');
   }
   const order = CATS.map((c) => c[0]);
   const plantRows = Object.values(plants).sort((a, b) => order.indexOf(a.sp.t) - order.indexOf(b.sp.t) || a.sp.cn.localeCompare(b.sp.cn));
@@ -3658,7 +3962,7 @@ function renderSide(light) {
 }
 
 /* ------------------------------------------------------------------ layers, style, meta, client list */
-const TOGGLES = { tSite: 'site', tUtil: 'util', tGrid: 'grid', tDiagram: 'diagram', tDesign: 'design', tTypes: 'tags', tBase: 'base', tFloor: 'floor', tImg: 'img' };
+const TOGGLES = { tSee: 'seeTrees', tSite: 'site', tUtil: 'util', tGrid: 'grid', tDiagram: 'diagram', tDesign: 'design', tTypes: 'tags', tBase: 'base', tFloor: 'floor', tImg: 'img' };
 for (const [id, key] of Object.entries(TOGGLES)) {
   $(id).addEventListener('change', (e) => {
     view[key] = e.target.checked;
@@ -3772,7 +4076,7 @@ function showKeys() {
 function showBrief() {
   if (!isScott()) {
     const st = state.site;
-    openDialog(`<h3>${esc(projName())}</h3><table><tr><td><b>Client</b></td><td>${esc(st.client || '—')}</td></tr><tr><td><b>Lot</b></td><td>${n(st.w)} × ${n(st.h)} ft (${Math.round(st.w * st.h).toLocaleString()} sq ft)</td></tr>
+    openDialog(`<h3>${esc(projName())}</h3><table><tr><td><b>Client</b></td><td>${esc(st.client || '—')}</td></tr><tr><td><b>Lot</b></td><td>${st.lotPts ? `${lotPoly().length}-sided` : `${n(st.w)} × ${n(st.h)} ft`} (${Math.round(polyArea(lotPoly())).toLocaleString()} sq ft)</td></tr>
       <tr><td><b>Street side</b></td><td>${STREETS[st.street]}</td></tr><tr><td><b>North points</b></td><td>${northWords(toNorthDeg(st.north))}</td></tr></table>
       <div class="btnrow"><button type="button" class="btn" id="bBriefEdit">Change settings…</button><button type="button" class="btn" data-close autofocus>Close</button></div>`);
     $('bBriefEdit').addEventListener('click', showSiteSettings);
@@ -3879,11 +4183,13 @@ $('bRedo').addEventListener('click', redo);
 /* where the plan goes on the 11x17 sheet: the lab plan is fixed at 1 in = 10 ft; a custom lot gets the
  * largest standard engineering scale that fits the plan area */
 function sheetFrame() {
-  if (isScott()) return { s: PX, ox: X0, oy: Y0, scale: 10 };
+  if (isScott()) return { s: PX, ox: X0, oy: Y0, scale: 10, fits: true };
   const F = fitRect(), AW = 960, AH = 1210;
-  const scale = [10, 20, 30, 40, 50, 60, 80, 100, 200, 400].find((sc) => F.w * 96 / sc <= AW && F.h * 96 / sc <= AH) || 400;
+  const fitsAt = (sc) => F.w * 96 / sc <= AW && F.h * 96 / sc <= AH;
+  const auto = [10, 20, 30, 40, 50, 60, 80, 100, 200, 400].find(fitsAt) || 400;
+  const scale = state.site.scale || auto;
   const k = 96 / scale;
-  return { s: k, ox: 48 + (AW - F.w * k) / 2 - F.x * k, oy: 84 + (AH - F.h * k) / 2 - F.y * k, scale };
+  return { s: k, ox: 48 + (AW - F.w * k) / 2 - F.x * k, oy: 84 + (AH - F.h * k) / 2 - F.y * k, scale, fits: fitsAt(scale), auto };
 }
 function sheetSVG() {
   const fr = sheetFrame(), o = drawOpts({ u: 0.125 * PX / fr.s });
@@ -4059,6 +4365,8 @@ function exportDialog(err) {
     : `<div class="northrow"><svg id="exNPrev" viewBox="-44 -46 88 88" aria-hidden="true" style="width:56px;height:56px;background:#fff;border-radius:3px">${northSymbol(0, 0, 30, 270, arrowStyle())}</svg><p class="muted" style="margin:0">North points left on the Scott lab plan: the busy street is on the west side, as in the client brief. For your own yard, use New → My own yard and set any direction.</p></div>`}
     </div><div>
       <div class="preview"><img id="exPreview" src="" alt="Preview of your 11 by 17 design plan sheet"></div>
+      ${own ? `<div class="field"><label>Scale</label><select id="exScale"><option value="">Auto: 1 in = ${sheetFrame().auto} ft (fits the sheet)</option>${SCALES.map((v) => `<option value="${v}" ${state.site.scale === v ? 'selected' : ''}>1 in = ${v} ft</option>`).join('')}</select></div>` : ''}
+      ${own && !sheetFrame().fits ? `<p class="warn">At 1 in = ${sheetFrame().scale} ft the lot is bigger than the sheet, so the edges are cut off. Pick a larger number or Auto.</p>` : ''}
       <p class="muted">Prints at 1 in = ${sheetFrame().scale} ft on 11×17 with the plant schedule and material takeoff, in the plan style and layers you have on now.</p>
       ${open ? `<p class="warn">${open} client want${open > 1 ? 's are' : ' is'} not checked off yet.</p>` : ''}
     </div></div>
@@ -4075,6 +4383,10 @@ function exportDialog(err) {
     baseKey = ''; renderBase();
     commitSoon('Edit title block'); clearTimeout(t0); t0 = setTimeout(refresh, 300);
   }));
+  if ($('exScale')) $('exScale').addEventListener('change', (e) => {
+    if (SCALES.includes(+e.target.value)) state.site.scale = +e.target.value; else delete state.site.scale;
+    commit('Change drawing scale'); exportDialog();
+  });
   $('exArrow').addEventListener('change', (e) => {
     state.title = state.title || {}; state.title.arrow = e.target.value;
     baseKey = ''; renderBase(); commit('Change north arrow style'); refresh();
@@ -4119,12 +4431,13 @@ function siteFields(st) {
   return `<div class="row2">${fld('Project name', `<input id="nfName" value="${esc(st.name)}" maxlength="60">`)}${fld('Client / owner', `<input id="nfClient" value="${esc(st.client)}" maxlength="60" placeholder="Optional">`)}</div>
     <div class="row2">${fld('Lot width (ft)', `<input id="nfW" type="number" min="10" max="2000" step="0.5" value="${n(st.w)}">`)}${fld('Lot depth (ft)', `<input id="nfH" type="number" min="10" max="2000" step="0.5" value="${n(st.h)}">`)}</div>
     <div class="field"><label>North arrow</label><div class="northrow"><span class="muted">North points</span><input id="nfNorth" type="number" min="0" max="359" step="1" value="${toNorthDeg(st.north)}" aria-label="North angle in degrees"><span class="muted">° clockwise from the top of the page</span>${northControl('nf', toNorthDeg(st.north))}</div></div>
+    ${fld('Drawing scale', `<select id="nfScale"><option value="">Auto (largest that fits 11×17)</option>${SCALES.map((v) => `<option value="${v}" ${st.scale === v ? 'selected' : ''}>1 in = ${v} ft</option>`).join('')}</select>`)}
     <div class="row2">${fld('Street side', `<select id="nfStreet">${opt(STREETS, st.street)}</select>`)}${fld('Street name', `<input id="nfStreetName" value="${esc(st.streetName || '')}" maxlength="40" placeholder="Optional">`)}</div>`;
 }
 function readSiteFields() {
   const w = parseFloat($('nfW').value), h = parseFloat($('nfH').value);
   if (!(w >= 10 && w <= 2000 && h >= 10 && h <= 2000)) throw new Error('Enter a lot width and depth between 10 and 2,000 ft.');
-  return { kind: 'custom', name: $('nfName').value.trim().slice(0, 60) || 'My yard', client: $('nfClient').value.trim().slice(0, 60), w, h, street: $('nfStreet').value, north: toNorthDeg($('nfNorth').value), streetName: $('nfStreetName').value.trim().slice(0, 40) };
+  return { kind: 'custom', name: $('nfName').value.trim().slice(0, 60) || 'My yard', client: $('nfClient').value.trim().slice(0, 60), w, h, street: $('nfStreet').value, north: toNorthDeg($('nfNorth').value), scale: SCALES.includes(+$('nfScale').value) ? +$('nfScale').value : undefined, streetName: $('nfStreetName').value.trim().slice(0, 40) };
 }
 function showNew(err) {
   openDialog(`<h3>New design</h3>${err ? `<p class="err" role="alert">${esc(err)}</p>` : ''}
@@ -4167,11 +4480,13 @@ function showNew(err) {
 }
 function showSiteSettings() {
   if (isScott()) return;
-  openDialog(`<h3>Lot and project settings</h3>${siteFields(state.site)}<div class="btnrow"><button type="button" class="btn gold" id="nfSave" autofocus>Save settings</button><button type="button" class="btn" data-close>Cancel</button></div>`);
+  openDialog(`<h3>Lot and project settings</h3>${siteFields(state.site)}<div class="btnrow" style="margin-bottom:6px"><button type="button" class="btn" id="nfShape">Edit property line shape…</button></div><div class="btnrow"><button type="button" class="btn gold" id="nfSave" autofocus>Save settings</button><button type="button" class="btn" data-close>Cancel</button></div>`);
+  $('nfShape').addEventListener('click', editLot);
   $('nfSave').addEventListener('click', () => {
     let site;
     try { site = readSiteFields(); } catch (e) { toast(e.message); return; }
     if (state.site.img) site.img = state.site.img;
+    if (state.site.lotPts) { const L = lot(), fx = site.w / (L.x2 || 1), fy = site.h / (L.y2 || 1); site.lotPts = state.site.lotPts.map((q) => [r1(q[0] * fx), r1(q[1] * fy)]); }
     state.site = site; closeDialog(); baseKey = ''; renderPlan(); fit(); commit('Change lot settings');
   });
 }
@@ -4277,6 +4592,19 @@ $('bNew').addEventListener('click', () => showNew());
 
 /* a fence along every lot line except the street side; students can reshape it afterward */
 function fenceLotPts(street, L) {
+  if (L.poly && !isScott() && state.site.lotPts) {
+    const P = L.poly, N = P.length, dir = { bottom: [0, 1], top: [0, -1], left: [-1, 0], right: [1, 0] }[street];
+    if (!dir) return P.concat([P[0]]);
+    let best = 0, bestDot = -Infinity;
+    for (let i = 0; i < N; i++) {
+      const a = P[i], b = P[(i + 1) % N], mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      const d = mx * dir[0] + my * dir[1];
+      if (d > bestDot) { bestDot = d; best = i; }
+    }
+    const out = [];
+    for (let k = 1; k <= N; k++) out.push(P[(best + k) % N]);
+    return out;
+  }
   const W = L.w, H = L.h;
   return { bottom: [[0, H], [0, 0], [W, 0], [W, H]], top: [[0, 0], [0, H], [W, H], [W, 0]], left: [[0, 0], [W, 0], [W, H], [0, H]],
     right: [[W, 0], [0, 0], [0, H], [W, H]] }[street] || [[0, 0], [W, 0], [W, H], [0, H], [0, 0]];
@@ -4406,12 +4734,32 @@ const SHAPE_ICO = {
   curved: '<path d="M4 17C4 7 20 7 20 17"/>', straight: '<path d="M4 17 9 7h6l5 10"/>', free: '<path d="M5 18 4 8l7-3 9 4-2 9z"/><circle cx="5" cy="18" r="1.4"/><circle cx="4" cy="8" r="1.4"/><circle cx="11" cy="5" r="1.4"/><circle cx="20" cy="9" r="1.4"/><circle cx="18" cy="18" r="1.4"/>',
 };
 const segBtn = (k, label, on, data) => `<button type="button" ${data}="${k}" aria-pressed="${on}" title="${label}"><svg viewBox="0 0 24 24" aria-hidden="true">${SHAPE_ICO[k]}</svg><span>${label}</span></button>`;
+const SURF_TYPES = { patio: FINISHES, paveShape: FINISHES, path: PATH_FINISHES };
+const swatch = (f) => `<svg viewBox="0 0 6 6" aria-hidden="true" class="sw6"><rect width="6" height="6" fill="${f === 'mulch' ? 'url(#ld-mulch)' : `url(#ld-${f})`}"/></svg>`;
+function surfaceChips(cur, data) {
+  return `<span class="optlabel">Surface</span><div class="seg shapeseg">${Object.entries(SURF_TYPES[data.type]).map(([k, l]) => `<button type="button" ${data.attr}="${k}" aria-pressed="${cur === k}" title="${l}">${swatch(k)}<span>${l.replace('Concrete pavers', 'Pavers')}</span></button>`).join('')}</div>`;
+}
+function fenceChips(cur, height, attr) {
+  return `<span class="optlabel">Fence</span><div class="seg shapeseg">${Object.entries(FENCE_STYLES).map(([k, l]) => `<button type="button" ${attr}="${k}" aria-pressed="${cur === k}" title="${l}"><span>${l.replace(' fence', '').replace('Metal (wrought iron)', 'Metal').replace('Wood privacy', 'Privacy').replace('White picket', 'Picket')}</span></button>`).join('')}</div>` +
+    `<select class="edgesel" data-fheight aria-label="Fence height">${[3, 4, 5, 6, 8].map((v) => `<option value="${v}" ${height === v ? 'selected' : ''}>${v} ft tall</option>`).join('')}</select>`;
+}
 function renderOptCtx() {
   const box = $('optCtx');
   if (!box) return;
   const one = single();
   let h = '';
-  if (one && !one.locked && ['perennial', 'annual', 'groundcover'].includes(one.type) && tool === 'select') {
+  if (one && !one.locked && SURF_TYPES[one.type] && tool === 'select') {
+    h = surfaceChips(one.finish || T[one.type].d.finish, { type: one.type, attr: 'data-setfinish' }) + (FREEFORM[one.type] ? `<div class="seg shapeseg">${segBtn('free', 'Freeform', false, 'data-freeform')}</div>` : '');
+  } else if (one && !one.locked && one.type === 'fence' && tool === 'select') {
+    h = fenceChips(one.style || 'privacy', one.height || 6, 'data-setfence');
+  } else if (tool === 'lotedit') {
+    h = `<div class="seg shapeseg"><button type="button" data-lotdone><span>Done</span></button><button type="button" data-lotrect><span>Back to a rectangle</span></button></div><span class="optnote">${lotPoly().length} corners · ${Math.round(polyArea(lotPoly())).toLocaleString()} sq ft</span>`;
+  } else if (SURF_TYPES[tool]) {
+    h = surfaceChips((toolPreset[tool] && toolPreset[tool].finish) || T[tool].d.finish, { type: tool, attr: 'data-preffinish' }) +
+      (drawSmooth[tool] !== undefined ? `<span class="optlabel">Edges</span><div class="seg shapeseg">${segBtn('curved', 'Curved', drawSmooth[tool], 'data-drawsmooth')}${segBtn('straight', 'Straight', !drawSmooth[tool], 'data-drawsmooth')}</div>` : '');
+  } else if (tool === 'fence') {
+    h = fenceChips(lastFence.style, lastFence.height, 'data-preffence');
+  } else if (one && !one.locked && ['perennial', 'annual', 'groundcover'].includes(one.type) && tool === 'select') {
     h = `<span class="optlabel">Bed shape</span><div class="seg shapeseg">${['oval', 'rect', 'round'].map((k) => segBtn(k, { oval: 'Oval', rect: 'Rectangle', round: 'Rounded' }[k], bedForm(one) === k, 'data-setform')).join('')}${segBtn('free', 'Freeform', false, 'data-freeform')}</div>` + edgePick(one);
   } else if (one && !one.locked && FREEFORM[one.type] && tool === 'select') {
     h = `<span class="optlabel">Shape</span><div class="seg shapeseg">${segBtn('free', 'Make freeform', false, 'data-freeform')}</div>`;
@@ -4430,6 +4778,11 @@ function edgePick(it) {
 }
 $('optCtx').addEventListener('change', (e) => {
   const one = single();
+  if (e.target.dataset.fheight !== undefined) {
+    const v = +e.target.value;
+    if (one && one.type === 'fence' && tool === 'select') { one.height = v; renderItems([one.id]); renderProps(); commit('Change fence height'); } else lastFence.height = v;
+    return;
+  }
   if (e.target.dataset.setedge === undefined || !one || one.locked) return;
   if (EDGES[e.target.value]) one.edge = e.target.value; else delete one.edge;
   renderItems([one.id]); renderProps(); commit(one.edge ? 'Raise bed' : 'Remove bed edge');
@@ -4441,7 +4794,13 @@ $('optCtx').addEventListener('click', (e) => {
   if (b.dataset.prefform) { bedFormPref[tool] = b.dataset.prefform; renderOptCtx(); renderOverlay(); toast(`New beds will be ${{ oval: 'ovals', rect: 'rectangles', round: 'rounded rectangles' }[b.dataset.prefform]}. Click the plan to place one.`); return; }
   if (b.dataset.drawbed !== undefined) { const sp = curSp[tool]; curSp.bedShape = sp; setTool('bedShape'); toast('Click around the plan to draw the bed. Double-click or click the first dot to finish.'); return; }
   if (b.dataset.drawsmooth) { drawSmooth[tool] = b.dataset.drawsmooth === 'curved'; renderOptCtx(); renderOverlay(); return; }
+  if (b.dataset.lotdone !== undefined) { setTool('select'); fit(); return; }
+  if (b.dataset.lotrect !== undefined) { const L = lot(); delete state.site.lotPts; state.site.w = r1(L.x2); state.site.h = r1(L.y2); baseKey = ''; renderBase(); renderOverlay(); renderOptCtx(); commit('Property line back to a rectangle'); return; }
+  if (b.dataset.preffinish) { toolPreset[tool] = Object.assign(toolPreset[tool] || {}, { finish: b.dataset.preffinish }); renderOptCtx(); renderOverlay(); return; }
+  if (b.dataset.preffence) { lastFence.style = b.dataset.preffence; lastFence.height = FENCE_HEIGHT[lastFence.style]; renderOptCtx(); return; }
   if (!one || one.locked) return;
+  if (b.dataset.setfinish) { one.finish = b.dataset.setfinish; renderItems([one.id]); renderProps(); commit('Change surface'); return; }
+  if (b.dataset.setfence) { one.style = b.dataset.setfence; one.height = FENCE_HEIGHT[one.style]; Object.assign(lastFence, { style: one.style, height: one.height }); renderItems([one.id]); renderProps(); commit('Change fence style'); return; }
   if (b.dataset.setform) { one.form = b.dataset.setform; renderItems([one.id]); renderProps(); commit('Change bed shape'); return; }
   if (b.dataset.freeform !== undefined) { makeFreeform(); return; }
   if (b.dataset.setsmooth) { one.smooth = b.dataset.setsmooth === 'curved'; renderItems([one.id]); renderProps(); commit(one.smooth ? 'Curved edges' : 'Straight edges'); }
@@ -4478,10 +4837,93 @@ function bedPerimeter(it) {
   return 2 * (it.w + it.h);
 }
 
+
+
+/* ------------------------------------------------------------------ library: Build and Outdoor living catalogs */
+const FENCE_ENTRIES = Object.keys(FENCE_STYLES).map((k) => ({ id: 'fence-' + k, name: FENCE_STYLES[k], tool: 'fence', preset: { style: k, height: FENCE_HEIGHT[k] }, icon: 'fence', note: 'Click each corner, double-click to finish' }));
+const CATALOG = {
+  build: [
+    ['Fences', [...FENCE_ENTRIES, { id: 'fencelot', name: 'Fence the whole property line', action: () => fenceLot(), icon: 'fence', note: 'One click: every lot line but the street side' }]],
+    ['Patios, rectangle', Object.keys(FINISHES).map((k) => ({ id: 'patio-' + k, name: `${FINISHES[k]} patio`, tool: 'patio', preset: { finish: k }, icon: 'patio', iconPreset: { finish: k } }))],
+    ['Patios, any shape', Object.keys(FINISHES).map((k) => ({ id: 'pave-' + k, name: `${FINISHES[k]}, draw any shape`, tool: 'paveShape', preset: { finish: k }, icon: 'paveShape', iconPreset: { finish: k }, note: 'Click each corner, then the first dot to close' }))],
+    ['Walks and paths', Object.keys(PATH_FINISHES).map((k) => ({ id: 'path-' + k, name: `${PATH_FINISHES[k]} walk`, tool: 'path', preset: { finish: k }, icon: 'path', iconPreset: { finish: k }, note: 'Click each corner, double-click to finish' }))],
+    ['Decks and buildings', [{ id: 'deck', name: 'Wood deck', tool: 'deck', icon: 'deck' }, { id: 'building', name: 'House, garage or shed (draw)', tool: 'building', icon: 'building', note: 'Click each corner' }]],
+    ['Garden', [{ id: 'veg', name: 'Raised vegetable garden', tool: 'veg', icon: 'veg' }, { id: 'wood', name: 'Firewood stockpile', tool: 'wood', icon: 'wood' }, { id: 'birdbath', name: 'Bird bath / feeder', tool: 'birdbath', icon: 'birdbath' }]],
+  ],
+  living: ['Furniture', 'Shade', 'Cooking & fire', 'Pools & spas', 'Play'].map((g) => [g, Object.entries(FURN_T).filter(([, v]) => v.group === g).map(([k, v]) => ({ id: k, name: v.name, tool: k, icon: k, note: `${v.d.w} × ${v.d.h} ft` }))
+    .concat(g === 'Pools & spas' ? [{ id: 'poolShape', name: 'Pool, draw any shape', tool: 'poolShape', icon: 'poolShape', note: 'Click around the edge, then the first dot to close' }] : [])]),
+};
+const ENTRY = {};
+for (const groups of Object.values(CATALOG)) for (const [, list] of groups) for (const e of list) ENTRY[e.id] = e;
+let libTab = 'plants';
+function entryThumb(e) {
+  const spec = ICON[e.icon] || {};
+  if (e.iconPreset) { const saved = Object.assign({}, spec); Object.assign(ICON[e.icon], e.iconPreset); const out = iconSVG(e.icon, 'render'); ICON[e.icon] = saved; return out; }
+  if (e.icon === 'fence' && e.preset) { const it = Object.assign({ id: 'icon-' + e.id, type: 'fence' }, clone(ICON.fence), e.preset); delete it.vb; return `<svg viewBox="${ICON.fence.vb.join(' ')}" aria-hidden="true">${drawItem(it, { u: 0.28, render: true, color: true, icon: true })}</svg>`; }
+  return iconSVG(e.icon, 'render');
+}
+function renderCatalog() {
+  const groups = CATALOG[libTab];
+  $('libList').innerHTML = `<p class="libhow">${libTab === 'build' ? 'Click an item, then click the plan. Fences, walks and any-shape patios: click each corner.' : 'Click an item, then click the plan, or drag it onto the plan. Drag its corner dot to resize; turn it with the yellow dot.'}</p>` +
+    groups.map(([g, list]) => `<div class="libcat">${esc(g)}</div>` + list.map((e) => `<button type="button" class="plant" data-el="${e.id}" aria-pressed="${tool === e.tool && (!e.preset || !toolPreset[e.tool] || JSON.stringify(e.preset) === JSON.stringify(e.tool === 'fence' ? { style: lastFence.style, height: lastFence.height } : toolPreset[e.tool]))}"><span class="thumb">${entryThumb(e)}</span><span class="pn"><b>${esc(e.name)}</b>${e.note ? `<i>${esc(e.note)}</i>` : ''}</span></button>`).join('')).join('');
+}
+function useEntry(id) {
+  const e = ENTRY[id];
+  if (!e) return;
+  if (e.action) { e.action(); return; }
+  if (e.tool === 'fence' && e.preset) Object.assign(lastFence, e.preset);
+  else if (e.preset) toolPreset[e.tool] = Object.assign({}, e.preset);
+  if (sel.length) select(null);
+  setTool(e.tool); renderCatalog();
+  const k = T[e.tool].kind;
+  toast(k === 'line' ? `Click each corner of the ${e.name.toLowerCase()}; double-click to finish` : k === 'shape' ? 'Click around the edge; click the first dot to close' : `Click the plan to place the ${e.name.toLowerCase()}`);
+}
+function dropEntry(id, cx, cy) {
+  const e = ENTRY[id];
+  if (!e) return;
+  const k = T[e.tool] && T[e.tool].kind;
+  if (e.action || k === 'line' || k === 'shape') { useEntry(id); return; }
+  if (e.preset) toolPreset[e.tool] = Object.assign({}, e.preset);
+  if (tool !== 'select') setTool('select');
+  const p = toWorld(cx, cy), it = newItem(e.tool, view.snap ? [Math.round(p[0] * 2) / 2, Math.round(p[1] * 2) / 2] : p);
+  addItem(it); sel = [it.id];
+  renderProps(); renderPlan(); commit('Place ' + e.name.toLowerCase());
+  toast(`${e.name} placed`);
+}
+function setLibTab(tab) {
+  libTab = tab;
+  document.querySelectorAll('[data-libtab]').forEach((b) => b.setAttribute('aria-selected', b.dataset.libtab === tab));
+  $('libPlantTools').hidden = tab !== 'plants';
+  $('libInfo').hidden = tab !== 'plants';
+  if (tab === 'plants') renderLib(); else renderCatalog();
+  markLibButtons(); saveView();
+}
+document.querySelectorAll('[data-libtab]').forEach((b) => b.addEventListener('click', () => { if (!view.lib) toggleLib(true); setLibTab(b.dataset.libtab); }));
+
+
+
+/* keep the lot size in step with a reshaped property line */
+function syncLotSize() {
+  if (isScott() || !state.site.lotPts) return;
+  const L = lot();
+  state.site.w = r1(L.x2); state.site.h = r1(L.y2);
+}
+function editLot() {
+  if (isScott()) { toast('The Scott lab lot is fixed. Use New → My own yard to shape your own.'); return; }
+  closeDialog(); select(null);
+  if (!view.site) { view.site = true; $('tSite').checked = true; baseKey = ''; renderPlan(); saveView(); }
+  setTool('lotedit'); fit();
+}
+
+
+
+function markLibButtons() { document.querySelectorAll('[data-openlib]').forEach((b) => b.setAttribute('aria-pressed', view.lib && b.dataset.openlib === libTab)); }
+
 (function boot() {
   try {
     const v = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null');
-    if (v) for (const k of ['site', 'grid', 'diagram', 'design', 'tags', 'base', 'snap', 'lib', 'floor', 'img', 'util']) if (typeof v[k] === 'boolean') view[k] = v[k];
+    if (v && ['plants', 'build', 'living'].includes(v.libTab)) libTab = v.libTab;
+    if (v) for (const k of ['site', 'grid', 'diagram', 'design', 'tags', 'base', 'snap', 'lib', 'floor', 'img', 'util', 'seeTrees']) if (typeof v[k] === 'boolean') view[k] = v[k];
     if (v && ['render', 'color', 'bw'].includes(v.style)) view.style = v.style;
   } catch (e) { /* ignore */ }
   if (innerWidth <= 1000) view.lib = false;
@@ -4495,6 +4937,7 @@ function bedPerimeter(it) {
   } catch (e) { state = blankState(); }
   if (!state.meta.date) { const d = new Date(); state.meta.date = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`; }
   renderMenubar(); renderRail(); renderLibControls(); renderLib();
+  if (libTab !== 'plants') setLibTab(libTab);
   syncMeta();
   setTool('select');
   registerCustom(state.customPlants); renderLib();
