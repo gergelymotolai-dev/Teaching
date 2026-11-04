@@ -17,10 +17,11 @@ Right now students do this on paper. This tool lets them do it online too: place
 | `src/vendor/` | Bundled jsPDF 2.5.1 (MIT) and Oswald / Source Sans 3 variable fonts (SIL OFL), with their licenses. The fonts are also embedded in the exported sheet, so PNG/PDF use the real typefaces. |
 | `scripts/e2e_test.js` | Playwright check at 1440×900 and 390×844 (`node scripts/e2e_test.js`). |
 | `scripts/e2e_custom.js` | Playwright check of the own-yard flow (`node scripts/e2e_custom.js`). |
+| `scripts/e2e_client.js` | Playwright check of the editable client checklist (`node scripts/e2e_client.js`). |
 
 ### Projects and the base plan
 
-- `state.site` absent = the Scott lab. `state.site = {kind:'custom', name, client, w, h, street, north, streetName, img?}` = a student's own yard; `state.wants = [{t, d}]` is its editable wish list. `lot()`, `fitRect()`, `buildingPolys()`, `wantList()` hide the difference from the rest of the app.
+- `state.site` absent = the Scott lab. `state.site = {kind:'custom', name, client, w, h, street, north, streetName, img?}` = a student's own yard. Every design keeps an editable client checklist in `state.wants = [{t, d}]` (add, double-click to edit, reorder, remove; the Scott lab starts with the brief's seven and has *Reset to the Scott family's list*). Older files with the fixed `checklist: [bool×7]` convert on open. `lot()`, `fitRect()`, `buildingPolys()`, `wantList()` hide the difference from the rest of the app.
 - Each design has a `pid`. Autosave writes `scottDesign.v1` (current) plus `ldProject.<pid>` and the `ldProjects` index; File → My designs lists them.
 - The Scott plan starts clean: only lot, roof plan, drive, sidewalk and street. Two layers are off by default: **Notes & labels** (`SITE_NOTES` dimensions/elevations, `BASE_NOTES`, `houseNotes()` door labels) and **Utility lines** (`SITE_UTIL`, overhead electric, service drop, underground). The power-line check still runs and tells students to turn the layer on.
 - Fences have a `style` (privacy, picket, split, chain, iron) and `height`; Arrange → Fence the property line and the New design dialog add one along the non-street lot lines.

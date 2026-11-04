@@ -372,7 +372,7 @@ dialog::backdrop{background:rgba(10,12,10,.55)}
   </div>
   <div class="dgroup" data-tabs>
     <div class="tabs" role="tablist"><button role="tab" data-pane="pWants" aria-selected="true">Client<span class="badge" id="wantsBadge"></span></button><button role="tab" data-pane="pCheck" aria-selected="false">Check<span class="badge" id="checkBadge"></span></button><button role="tab" data-pane="pSched" aria-selected="false">Schedule</button></div>
-    <div class="tabpane" id="pWants" role="tabpanel"><p class="muted" style="margin-bottom:6px">Check each one off when it is on your plan.</p><div id="clientList"></div></div>
+    <div class="tabpane" id="pWants" role="tabpanel"><p class="muted" style="margin-bottom:6px">Check each wish off when it is on your plan. Double-click a wish to edit it; add your own at the bottom.</p><div id="clientList"></div></div>
     <div class="tabpane" id="pCheck" role="tabpanel" hidden>
       <p class="muted" style="margin-bottom:8px">Checks plants against the house, the power lines and the property line, and checks sun needs.</p>
       <button class="btn" id="bCheck" style="width:100%;justify-content:center">Check my design</button>
@@ -1929,7 +1929,8 @@ const RAIL = [
 /* ------------------------------------------------------------------ state */
 let idSeq = 0;
 const uid = () => 'i' + Date.now().toString(36) + (idSeq++).toString(36) + Math.floor(Math.random() * 1296).toString(36);
-function blankState() { return { version: 2, pid: uid(), meta: { name: '', section: '', date: '' }, checklist: WANTS.map(() => false), items: [] }; }
+const scottWants = () => WANTS.map((t) => ({ t, d: false }));
+function blankState() { return { version: 2, pid: uid(), meta: { name: '', section: '', date: '' }, wants: scottWants(), items: [] }; }
 const isScott = () => !state.site;
 const lot = () => (isScott() ? LOT : { w: state.site.w, h: state.site.h });
 const projName = () => (isScott() ? 'Scott Residence' : (state.site.name || 'My yard'));
@@ -1942,7 +1943,7 @@ function fitRect() {
   if (st.street === 'left') x = -sw; if (st.street === 'right') x2 = st.w + sw;
   return { x, y, w: x2 - x, h: y2 - y };
 }
-function wantList() { return isScott() ? WANTS.map((t, i) => ({ t, d: !!state.checklist[i] })) : (state.wants || []); }
+function wantList() { if (!Array.isArray(state.wants)) state.wants = []; return state.wants; }
 function buildingPolys() {
   const b = isScott() ? [{ poly: HOUSE, name: 'house' }, { poly: GARAGE, name: 'garage' }] : [];
   for (const it of state.items) if (it.type === 'building' && !it.hidden) b.push({ poly: it.pts, name: it.label ? it.label.toLowerCase() : 'building', id: it.id });
@@ -2022,7 +2023,9 @@ function cleanState(raw) {
   const st = blankState();
   const m = raw.meta && typeof raw.meta === 'object' ? raw.meta : {};
   for (const k of ['name', 'section', 'date']) st.meta[k] = typeof m[k] === 'string' ? m[k].slice(0, 80) : '';
-  if (Array.isArray(raw.checklist)) st.checklist = WANTS.map((_, i) => !!raw.checklist[i]);
+  const cleanWants = (w) => w.slice(0, 40).filter((x) => x && typeof x.t === 'string' && x.t.trim()).map((x) => ({ t: x.t.slice(0, 120), d: !!x.d }));
+  /* older Scott files kept a fixed list of seven checkboxes; turn it into the editable list */
+  st.wants = Array.isArray(raw.wants) ? cleanWants(raw.wants) : WANTS.map((t, i) => ({ t, d: Array.isArray(raw.checklist) && !!raw.checklist[i] }));
   if (typeof raw.pid === 'string' && /^[\w-]{1,40}$/.test(raw.pid)) st.pid = raw.pid;
   if (raw.site && typeof raw.site === 'object') {
     const r = raw.site;
@@ -2034,7 +2037,7 @@ function cleanState(raw) {
     if (im && typeof im === 'object' && typeof im.src === 'string' && /^data:image\/(png|jpeg|webp);base64,/.test(im.src) && im.src.length < 6e6) {
       try { st.site.img = { src: im.src, x: numOr(im.x, -2000, 4000), y: numOr(im.y, -2000, 4000), w: numOr(im.w, 1, 6000), h: numOr(im.h, 1, 6000), op: numOr(im.op, 0.05, 1, 0.6) }; } catch (e) { /* drop a broken image */ }
     }
-    st.wants = Array.isArray(raw.wants) ? raw.wants.slice(0, 40).filter((x) => x && typeof x.t === 'string').map((x) => ({ t: x.t.slice(0, 120), d: !!x.d })) : [];
+    if (!Array.isArray(raw.wants)) st.wants = [];
   }
   const seen = new Set();
   raw.items.forEach((r, i) => {
@@ -2109,6 +2112,14 @@ css.textContent = `
 .dlg .keys div{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding:3px 0}
 .props-h{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:500;font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.05em}
 .props-h .chip{width:28px;height:24px}.props-h .chip svg{width:26px;height:22px}
+.want{display:flex;align-items:flex-start;gap:4px}
+.want .check{flex:1;min-width:0}
+.want .wb{display:flex;opacity:0;transition:opacity .12s}
+.want:hover .wb,.want:focus-within .wb{opacity:1}
+@media (hover:none){.want .wb{opacity:1}}
+.want .iconbtn{width:22px;height:22px}
+.want .iconbtn svg{width:13px;height:13px}
+.wedit{flex:1;min-width:0;height:28px;padding:3px 7px;border:1px solid var(--line-2);border-radius:2px;background:var(--well);color:var(--text)}
 @media (max-width:560px){.dlg .fmt{grid-template-columns:1fr}.dlg .keys{grid-template-columns:1fr}}
 `;
 document.head.appendChild(css);
@@ -3339,28 +3350,69 @@ for (const [id, k] of Object.entries(META)) {
   $(id).setAttribute('maxlength', 80);
   $(id).addEventListener('input', (e) => { state.meta[k] = e.target.value.slice(0, 80); commitSoon('Edit title block'); });
 }
+/* client checklist: an editable list on every design (the Scott lab starts with the brief's seven) */
+const IC = {
+  up: '<path d="m6 15 6-6 6 6"/>', down: '<path d="m6 9 6 6 6-6"/>', edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>', del: '<path d="M6 6l12 12M18 6 6 18"/>',
+};
+let editingWant = -1;
 function renderClient() {
-  const wl = wantList();
-  let h = wl.map((w, i) => `<div style="display:flex;align-items:flex-start;gap:4px"><label class="check" style="flex:1"><input type="checkbox" data-want="${i}" ${w.d ? 'checked' : ''}> <span>${esc(w.t)}</span></label>${isScott() ? '' : `<button type="button" class="iconbtn" data-delwant="${i}" aria-label="Remove ${esc(w.t)}"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>`}</div>`).join('');
-  if (!isScott()) {
-    if (!wl.length) h += '<p class="muted" style="margin:4px 0 8px">List what the owner wants from the yard. Check each one off when it is on the plan.</p>';
-    h += `<div style="display:flex;gap:4px;margin-top:6px"><input id="wantNew" class="lib" style="flex:1;height:28px;padding:3px 7px;border:1px solid var(--line-2);border-radius:2px;background:var(--well);color:var(--text)" placeholder="e.g. Shade for the patio" maxlength="120" aria-label="New wish"><button type="button" class="btn" id="wantAdd">Add</button></div>`;
-  }
+  const wl = wantList(), last = wl.length - 1;
+  const btn = (act, i, label, dis) => `<button type="button" class="iconbtn" data-wact="${act}" data-wi="${i}" aria-label="${label}" title="${label}"${dis ? ' disabled style="visibility:hidden"' : ''}><svg viewBox="0 0 24 24">${IC[act]}</svg></button>`;
+  let h = wl.map((w, i) => editingWant === i
+    ? `<div class="want"><input class="wedit" id="wantEdit" value="${esc(w.t)}" maxlength="120" aria-label="Edit wish"><button type="button" class="btn" data-wact="save" data-wi="${i}">Save</button></div>`
+    : `<div class="want"><label class="check"><input type="checkbox" data-want="${i}" ${w.d ? 'checked' : ''}> <span data-wedit="${i}" title="Double-click to edit">${esc(w.t)}</span></label>
+       <span class="wb">${btn('up', i, 'Move up', i === 0)}${btn('down', i, 'Move down', i === last)}${btn('edit', i, 'Edit')}${btn('del', i, 'Remove')}</span></div>`).join('');
+  if (!wl.length) h += `<p class="muted" style="margin:4px 0 8px">${isScott() ? 'The list is empty.' : 'List what the owner wants from the yard.'} Add each wish below, then check it off when it is on the plan.</p>`;
+  h += `<div class="want" style="margin-top:6px"><input class="wedit" id="wantNew" placeholder="${isScott() ? 'Add a wish, e.g. Apple trees' : 'e.g. Shade for the patio'}" maxlength="120" aria-label="New wish"><button type="button" class="btn" id="wantAdd">Add</button></div>`;
+  const changed = isScott() && (wl.length !== WANTS.length || wl.some((w, i) => w.t !== WANTS[i]));
+  if (changed) h += `<button type="button" class="btn" id="wantReset" style="margin-top:8px">Reset to the Scott family's list</button>`;
   $('clientList').innerHTML = h;
-  const add = () => { const v = $('wantNew').value.trim(); if (!v) return; state.wants.push({ t: v, d: false }); renderClient(); commit('Add client want'); const n2 = $('wantNew'); if (n2) n2.focus(); };
-  if ($('wantAdd')) { $('wantAdd').addEventListener('click', add); $('wantNew').addEventListener('keydown', (e) => { if (e.key === 'Enter') add(); }); }
+  const add = () => { const v = $('wantNew').value.trim(); if (!v) return; wl.push({ t: v.slice(0, 120), d: false }); renderClient(); commit('Add client want'); $('wantNew').focus(); };
+  $('wantAdd').addEventListener('click', add);
+  $('wantNew').addEventListener('keydown', (e) => { if (e.key === 'Enter') add(); });
+  if ($('wantReset')) $('wantReset').addEventListener('click', () => {
+    const done = new Set(wl.filter((w) => w.d).map((w) => w.t));
+    state.wants = WANTS.map((t) => ({ t, d: done.has(t) })); renderClient(); commit('Reset client list');
+  });
+  const ed = $('wantEdit');
+  if (ed) {
+    ed.focus(); ed.select();
+    ed.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveWant(); if (e.key === 'Escape') { e.stopPropagation(); editingWant = -1; renderClient(); } });
+    ed.addEventListener('blur', () => setTimeout(() => { if (editingWant !== -1) saveWant(); }, 0));
+  }
+}
+function saveWant() {
+  const ed = $('wantEdit'), i = editingWant;
+  editingWant = -1;
+  if (!ed || i < 0) { renderClient(); return; }
+  const v = ed.value.trim();
+  if (v && v !== state.wants[i].t) { state.wants[i].t = v.slice(0, 120); renderClient(); commit('Edit client want'); } else renderClient();
 }
 $('clientList').addEventListener('change', (e) => {
   const i = e.target.dataset.want;
   if (i === undefined) return;
-  if (isScott()) state.checklist[+i] = e.target.checked; else state.wants[+i].d = e.target.checked;
+  wantList()[+i].d = e.target.checked;
   commit(e.target.checked ? 'Check off client want' : 'Uncheck client want');
 });
 $('clientList').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-delwant]');
+  const b = e.target.closest('[data-wact]');
   if (!b) return;
-  state.wants.splice(+b.dataset.delwant, 1); renderClient(); commit('Remove client want');
+  e.preventDefault();
+  const i = +b.dataset.wi, wl = wantList();
+  if (b.dataset.wact === 'save') { saveWant(); return; }
+  if (b.dataset.wact === 'edit') { editingWant = i; renderClient(); return; }
+  if (b.dataset.wact === 'del') { wl.splice(i, 1); renderClient(); commit('Remove client want'); return; }
+  const j = b.dataset.wact === 'up' ? i - 1 : i + 1;
+  if (j < 0 || j >= wl.length) return;
+  [wl[i], wl[j]] = [wl[j], wl[i]]; renderClient(); commit('Reorder client wants');
+  const again = $('clientList').querySelector(`[data-wact="${b.dataset.wact}"][data-wi="${j}"]`); if (again && !again.disabled) again.focus();
 });
+$('clientList').addEventListener('dblclick', (e) => {
+  const t = e.target.closest('[data-wedit]');
+  if (!t) return;
+  e.preventDefault(); editingWant = +t.dataset.wedit; renderClient();
+});
+
 
 /* ------------------------------------------------------------------ dialog, toast */
 const dlg = $('dlg');
@@ -3486,7 +3538,7 @@ $('bClear').addEventListener('click', () => {
     <div class="btnrow"><button type="button" class="btn" data-close autofocus>Keep my design</button><button type="button" class="btn danger" id="bClearYes">Clear the plan</button></div>`);
   $('bClearYes').addEventListener('click', () => {
     closeDialog();
-    state.items = []; state.checklist = WANTS.map(() => false); if (state.wants) state.wants.forEach((w) => { w.d = false; }); sel = []; draft = null;
+    state.items = []; wantList().forEach((w) => { w.d = false; }); sel = []; draft = null;
     renderAll(); commit('Start over'); toast('Plan cleared. Undo brings it back.');
   });
 });
@@ -3725,7 +3777,7 @@ function showNew(err) {
   $('nfCreate').addEventListener('click', () => {
     let site;
     try { site = readSiteFields(); } catch (e) { toast(e.message); return; }
-    const st = blankState(); st.meta = Object.assign({}, state.meta); st.site = site; st.wants = []; st.checklist = [];
+    const st = blankState(); st.meta = Object.assign({}, state.meta); st.site = site; st.wants = [];
     if ($('nfHouse').checked) {
       const hw = +$('nfHW').value || 40, hd = +$('nfHD').value || 30, sb = +$('nfHS').value || 0, sx = +$('nfHX').value || 0;
       const box = { bottom: [sx, site.h - sb - hd, sx + hw, site.h - sb], top: [sx, sb, sx + hw, sb + hd], left: [sb, sx, sb + hd, sx + hw], right: [site.w - sb - hd, sx, site.w - sb, sx + hw], none: [sx, sb, sx + hw, sb + hd] }[site.street];
