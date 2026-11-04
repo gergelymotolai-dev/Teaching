@@ -189,6 +189,9 @@ aside.dock{border-left:1px solid #000;display:flex;flex-direction:column}
 .layer,.obj,.hist{display:flex;align-items:center;gap:9px;min-height:30px;padding:0 10px;border-bottom:1px solid #22231F;cursor:pointer;font-size:13px;width:100%;background:transparent;border-left:0;border-right:0;border-top:0;color:var(--text);text-align:left}
 .layer:hover,.obj:hover,.hist:hover{background:#31332E}
 .layer input{position:absolute;opacity:0;width:1px;height:1px}
+.layer[hidden]{display:none}
+.dlg .row2,.dlg .row3{margin-bottom:0}
+.dlg .field input,.dlg .field select{height:30px;padding:3px 7px;border:1px solid var(--line-2);border-radius:2px;background:var(--well);color:var(--text);width:100%;font-size:14px}
 .eye{width:22px;height:20px;display:grid;place-items:center;border:1px solid var(--line-2);border-radius:2px;background:var(--well);flex:none}
 .eye svg{width:14px;height:14px;stroke:var(--text);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .layer .eye svg{opacity:0}
@@ -290,6 +293,7 @@ dialog::backdrop{background:rgba(10,12,10,.55)}
     <button class="btn dark" id="bUndo" title="Undo (Ctrl+Z)" aria-label="Undo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
     <button class="btn dark" id="bRedo" title="Redo (Ctrl+Y)" aria-label="Redo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
     <span class="sep" aria-hidden="true"></span>
+    <button class="btn dark" id="bNew" title="Start a new design: the Scott lab or your own yard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M12 12v6M9 15h6"/></svg><span class="bl">New</span></button>
     <button class="btn dark" id="bOpen" title="Open a saved design file (Ctrl+O)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="bl">Open</span></button>
     <button class="btn dark" id="bSave" title="Save the design file (Ctrl+S)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v5h8V3"/><path d="M7 21v-7h10v7"/></svg><span class="bl">Save</span></button>
     <span class="sep" aria-hidden="true"></span>
@@ -358,6 +362,8 @@ dialog::backdrop{background:rgba(10,12,10,.55)}
       <label class="layer"><input type="checkbox" id="tSite" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#fff;border-style:dashed"></span><span class="lname">Site info (dims, utilities)</span></label>
       <label class="layer"><input type="checkbox" id="tGrid"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#fff linear-gradient(#6E9FC2 1px,transparent 1px) 0 0/7px 7px,linear-gradient(90deg,#6E9FC2 1px,#fff 1px) 0 0/7px 7px"></span><span class="lname">10 ft grid</span></label>
       <label class="layer"><input type="checkbox" id="tBase" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#EFEFE9"></span><span class="lname">Base plan (house, lot, street)</span></label>
+      <label class="layer" id="tFloorRow"><input type="checkbox" id="tFloor"><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:#F1F1EE;border-width:2px"></span><span class="lname">House floor plan (rooms, windows)</span></label>
+      <label class="layer" id="tImgRow" hidden><input type="checkbox" id="tImg" checked><span class="eye"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><span class="sw" style="background:linear-gradient(135deg,#9DB27A,#C9C1A8)"></span><span class="lname">Trace image</span></label>
     </div></div>
     <div class="tabpane" id="pObjects" role="tabpanel" hidden><div class="list" id="objList"></div></div>
   </div>

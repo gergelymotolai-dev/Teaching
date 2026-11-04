@@ -139,6 +139,7 @@ const T = {
   birdbath:  { name: 'Bird bath / feeder', kind: 'circle', d: { r: 1.5 }, band: 4, tint: '#BCDDEE', op: 1 },
   bubble:    { name: 'Use-area bubble', kind: 'box', d: { w: 20, h: 14, zone: 'private' }, band: 0, layer: 'diagram' },
   arrow:     { name: 'Circulation arrow', kind: 'line', d: {}, band: 1, layer: 'diagram' },
+  building:  { name: 'Building (draw)', short: 'BUILDING', kind: 'shape', d: { smooth: false }, band: 0.5, tint: '#E4E1DA', op: 1 },
   label:     { name: 'Label', kind: 'text', d: { size: 2 }, band: 7 },
 };
 for (const [k, t] of Object.entries(T)) { t.id = k; if (t.plant || k === 'lawn' || k === 'lawnShape') t.d.sp = t.d.sp || SP_DEFAULT[k]; }
@@ -218,6 +219,7 @@ function makeDefs() {
     body += specks(12, 1.5, 40, ['rgba(70,40,15,.25)'], 0.02, 0.05);
     d += pat('ld-deck', 12, 1.5, body);
   }
+  d += pat('ld-roof', 1.5, 0.75, '<rect width="1.5" height="0.75" fill="#CDC7BD"/><path d="M0,0.72H1.5M0.4,0V0.36M1.15,0.36V0.75" stroke="#B2AB9F" stroke-width="0.05"/>');
   // drafting hatches (black ink)
   d += pat('dd-dots', 1.2, 1.2, `<circle cx="0.3" cy="0.4" r="0.06" fill="${INK}"/><circle cx="0.9" cy="1" r="0.05" fill="${INK}"/>`);
   d += pat('dd-sparse', 3, 3, `<circle cx="0.6" cy="0.8" r="0.07" fill="${INK}" fill-opacity="0.6"/><circle cx="2.2" cy="2.3" r="0.07" fill="${INK}" fill-opacity="0.6"/><circle cx="2.4" cy="0.7" r="0.06" fill="${INK}" fill-opacity="0.6"/>`);
@@ -615,6 +617,7 @@ const RDRAW = {
   bedShape(it, o, rng) { return shapeRender(it, o, rng); },
   lawnShape(it, o, rng) { return shapeRender(it, o, rng); },
   paveShape(it, o, rng) { return shapeRender(it, o, rng); },
+  building(it, o, rng) { return shapeRender(it, o, rng); },
 };
 function fencePosts(pts) {
   const L = polyLen(pts), posts = [];
@@ -655,6 +658,11 @@ function bedRender(it, o, rng, form) {
 }
 function shapeRender(it, o, rng) {
   const d = shapeD(it.pts, it.smooth);
+  if (it.type === 'building') {
+    if (!o.render) return `<path d="${d}" fill="${o.color ? '#EFEEE9' : '#fff'}" stroke="${INK}" stroke-width="${n(Math.max(0.3, o.u * 2.6))}" stroke-linejoin="miter"/>`;
+    return (o.icon ? '' : `<path d="${d}" transform="translate(-1.6 0.9)" fill="#0E1408" fill-opacity="0.3" filter="url(#ld-soft)"/>`) +
+      `<path d="${d}" fill="url(#ld-roof)" stroke="#262626" stroke-width="${n(Math.max(0.28, o.u * 2.4))}" stroke-linejoin="miter"/>`;
+  }
   if (it.type === 'lawnShape') {
     const sp = spOf(it) || PLANT_BY_ID.cyda;
     if (!o.render) return `<path d="${d}" fill="${o.color ? T.lawnShape.tint : '#fff'}" stroke="${INK}" stroke-width="${n(o.u * 1.1)}"/><path d="${d}" fill="url(#dd-sparse)"/>`;
@@ -842,6 +850,7 @@ const DDRAW = {
   bedShape(it, o, rng) { return shapeRender(it, o, rng); },
   lawnShape(it, o, rng) { return shapeRender(it, o, rng); },
   paveShape(it, o, rng) { return shapeRender(it, o, rng); },
+  building(it, o, rng) { return shapeRender(it, o, rng); },
 };
 
 /* draw one item. o: {u: ink width (ft), render, color, tags, hit, icon} */
@@ -898,6 +907,7 @@ const ICON = {
   lawnShape: { pts: [[-4.8, -2], [-1.5, -3.8], [4, -3], [4.8, 2.4], [-1, 3.8], [-4.4, 2]], smooth: true, sp: 'cyda', vb: [-5.6, -4.8, 11.2, 9.6] },
   paveShape: { pts: [[-4.6, -3.6], [2.4, -3.6], [4.6, -0.6], [4.6, 3.6], [-4.6, 3.6]], smooth: false, finish: 'flagstone', vb: [-5.6, -4.8, 11.2, 9.6] },
   patio: { w: 9, h: 7, finish: 'stone', vb: [-5, -4.2, 10, 8.4] },
+  building: { pts: [[-4.6, -3.6], [1, -3.6], [1, -1], [4.6, -1], [4.6, 3.6], [-4.6, 3.6]], smooth: false, vb: [-5.6, -4.8, 11.2, 9.6] },
   deck: { w: 6, h: 5, vb: [-3.4, -2.9, 6.8, 5.8] },
   veg: { w: 6, h: 5, vb: [-3.4, -2.9, 6.8, 5.8] },
   wood: { w: 5, h: 3.6, vb: [-2.8, -2.4, 5.6, 4.8] },

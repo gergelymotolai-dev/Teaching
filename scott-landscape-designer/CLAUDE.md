@@ -16,6 +16,14 @@ Right now students do this on paper. This tool lets them do it online too: place
 | `scripts/build.py` | **Done.** Bundles plants.js + render.js + app.js into one script scope and inlines it, core.json, the fonts and jsPDF (from `src/vendor/`) into the template → `dist/landscape-designer.html`. Fails the build if any external `<link>`/`<script src>` is left. |
 | `src/vendor/` | Bundled jsPDF 2.5.1 (MIT) and Oswald / Source Sans 3 variable fonts (SIL OFL), with their licenses. The fonts are also embedded in the exported sheet, so PNG/PDF use the real typefaces. |
 | `scripts/e2e_test.js` | Playwright check at 1440×900 and 390×844 (`node scripts/e2e_test.js`). |
+| `scripts/e2e_custom.js` | Playwright check of the own-yard flow (`node scripts/e2e_custom.js`). |
+
+### Projects and the base plan
+
+- `state.site` absent = the Scott lab. `state.site = {kind:'custom', name, client, w, h, street, north, streetName, img?}` = a student's own yard; `state.wants = [{t, d}]` is its editable wish list. `lot()`, `fitRect()`, `buildingPolys()`, `wantList()` hide the difference from the rest of the app.
+- Each design has a `pid`. Autosave writes `scottDesign.v1` (current) plus `ldProject.<pid>` and the `ldProjects` index; File → My designs lists them.
+- The Scott house draws as a clean hip-roof plan (`cleanHouse()`), with door stoops, A/C and gas meter. The original floor plan from core.json (`BASE_FLOOR`, everything from the house polygon on) is the optional "House floor plan" layer.
+- The export picks the largest engineering scale (1 in = 10, 20, 30… ft) that fits a custom lot; the Scott sheet stays at 1 in = 10 ft.
 
 Build with `python3 scripts/build.py`. Test with Playwright: Chromium and Playwright are usually installed already.
 
