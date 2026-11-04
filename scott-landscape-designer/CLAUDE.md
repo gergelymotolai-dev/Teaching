@@ -8,10 +8,13 @@ Right now students do this on paper. This tool lets them do it online too: place
 
 | Piece | State |
 |---|---|
-| `src/template.html` | **Done.** Dark, Photoshop-style shell: app bar, options bar, icon tool rail, rulers, collapsible dock panels (Properties, Layers, Client wants, Design check, Plant schedule), status bar, dialog. ATU green/gold accents. Has `__CORE__` and `__APP__` placeholders. |
+| `src/template.html` | **Done.** Dark pro-app shell modeled on PRO Landscape: menu bar (File/Edit/View/Arrange/Help), options bar with plan style (Rendered / Color line / B&W) and Snap, icon tool rail, docked plant library, rulers, tabbed dock (Properties, History, Navigator, Layers, Objects, Client, Check, Schedule), context menu, status bar. |
+| `src/plants.js` | **Done.** 57-species plant library for central Arkansas (zone 7b): mature size, light, hardiness, spacing, render colors, schedule key codes. |
+| `src/render.js` | **Done.** Item types, shared SVG patterns/filters, rendered presentation symbols (textured canopies with sun shadows, mowing stripes, mulch beds, stone/brick/paver/deck textures) and the lab's drafting symbols. |
+| `src/app.js` | **Done.** State, undo history with named steps, multi-select/marquee, copy/paste, align/distribute, lock/hide, grid and corner snapping, freeform curved/straight shapes with point editing, design check (incl. tree crowding and mature height under wires), plant schedule and material takeoff, 11×17 export (PNG/PDF/JSON), open/save. |
 | `data/core.json` | **Done.** Base plan geometry as SVG element strings (see Geometry). |
-| `scripts/build.py` | **Done.** Injects core.json and `src/app.js` into the template and writes `dist/landscape-designer.html`. |
-| `src/app.js` | **Done.** All tools, handles, undo/redo, autosave, design check, plant schedule, 11×17 export (PNG/PDF/JSON), open/save, keyboard shortcuts (V/T/M, 1–7, P K W F G S L B U A, Space to pan), rulers and status bar. |
+| `scripts/build.py` | **Done.** Bundles plants.js + render.js + app.js into one script scope and injects it and core.json into the template → `dist/landscape-designer.html`. |
+| `scripts/e2e_test.js` | Playwright check at 1440×900 and 390×844 (`node scripts/e2e_test.js`). |
 
 Build with `python3 scripts/build.py`. Test with Playwright: Chromium and Playwright are usually installed already.
 

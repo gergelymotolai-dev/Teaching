@@ -1,0 +1,694 @@
+/* Rendering: shared helpers, item types, presentation (rendered) and drafting symbols.
+ * Everything here draws in world FEET and returns SVG markup strings. */
+
+/* ------------------------------------------------------------------ helpers */
+const INK = '#1A1A1A';
+const GREEN = '#1B5633';
+const FONT = "Oswald, 'Arial Narrow', Arial, sans-serif";
+const n = (v) => Math.round(v * 100) / 100;
+const r1 = (v) => Math.round(v * 10) / 10;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const clone = (o) => JSON.parse(JSON.stringify(o));
+function rngFor(id) {
+  let h = 2166136261;
+  for (const c of String(id)) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  let a = h >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function shade(hex, amt) {
+  const v = parseInt(hex.slice(1), 16);
+  let r = v >> 16, g = (v >> 8) & 255, b = v & 255;
+  const t = amt < 0 ? 0 : 255, p = Math.abs(amt);
+  r = Math.round((t - r) * p + r); g = Math.round((t - g) * p + g); b = Math.round((t - b) * p + b);
+  return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+function segDist(p, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1];
+  const L = dx * dx + dy * dy;
+  const t = clamp(L ? ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L : 0, 0, 1);
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+}
+function inPoly(p, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if ((yi > p[1]) !== (yj > p[1]) && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function polyDist(p, poly) {
+  if (inPoly(p, poly)) return 0;
+  let d = Infinity;
+  for (let i = 0; i < poly.length; i++) d = Math.min(d, segDist(p, poly[i], poly[(i + 1) % poly.length]));
+  return d;
+}
+function polyArea(pts) {
+  let a = 0;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) a += (pts[j][0] + pts[i][0]) * (pts[j][1] - pts[i][1]);
+  return Math.abs(a / 2);
+}
+function polyLen(pts, closed) {
+  let L = 0;
+  for (let i = 1; i < pts.length; i++) L += dist(pts[i - 1], pts[i]);
+  if (closed && pts.length > 2) L += dist(pts[pts.length - 1], pts[0]);
+  return L;
+}
+function pointAlong(pts, d) {
+  for (let i = 1; i < pts.length; i++) {
+    const s = dist(pts[i - 1], pts[i]);
+    if (d <= s || i === pts.length - 1) {
+      const t = s ? clamp(d / s, 0, 1) : 0;
+      return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * t, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * t];
+    }
+    d -= s;
+  }
+  return pts[0];
+}
+function ftIn(v) { const tot = Math.round(v * 12); return `${Math.floor(tot / 12)}'-${tot % 12}"`; }
+const ptsD = (pts) => 'M' + pts.map((p) => `${n(p[0])},${n(p[1])}`).join('L');
+/* closed outline: straight polygon or smooth Catmull-Rom curve through the points */
+function shapeD(pts, smooth) {
+  if (!smooth || pts.length < 3) return ptsD(pts) + 'Z';
+  const N = pts.length, P = (i) => pts[(i + N) % N];
+  let d = `M${n(pts[0][0])},${n(pts[0][1])}`;
+  for (let i = 0; i < N; i++) {
+    const p0 = P(i - 1), p1 = P(i), p2 = P(i + 1), p3 = P(i + 2);
+    d += `C${n(p1[0] + (p2[0] - p0[0]) / 6)},${n(p1[1] + (p2[1] - p0[1]) / 6)} ${n(p2[0] - (p3[0] - p1[0]) / 6)},${n(p2[1] - (p3[1] - p1[1]) / 6)} ${n(p2[0])},${n(p2[1])}`;
+  }
+  return d + 'Z';
+}
+/* the shape flattened to a polygon (for hit tests, areas and checks) */
+function shapePoly(pts, smooth) {
+  if (!smooth || pts.length < 3) return pts.map((p) => p.slice());
+  const N = pts.length, P = (i) => pts[(i + N) % N], out = [];
+  for (let i = 0; i < N; i++) {
+    const p0 = P(i - 1), p1 = P(i), p2 = P(i + 1), p3 = P(i + 2);
+    for (let s = 0; s < 8; s++) {
+      const t = s / 8, t2 = t * t, t3 = t2 * t;
+      out.push([0, 1].map((k) => 0.5 * ((2 * p1[k]) + (-p0[k] + p2[k]) * t + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2 + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * t3)));
+    }
+  }
+  return out;
+}
+const toLocal = (it, p) => {
+  const a = -(it.rot || 0) * Math.PI / 180, dx = p[0] - it.x, dy = p[1] - it.y;
+  return [dx * Math.cos(a) - dy * Math.sin(a), dx * Math.sin(a) + dy * Math.cos(a)];
+};
+const toWorldPt = (it, l) => {
+  const a = (it.rot || 0) * Math.PI / 180;
+  return [it.x + l[0] * Math.cos(a) - l[1] * Math.sin(a), it.y + l[0] * Math.sin(a) + l[1] * Math.cos(a)];
+};
+
+/* ------------------------------------------------------------------ item types */
+const ZONES = {
+  public: { name: 'Public', tint: '#F1D9A6' },
+  private: { name: 'Private', tint: '#C9DEF0' },
+  service: { name: 'Service', tint: '#DCDCD6' },
+  recreation: { name: 'Recreation', tint: '#CBE6BD' },
+  garden: { name: 'Garden', tint: '#F2CBDB' },
+};
+const FINISHES = { flagstone: 'Flagstone', stone: 'Cut stone', pavers: 'Concrete pavers', brick: 'Brick', concrete: 'Concrete', gravel: 'Gravel' };
+const PATH_FINISHES = { concrete: 'Concrete', pavers: 'Concrete pavers', brick: 'Brick', flagstone: 'Flagstone', gravel: 'Gravel', mulch: 'Mulch' };
+/* kind: circle (x,y,r) | box (x,y,w,h,rot) | line (pts, open) | shape (pts, closed) | text
+ * band: drawing order inside a layer so a lawn never hides the trees on it. */
+const T = {
+  dtree:     { name: 'Deciduous tree', short: 'DECID. TREE', kind: 'circle', d: { r: 15 }, band: 5, tint: '#9CC386', op: 0.35, tree: true, plant: true, stay: true },
+  etree:     { name: 'Evergreen tree', short: 'EVERGREEN TREE', kind: 'circle', d: { r: 10 }, band: 5, tint: '#3F7F55', op: 0.4, tree: true, plant: true, stay: true },
+  bshrub:    { name: 'Broadleaf evergreen shrub', short: 'BROADLEAF EVG. SHRUB', kind: 'circle', d: { r: 3 }, band: 4, tint: '#5E9C6B', op: 0.5, plant: true, stay: true },
+  dshrub:    { name: 'Deciduous shrub', short: 'DECID. SHRUB', kind: 'circle', d: { r: 3 }, band: 4, tint: '#B5D394', op: 0.6, plant: true, stay: true },
+  perennial: { name: 'Herbaceous perennial bed', short: 'PERENNIALS', kind: 'box', d: { w: 10, h: 6 }, band: 2, tint: '#EDB9CF', op: 0.7, plant: true, bed: true },
+  annual:    { name: 'Annual bed', short: 'ANNUALS', kind: 'box', d: { w: 8, h: 4 }, band: 2, tint: '#F6D57E', op: 0.75, plant: true, bed: true },
+  groundcover: { name: 'Ground cover', short: 'GROUND COVER', kind: 'box', d: { w: 10, h: 6 }, band: 2, tint: '#A8CFA0', op: 0.7, plant: true, bed: true },
+  bedShape:  { name: 'Planting bed (draw)', short: 'PLANTING BED', kind: 'shape', d: { smooth: true }, band: 1, tint: '#C9A27E', op: 0.6 },
+  lawnShape: { name: 'Lawn (draw)', short: 'LAWN', kind: 'shape', d: { smooth: true, sp: 'cyda' }, band: 0, tint: '#E1F0D5', op: 1 },
+  paveShape: { name: 'Paving (draw)', short: 'PAVING', kind: 'shape', d: { smooth: false, finish: 'flagstone' }, band: 1, tint: '#DCD6CA', op: 1 },
+  patio:     { name: 'Patio', kind: 'box', d: { w: 16, h: 14, finish: 'stone' }, band: 1, tint: '#DCD6CA', op: 1 },
+  deck:      { name: 'Deck', kind: 'box', d: { w: 12, h: 12 }, band: 2, tint: '#DDBF93', op: 1 },
+  path:      { name: 'Walk / path', kind: 'line', d: { width: 4, finish: 'concrete' }, band: 3, tint: '#E6DECE', op: 1 },
+  fence:     { name: 'Fence / screen', kind: 'line', d: {}, band: 6 },
+  veg:       { name: 'Vegetable garden', kind: 'box', d: { w: 12, h: 10 }, band: 2, tint: '#D3E5B5', op: 1 },
+  wood:      { name: 'Wood stockpile', kind: 'box', d: { w: 8, h: 4 }, band: 2, tint: '#CDAA7D', op: 1 },
+  lawn:      { name: 'Lawn / recreation area', kind: 'box', d: { w: 30, h: 20, sp: 'cyda' }, band: 0, tint: '#E1F0D5', op: 1 },
+  birdbath:  { name: 'Bird bath / feeder', kind: 'circle', d: { r: 1.5 }, band: 4, tint: '#BCDDEE', op: 1 },
+  bubble:    { name: 'Use-area bubble', kind: 'box', d: { w: 20, h: 14, zone: 'private' }, band: 0, layer: 'diagram' },
+  arrow:     { name: 'Circulation arrow', kind: 'line', d: {}, band: 1, layer: 'diagram' },
+  label:     { name: 'Label', kind: 'text', d: { size: 2 }, band: 7 },
+};
+for (const [k, t] of Object.entries(T)) { t.id = k; if (t.plant || k === 'lawn' || k === 'lawnShape') t.d.sp = t.d.sp || SP_DEFAULT[k]; }
+/* species categories a type can take */
+function spCats(type) {
+  if (type === 'lawn' || type === 'lawnShape') return ['turf'];
+  if (type === 'bedShape') return ['perennial', 'annual', 'groundcover'];
+  return T[type] && T[type].plant ? [type] : [];
+}
+function spOf(it) { return PLANT_BY_ID[it.sp] || null; }
+const layerOf = (it) => (T[it.type].layer === 'diagram' ? 'diagram' : 'design');
+
+/* ------------------------------------------------------------------ shared defs (patterns, filters) */
+function makeDefs() {
+  const R = rngFor('defs');
+  const pat = (id, w, h, body, extra) => `<pattern id="${id}" patternUnits="userSpaceOnUse" width="${w}" height="${h}"${extra || ''}>${body}</pattern>`;
+  const specks = (w, h, count, colors, rmin, rmax) => {
+    let s = '';
+    for (let i = 0; i < count; i++) s += `<circle cx="${n(R() * w)}" cy="${n(R() * h)}" r="${n(rmin + R() * (rmax - rmin))}" fill="${colors[i % colors.length]}"/>`;
+    return s;
+  };
+  let d = '';
+  // lawns: mowing stripes per turf species
+  for (const p of PLANTS.filter((x) => x.t === 'turf')) {
+    const a = p.c, b = shade(p.c, 0.1);
+    d += pat('ld-lawn-' + p.id, 10, 10, `<rect width="5" height="10" fill="${a}"/><rect x="5" width="5" height="10" fill="${b}"/>` +
+      specks(10, 10, 140, [shade(a, -0.18), shade(a, 0.2), shade(a, -0.08)], 0.04, 0.09));
+  }
+  d += pat('ld-mulch', 3, 3, `<rect width="3" height="3" fill="#6B4A32"/>` + specks(3, 3, 70, ['#4E3322', '#87603F', '#5C3D28', '#9A7150'], 0.05, 0.12));
+  d += pat('ld-soil', 2, 2, `<rect width="2" height="2" fill="#5D4330"/>` + specks(2, 2, 30, ['#4A3424', '#715239'], 0.04, 0.09));
+  d += pat('ld-gravel', 2, 2, `<rect width="2" height="2" fill="#D8D1C2"/>` + specks(2, 2, 60, ['#B9AF9C', '#EDE7DA', '#A39985', '#CFC6B4'], 0.05, 0.13));
+  d += pat('ld-leafy', 1.2, 1.2, specks(1.2, 1.2, 26, ['rgba(0,0,0,.22)', 'rgba(255,255,255,.18)', 'rgba(0,0,0,.12)'], 0.06, 0.16));
+  d += pat('ld-concrete', 5, 5, `<rect width="5" height="5" fill="#D9D6CE"/>` + specks(5, 5, 50, ['#CBC7BD', '#E4E1DA'], 0.04, 0.1) +
+    `<path d="M0,0H5M0,0V5" stroke="#A9A498" stroke-width="0.07"/>`);
+  d += pat('ld-brick', 1.333, 0.667, `<rect width="1.333" height="0.667" fill="#8A3F2B"/>` +
+    `<rect x="0.02" y="0.02" width="0.627" height="0.293" fill="#A64B32"/><rect x="0.687" y="0.02" width="0.627" height="0.293" fill="#9B4530"/>` +
+    `<rect x="-0.313" y="0.353" width="0.627" height="0.293" fill="#B0573B"/><rect x="0.353" y="0.353" width="0.627" height="0.293" fill="#A1492F"/><rect x="1.02" y="0.353" width="0.627" height="0.293" fill="#B0573B"/>`);
+  let pv = '<rect width="2" height="2" fill="#8F877A"/>';
+  ['#C9C1B2', '#BDB4A3', '#D3CCBE', '#C3BAA8'].forEach((c, i) => { pv += `<rect x="${(i % 2) + 0.04}" y="${Math.floor(i / 2) + 0.04}" width="0.92" height="0.92" rx="0.06" fill="${c}"/>`; });
+  d += pat('ld-pavers', 2, 2, pv);
+  // flagstone: jittered grid, edges kept straight so the tile repeats
+  {
+    const S = 6, G = 3, c = S / G, pts = [];
+    for (let i = 0; i <= G; i++) { pts.push([]); for (let j = 0; j <= G; j++) { const edge = i === 0 || j === 0 || i === G || j === G; pts[i].push([j * c + (edge ? 0 : (R() - 0.5) * c * 0.6), i * c + (edge ? 0 : (R() - 0.5) * c * 0.6)]); } }
+    const tones = ['#C7B79C', '#B9A88B', '#D2C4AA', '#AE9D82', '#C2B08F', '#D9CCB4'];
+    let body = `<rect width="${S}" height="${S}" fill="#7E7466"/>`;
+    for (let i = 0; i < G; i++) for (let j = 0; j < G; j++) {
+      const q = [pts[i][j], pts[i][j + 1], pts[i + 1][j + 1], pts[i + 1][j]];
+      const cx = q.reduce((s, p) => s + p[0], 0) / 4, cy = q.reduce((s, p) => s + p[1], 0) / 4;
+      const sh = q.map((p) => [cx + (p[0] - cx) * 0.93, cy + (p[1] - cy) * 0.93]);
+      body += `<path d="${ptsD(sh)}Z" fill="${tones[(i * 3 + j * 5) % tones.length]}"/>`;
+    }
+    d += pat('ld-flagstone', S, S, body);
+  }
+  // cut stone (ashlar)
+  {
+    let body = '<rect width="8" height="6" fill="#8C8273"/>';
+    const tones = ['#CFC6B4', '#BDB29C', '#D8D0BF', '#C6BBA5', '#B4A994'];
+    let k = 0;
+    for (let y = 0; y < 6; y += 2) {
+      let x = 0;
+      const cuts = [0];
+      while (x < 8) { x += 1.5 + R() * 2; cuts.push(Math.min(8, x)); }
+      if (8 - cuts[cuts.length - 2] < 1) cuts.splice(cuts.length - 2, 1);
+      for (let i = 0; i < cuts.length - 1; i++) body += `<rect x="${n(cuts[i] + 0.05)}" y="${y + 0.05}" width="${n(cuts[i + 1] - cuts[i] - 0.1)}" height="1.9" fill="${tones[k++ % tones.length]}"/>`;
+    }
+    d += pat('ld-stone', 8, 6, body);
+  }
+  // deck boards with staggered end joints
+  {
+    let body = '<rect width="12" height="1.5" fill="#5E4129"/>';
+    const tones = ['#B98A5A', '#A97B4D', '#C29462'];
+    [[0, 5], [0, 9], [0, 3]].forEach(([, j], r) => {
+      const y = r * 0.5;
+      body += `<rect x="0" y="${y + 0.03}" width="${j - 0.03}" height="0.44" fill="${tones[r]}"/><rect x="${j + 0.03}" y="${y + 0.03}" width="${12 - j - 0.03}" height="0.44" fill="${tones[(r + 1) % 3]}"/>`;
+    });
+    body += specks(12, 1.5, 40, ['rgba(70,40,15,.25)'], 0.02, 0.05);
+    d += pat('ld-deck', 12, 1.5, body);
+  }
+  // drafting hatches (black ink)
+  d += pat('dd-dots', 1.2, 1.2, `<circle cx="0.3" cy="0.4" r="0.06" fill="${INK}"/><circle cx="0.9" cy="1" r="0.05" fill="${INK}"/>`);
+  d += pat('dd-sparse', 3, 3, `<circle cx="0.6" cy="0.8" r="0.07" fill="${INK}" fill-opacity="0.6"/><circle cx="2.2" cy="2.3" r="0.07" fill="${INK}" fill-opacity="0.6"/><circle cx="2.4" cy="0.7" r="0.06" fill="${INK}" fill-opacity="0.6"/>`);
+  d += pat('dd-grid', 4, 4, `<path d="M0,0H4M0,0V4" stroke="${INK}" stroke-width="0.07"/>`);
+  d += pat('dd-brick', 1.333, 0.667, `<path d="M0,0H1.333M0,0.333H1.333M0.667,0V0.333M0,0.333V0.667M1.333,0.333V0.667" stroke="${INK}" stroke-width="0.05"/>`);
+  d += pat('dd-flag', 6, 6, `<path d="M0,0H6M0,0V6M2.1,0L1.8,2.2L0,2.4M1.8,2.2L4.2,2.6L4,0M4.2,2.6L6,2.2M1.8,2.2L2.3,4.3L0,4.1M2.3,4.3L4.4,4L4.2,2.6M4.4,4L6,4.2M2.3,4.3L2,6M4.4,4L4.1,6" stroke="${INK}" stroke-width="0.07" fill="none"/>`);
+  d += pat('dd-stone', 8, 6, `<path d="M0,0H8M0,2H8M0,4H8M0,0V2M3,0V2M5.4,0V2M1.6,2V4M4.4,2V4M6.8,2V4M0,4V6M2.5,4V6M5.8,4V6" stroke="${INK}" stroke-width="0.07" fill="none"/>`);
+  d += pat('dd-pavers', 2, 2, `<path d="M0,0H2M0,1H2M0,0V2M1,0V2" stroke="${INK}" stroke-width="0.05"/>`);
+  d += pat('dd-gravel', 1.6, 1.6, `<circle cx="0.4" cy="0.4" r="0.12" fill="none" stroke="${INK}" stroke-width="0.04"/><circle cx="1.2" cy="1.1" r="0.08" fill="none" stroke="${INK}" stroke-width="0.04"/><circle cx="1.1" cy="0.3" r="0.04" fill="${INK}"/>`);
+  d += pat('dd-hatch', 0.5, 1, `<path d="M0.25,0V1" stroke="${INK}" stroke-width="0.05"/>`);
+  // filters and gradients
+  d += '<filter id="ld-soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="0.45"/></filter>';
+  d += '<radialGradient id="ld-dome" cx="0.62" cy="0.4" r="0.7"><stop offset="0" stop-color="#fff" stop-opacity="0.32"/><stop offset="0.45" stop-color="#fff" stop-opacity="0"/><stop offset="0.75" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.28"/></radialGradient>';
+  d += '<radialGradient id="ld-water" cx="0.45" cy="0.4" r="0.7"><stop offset="0" stop-color="#BFE3F5"/><stop offset="0.6" stop-color="#6FB3D8"/><stop offset="1" stop-color="#3C82AE"/></radialGradient>';
+  return `<defs>${d}</defs>`;
+}
+const DEFS = makeDefs();
+function finishFill(f, o) {
+  if (o.render) return `url(#ld-${f === 'mulch' ? 'mulch' : f})`;
+  if (!o.color) return '#fff';
+  return { flagstone: '#E3DACB', stone: '#DCD6CA', pavers: '#DCD6CA', brick: '#E7C2B4', concrete: '#E4E2DC', gravel: '#ECE6D8', mulch: '#D9C2A6' }[f] || '#E6DECE';
+}
+const DRAFT_HATCH = { flagstone: 'dd-flag', stone: 'dd-stone', pavers: 'dd-pavers', brick: 'dd-brick', concrete: 'dd-grid', gravel: 'dd-gravel', mulch: 'dd-dots' };
+
+/* ------------------------------------------------------------------ rendered (presentation) symbols */
+function lobed(r, k, rng, jit) {
+  const rs = [];
+  for (let i = 0; i < k; i++) rs.push(r * (1 - jit * rng()));
+  let d = '';
+  for (let i = 0; i < k; i++) {
+    const a0 = 2 * Math.PI * i / k, a1 = 2 * Math.PI * (i + 1) / k, am = (a0 + a1) / 2;
+    const r0 = rs[i], r2 = rs[(i + 1) % k], rc = Math.max(r0, r2) * (1.1 + 0.06 * rng());
+    if (!i) d += `M${n(r0 * Math.cos(a0))},${n(r0 * Math.sin(a0))}`;
+    d += `Q${n(rc * Math.cos(am))},${n(rc * Math.sin(am))} ${n(r2 * Math.cos(a1))},${n(r2 * Math.sin(a1))}`;
+  }
+  return d + 'Z';
+}
+const shadowOf = (d, r, o, op) => (o.icon ? '' : `<path d="${d}" transform="translate(${n(-0.2 * r - 0.25)} ${n(0.12 * r + 0.15)})" fill="#0E1A08" fill-opacity="${op || 0.32}" filter="url(#ld-soft)"/>`);
+function foliage(r, c, rng, count, size) {
+  let s = '';
+  for (let i = 0; i < count; i++) {
+    const a = rng() * 2 * Math.PI, dd = Math.sqrt(rng()) * r * 0.68, cr = r * (size + rng() * size * 0.8);
+    const light = Math.cos(a) * 0.5 - Math.sin(a) * 0.3 + (rng() - 0.5) > 0;
+    s += `<path d="${lobed(cr, 6, rng, 0.25)}" transform="translate(${n(dd * Math.cos(a))} ${n(dd * Math.sin(a))})" fill="${shade(c, light ? 0.16 : -0.2)}" fill-opacity="0.6"/>`;
+  }
+  return s;
+}
+function blooms(r, fl, rng, count, size, spread) {
+  if (!fl) return '';
+  let s = '';
+  for (let i = 0; i < count; i++) {
+    const a = rng() * 2 * Math.PI, dd = Math.sqrt(rng()) * r * (spread || 0.8);
+    s += `<circle cx="${n(dd * Math.cos(a))}" cy="${n(dd * Math.sin(a))}" r="${n(size * (0.7 + rng() * 0.6))}" fill="${fl}"/>`;
+  }
+  return `<g fill-opacity="0.92">${s}</g>`;
+}
+const RDRAW = {
+  dtree(it, o, rng) {
+    const sp = spOf(it) || PLANT_BY_ID.acru, c = sp.c, r = it.r;
+    const D = lobed(r, clamp(Math.round(9 + r * 0.4), 9, 18), rng, 0.12);
+    let s = shadowOf(D, r, o) + `<path d="${D}" fill="${c}" stroke="${shade(c, -0.45)}" stroke-width="${n(o.u * 0.9)}"/>`;
+    s += foliage(r, c, rng, clamp(Math.round(6 + r * 0.8), 6, 22), 0.17);
+    const a0 = rng() * 72;
+    let br = '';
+    for (let k = 0; k < 5; k++) { const a = (a0 + k * 72) * Math.PI / 180; br += `M0,0L${n(r * 0.62 * Math.cos(a))},${n(r * 0.62 * Math.sin(a))}`; }
+    s += `<path d="${br}" stroke="${shade(c, -0.55)}" stroke-opacity="0.35" stroke-width="${n(Math.max(o.u * 0.9, r * 0.02))}" fill="none"/>`;
+    s += `<path d="${D}" fill="url(#ld-dome)"/>` + blooms(r, sp.fl, rng, Math.round(8 + r * 1.6), Math.max(0.18, r * 0.035));
+    return s + `<circle r="${n(Math.max(0.22, r * 0.035))}" fill="#4A3526"/>`;
+  },
+  etree(it, o, rng) {
+    const sp = spOf(it) || PLANT_BY_ID.juvi, c = sp.c, r = it.r, k = clamp(Math.round(r * 2.4), 16, 44);
+    let D = '';
+    for (let i = 0; i < k * 2; i++) {
+      const a = Math.PI * i / k, rr = (i % 2 ? 0.8 : 1) * r * (1 - 0.06 * rng());
+      D += `${i ? 'L' : 'M'}${n(rr * Math.cos(a))},${n(rr * Math.sin(a))}`;
+    }
+    D += 'Z';
+    let s = shadowOf(D, r, o, 0.38) + `<path d="${D}" fill="${c}" stroke="${shade(c, -0.45)}" stroke-width="${n(o.u * 0.8)}" stroke-linejoin="round"/>`;
+    let nd = '';
+    for (let i = 0; i < k; i++) { const a = 2 * Math.PI * i / k + rng() * 0.1; nd += `M${n(r * 0.12 * Math.cos(a))},${n(r * 0.12 * Math.sin(a))}L${n(r * 0.86 * Math.cos(a))},${n(r * 0.86 * Math.sin(a))}`; }
+    s += `<path d="${nd}" stroke="${shade(c, 0.28)}" stroke-opacity="0.55" stroke-width="${n(Math.max(o.u * 0.7, r * 0.018))}" fill="none"/>`;
+    s += `<circle r="${n(r * 0.45)}" fill="${shade(c, -0.2)}" fill-opacity="0.35"/>`;
+    s += `<path d="${D}" fill="url(#ld-dome)"/>` + blooms(r, sp.fl, rng, Math.round(4 + r * 0.6), Math.max(0.3, r * 0.06), 0.7);
+    return s + `<circle r="${n(Math.max(0.2, r * 0.03))}" fill="#3A2A1D"/>`;
+  },
+  bshrub(it, o, rng) { return RDRAW._shrub(it, o, rng, PLANT_BY_ID.ilvn, 0.5); },
+  dshrub(it, o, rng) { return RDRAW._shrub(it, o, rng, PLANT_BY_ID.hyqu, 1); },
+  _shrub(it, o, rng, def, bloomMul) {
+    const sp = spOf(it) || def, c = sp.c, r = it.r;
+    const D = lobed(r, clamp(Math.round(7 + r), 7, 14), rng, 0.14);
+    let s = shadowOf(D, r, o, 0.3) + `<path d="${D}" fill="${c}" stroke="${shade(c, -0.5)}" stroke-width="${n(o.u * 0.9)}"/>`;
+    s += foliage(r, c, rng, clamp(Math.round(4 + r * 1.2), 4, 12), 0.22) + `<path d="${D}" fill="url(#ld-dome)"/>`;
+    return s + blooms(r, sp.fl, rng, Math.round((4 + r * 3) * bloomMul), Math.max(0.12, r * 0.07));
+  },
+  birdbath(it, o) {
+    const r = it.r;
+    return shadowOf(`M${-r},0a${r},${r} 0 1,0 ${2 * r},0a${r},${r} 0 1,0 ${-2 * r},0`, r * 2, o, 0.35) +
+      `<circle r="${n(r)}" fill="#C9C2B4" stroke="#7E776A" stroke-width="${n(o.u)}"/><circle r="${n(r * 0.74)}" fill="url(#ld-water)" stroke="#9A9385" stroke-width="${n(o.u * 0.6)}"/>` +
+      `<path d="M${n(-r * 0.3)},${n(-r * 0.1)}q${n(r * 0.15)},${n(-r * 0.12)} ${n(r * 0.3)},0q${n(r * 0.15)},${n(-r * 0.12)} ${n(r * 0.3)},0" stroke="#fff" stroke-opacity="0.7" stroke-width="${n(r * 0.05)}" fill="none"/>`;
+  },
+  perennial(it, o, rng) { return bedRender(it, o, rng, 'ellipse'); },
+  annual(it, o, rng) { return bedRender(it, o, rng, 'ellipse'); },
+  groundcover(it, o, rng) { return bedRender(it, o, rng, 'rect'); },
+  patio(it, o) {
+    const w = it.w, h = it.h, f = it.finish || 'stone';
+    const edge = f === 'pavers' || f === 'brick' ? `<rect x="${n(-w / 2 + 0.25)}" y="${n(-h / 2 + 0.25)}" width="${n(w - 0.5)}" height="${n(h - 0.5)}" fill="none" stroke="${f === 'brick' ? '#6E3021' : '#8E8676'}" stroke-width="0.5"/>` : '';
+    return `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" fill="${finishFill(f, o)}" stroke="#5F574C" stroke-width="${n(o.u * 1.1)}"/>${edge}`;
+  },
+  deck(it, o) {
+    const w = it.w, h = it.h, R = `x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}"`;
+    return (o.icon ? '' : `<rect ${R} transform="translate(-0.5 0.5)" fill="#000" fill-opacity="0.35" filter="url(#ld-soft)"/>`) +
+      `<rect ${R} fill="url(#ld-deck)" stroke="#4A321E" stroke-width="${n(o.u * 1.4)}"/><rect x="${n(-w / 2 + 0.2)}" y="${n(-h / 2 + 0.2)}" width="${n(w - 0.4)}" height="${n(h - 0.4)}" fill="none" stroke="#C99C69" stroke-opacity="0.5" stroke-width="0.15"/>`;
+  },
+  veg(it, o, rng) {
+    const w = it.w, h = it.h, x0 = -w / 2, y0 = -h / 2;
+    let s = (o.icon ? '' : `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" transform="translate(-0.3 0.3)" fill="#000" fill-opacity="0.3" filter="url(#ld-soft)"/>`) +
+      `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" fill="#8B6A45" stroke="#4E3822" stroke-width="${n(o.u)}"/>` +
+      `<rect x="${n(x0 + 0.5)}" y="${n(y0 + 0.5)}" width="${n(Math.max(0, w - 1))}" height="${n(Math.max(0, h - 1))}" fill="url(#ld-soil)"/>`;
+    const rows = Math.max(1, Math.floor((h - 1) / 1.5)), gap = (h - 1) / rows;
+    const crops = [['#5E9A3E', null], ['#7DB24F', null], ['#4E8436', '#D2402F'], ['#86A84A', '#F2C14E'], ['#3E7A3A', null]];
+    for (let k = 0; k < rows; k++) {
+      const y = y0 + 0.5 + gap * (k + 0.5), [c, fr] = crops[k % crops.length];
+      for (let x = x0 + 1.1; x < -x0 - 0.7; x += 1.1) {
+        const rr = 0.42 + rng() * 0.12;
+        s += `<path d="${lobed(rr, 6, rng, 0.25)}" transform="translate(${n(x)} ${n(y)})" fill="${shade(c, (rng() - 0.5) * 0.2)}" stroke="${shade(c, -0.45)}" stroke-width="0.04"/>`;
+        if (fr && rng() < 0.6) s += `<circle cx="${n(x + 0.15)}" cy="${n(y - 0.1)}" r="0.12" fill="${fr}"/>`;
+      }
+    }
+    return s;
+  },
+  wood(it, o) {
+    const w = it.w, h = it.h, x0 = -w / 2, y0 = -h / 2;
+    let s = o.icon ? '' : `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" transform="translate(-0.35 0.35)" fill="#000" fill-opacity="0.35" filter="url(#ld-soft)"/>`;
+    s += `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" fill="#3B2A1C"/>`;
+    let row = 0;
+    for (let y = y0 + 0.45; y <= -y0 - 0.4; y += 0.74, row++) {
+      for (let x = x0 + 0.45 + (row % 2) * 0.42; x <= -x0 - 0.4; x += 0.85) {
+        s += `<circle cx="${n(x)}" cy="${n(y)}" r="0.4" fill="#8E5E36"/><circle cx="${n(x)}" cy="${n(y)}" r="0.3" fill="#D5B07F"/><circle cx="${n(x)}" cy="${n(y)}" r="0.14" fill="none" stroke="#A97E4C" stroke-width="0.04"/>`;
+      }
+    }
+    return s;
+  },
+  lawn(it, o) {
+    const w = it.w, h = it.h, rr = Math.min(3, w / 4, h / 4), sp = spOf(it) || PLANT_BY_ID.cyda;
+    return `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" rx="${n(rr)}" fill="url(#ld-lawn-${sp.id})" stroke="${shade(sp.c, -0.35)}" stroke-width="${n(o.u * 0.9)}"/>`;
+  },
+  path(it, o) {
+    const d = ptsD(it.pts), w = it.width || 4, f = it.finish || 'concrete';
+    const fill = f === 'mulch' ? 'url(#ld-mulch)' : finishFill(f, o);
+    return `<path d="${d}" fill="none" stroke="#5F574C" stroke-width="${n(w + o.u * 2)}" stroke-linejoin="round"/>` +
+      `<path d="${d}" fill="none" stroke="${fill}" stroke-width="${n(w)}" stroke-linejoin="round"/>`;
+  },
+  fence(it, o) {
+    const d = ptsD(it.pts), posts = fencePosts(it.pts);
+    return (o.icon ? '' : `<path d="${d}" transform="translate(-0.3 0.3)" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="0.5" filter="url(#ld-soft)"/>`) +
+      `<path d="${d}" fill="none" stroke="#7A5634" stroke-width="0.42" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="#B08458" stroke-width="0.14" stroke-linejoin="round"/>` +
+      `<g fill="#4E3622">${posts.map((p) => `<rect x="${n(p[0] - 0.3)}" y="${n(p[1] - 0.3)}" width="0.6" height="0.6"/>`).join('')}</g>`;
+  },
+  bedShape(it, o, rng) { return shapeRender(it, o, rng); },
+  lawnShape(it, o, rng) { return shapeRender(it, o, rng); },
+  paveShape(it, o, rng) { return shapeRender(it, o, rng); },
+};
+function fencePosts(pts) {
+  const L = polyLen(pts), posts = [];
+  for (let k = 0; k <= Math.floor(L / 8); k++) posts.push(pointAlong(pts, k * 8));
+  return posts.concat(pts);
+}
+/* plant clumps on a jittered hex grid inside a test function */
+function clumps(sp, inside, bb, rng, o, kind) {
+  const spc = sp.spc || 1.5, c = sp.c;
+  let s = '';
+  const dy = spc * 0.87;
+  let row = 0;
+  for (let y = bb[1] + spc / 2; y < bb[3]; y += dy, row++) {
+    for (let x = bb[0] + spc / 2 + (row % 2) * spc / 2; x < bb[2]; x += spc) {
+      const px = x + (rng() - 0.5) * spc * 0.25, py = y + (rng() - 0.5) * spc * 0.25;
+      if (!inside(px, py)) continue;
+      const rr = spc * (kind === 'annual' ? 0.5 : 0.46);
+      s += `<g transform="translate(${n(px)} ${n(py)})"><path d="${lobed(rr, 6, rng, 0.2)}" fill="${shade(c, (rng() - 0.5) * 0.18)}" stroke="${shade(c, -0.5)}" stroke-width="${n(o.u * 0.5)}"/>`;
+      if (sp.fl) {
+        const cnt = kind === 'annual' ? 6 : 4;
+        for (let i = 0; i < cnt; i++) { const a = rng() * 6.283, d = rng() * rr * 0.75; s += `<circle cx="${n(d * Math.cos(a))}" cy="${n(d * Math.sin(a))}" r="${n(rr * (kind === 'annual' ? 0.24 : 0.2))}" fill="${shade(sp.fl, (rng() - 0.5) * 0.15)}"/>`; }
+      }
+      s += '</g>';
+    }
+  }
+  return s;
+}
+function bedRender(it, o, rng, form) {
+  const w = it.w, h = it.h, rx = w / 2, ry = h / 2, sp = spOf(it) || PLANT_BY_ID[SP_DEFAULT[it.type]];
+  const outline = form === 'ellipse' ? `<ellipse rx="${n(rx)}" ry="${n(ry)}"` : `<rect x="${n(-rx)}" y="${n(-ry)}" width="${n(w)}" height="${n(h)}" rx="${n(Math.min(1.2, w / 4, h / 4))}"`;
+  if (it.type === 'groundcover') {
+    let s = `${outline} fill="${sp.c}" stroke="${shade(sp.c, -0.5)}" stroke-width="${n(o.u)}"/>${outline} fill="url(#ld-leafy)"/>`;
+    if (sp.fl) for (let i = 0, cnt = Math.round(w * h / 3); i < cnt; i++) s += `<circle cx="${n((rng() - 0.5) * (w - 1))}" cy="${n((rng() - 0.5) * (h - 1))}" r="0.14" fill="${sp.fl}"/>`;
+    return s;
+  }
+  const inside = form === 'ellipse' ? (x, y) => (x / (rx - 0.45)) ** 2 + (y / (ry - 0.45)) ** 2 < 1 : () => true;
+  return `${outline} fill="url(#ld-mulch)" stroke="#2E2016" stroke-width="${n(o.u * 1.3)}"/>` + clumps(sp, inside, [-rx, -ry, rx, ry], rng, o, it.type);
+}
+function shapeRender(it, o, rng) {
+  const d = shapeD(it.pts, it.smooth);
+  if (it.type === 'lawnShape') {
+    const sp = spOf(it) || PLANT_BY_ID.cyda;
+    if (!o.render) return `<path d="${d}" fill="${o.color ? T.lawnShape.tint : '#fff'}" stroke="${INK}" stroke-width="${n(o.u * 1.1)}"/><path d="${d}" fill="url(#dd-sparse)"/>`;
+    return `<path d="${d}" fill="url(#ld-lawn-${sp.id})" stroke="${shade(sp.c, -0.35)}" stroke-width="${n(o.u * 0.9)}"/>`;
+  }
+  if (it.type === 'paveShape') {
+    const f = it.finish || 'flagstone';
+    if (!o.render) return `<path d="${d}" fill="${finishFill(f, o)}"/><path d="${d}" fill="url(#${DRAFT_HATCH[f]})" stroke="${INK}" stroke-width="${n(o.u * 1.3)}"/>`;
+    return `<path d="${d}" fill="${finishFill(f, o)}" stroke="#5F574C" stroke-width="${n(o.u * 1.2)}"/>`;
+  }
+  // planting bed
+  const sp = spOf(it), poly = shapePoly(it.pts, it.smooth);
+  const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
+  const bb = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  if (!o.render) {
+    let s = `<path d="${d}" fill="${o.color ? (sp ? T[sp.t].tint : T.bedShape.tint) : '#fff'}" fill-opacity="${o.color ? 0.55 : 1}" stroke="${INK}" stroke-width="${n(o.u * 1.2)}"/>`;
+    if (!sp) return s + `<path d="${d}" fill="url(#dd-dots)"/>`;
+    if (sp.t === 'groundcover') return s + `<path d="${d}" fill="url(#dd-hatch)"/>`;
+    let c = '';
+    const spc = sp.spc || 1.5;
+    for (let y = bb[1] + spc / 2, row = 0; y < bb[3]; y += spc * 0.87, row++) for (let x = bb[0] + spc / 2 + (row % 2) * spc / 2; x < bb[2]; x += spc) if (polyDist([x, y], poly) === 0 && segMin([x, y], poly) > spc * 0.4) c += sp.t === 'annual' ? `<circle cx="${n(x)}" cy="${n(y)}" r="${n(Math.max(0.08, o.u * 0.7))}" fill="${INK}"/>` : `<circle cx="${n(x)}" cy="${n(y)}" r="${n(spc * 0.32)}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 0.6)}"/>`;
+    return s + c;
+  }
+  if (sp && sp.t === 'groundcover') return `<path d="${d}" fill="${sp.c}" stroke="${shade(sp.c, -0.5)}" stroke-width="${n(o.u)}"/><path d="${d}" fill="url(#ld-leafy)"/>`;
+  let s = `<path d="${d}" fill="url(#ld-mulch)" stroke="#2E2016" stroke-width="${n(o.u * 1.4)}"/>`;
+  if (sp) s += clumps(sp, (x, y) => inPoly([x, y], poly) && segMin([x, y], poly) > (sp.spc || 1.5) * 0.4, bb, rng, o, sp.t);
+  return s;
+}
+function segMin(p, poly) { let d = Infinity; for (let i = 0; i < poly.length; i++) d = Math.min(d, segDist(p, poly[i], poly[(i + 1) % poly.length])); return d; }
+
+/* ------------------------------------------------------------------ drafting symbols (the lab's paper symbols) */
+function fillOf(type, o, fallback) {
+  const t = T[type];
+  if (o.color && t.tint) return `fill="${t.tint}" fill-opacity="${t.op}"`;
+  return `fill="${fallback}"`;
+}
+function scallop(r, k, u, fill) {
+  const pts = [];
+  for (let i = 0; i < k; i++) pts.push([r * Math.cos(2 * Math.PI * i / k), r * Math.sin(2 * Math.PI * i / k)]);
+  let d = `M${n(pts[0][0])},${n(pts[0][1])}`;
+  for (let i = 0; i < k; i++) {
+    const p2 = pts[(i + 1) % k], am = 2 * Math.PI * (i + 0.5) / k;
+    d += `Q${n(r * 1.22 * Math.cos(am))},${n(r * 1.22 * Math.sin(am))} ${n(p2[0])},${n(p2[1])}`;
+  }
+  return `<path d="${d}Z" ${fill} stroke="${INK}" stroke-width="${n(u * 1.1)}" stroke-linejoin="round"/>`;
+}
+const DDRAW = {
+  dtree(it, o, rng) {
+    const r = it.r, u = o.u, a0 = -80 + rng() * 72;
+    let s = `<circle r="${n(r)}" ${fillOf('dtree', o, 'transparent')} stroke="${INK}" stroke-width="${n(u * 1.15)}"/>`;
+    for (let k = 0; k < 5; k++) {
+      const a = (a0 + k * 72 + (rng() - 0.5) * 18) * Math.PI / 180;
+      s += `<line x2="${n(r * 0.92 * Math.cos(a))}" y2="${n(r * 0.92 * Math.sin(a))}" stroke="${INK}" stroke-width="${n(u * 0.7)}"/>`;
+    }
+    return s + `<circle r="${n(Math.max(u * 1.6, r * 0.04))}" fill="${INK}"/>`;
+  },
+  etree(it, o) {
+    const r = it.r, u = o.u, k = clamp(Math.round(r * 2.6), 20, 56);
+    let s = `<circle r="${n(r)}" fill="transparent"/><circle r="${n(r * 0.82)}" ${fillOf('etree', o, 'transparent')} stroke="${INK}" stroke-width="${n(u)}"/><path d="`;
+    for (let i = 0; i < k; i++) {
+      const a = 2 * Math.PI * i / k, c = Math.cos(a), sn = Math.sin(a);
+      s += `M${n(r * 0.82 * c)},${n(r * 0.82 * sn)}L${n(r * c)},${n(r * sn)}`;
+    }
+    return s + `" stroke="${INK}" stroke-width="${n(u * 0.85)}" fill="none"/><circle r="${n(Math.max(u * 1.6, r * 0.04))}" fill="${INK}"/>`;
+  },
+  bshrub(it, o) {
+    const k = clamp(Math.round(it.r * 2.6), 8, 24);
+    return scallop(it.r * 0.9, k, o.u, fillOf('bshrub', o, o.icon ? 'none' : 'transparent')) + `<circle r="${n(o.u * 1.5)}" fill="${INK}"/>`;
+  },
+  dshrub(it, o) {
+    return `<circle r="${n(it.r)}" ${fillOf('dshrub', o, o.icon ? 'none' : 'transparent')} stroke="${INK}" stroke-width="${n(o.u * 1.1)}"/>` +
+      `<circle r="${n(it.r * 0.55)}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 0.65)}"/><circle r="${n(o.u * 1.5)}" fill="${INK}"/>`;
+  },
+  birdbath(it, o) {
+    const r = it.r, u = o.u;
+    return `<circle r="${n(r)}" ${fillOf('birdbath', o, '#fff')} stroke="${INK}" stroke-width="${n(u * 1.2)}"/>` +
+      `<circle r="${n(r * 0.66)}" fill="none" stroke="${INK}" stroke-width="${n(u * 0.6)}"/>` +
+      `<circle r="${n(r * 0.33)}" fill="none" stroke="${INK}" stroke-width="${n(u * 0.6)}" stroke-dasharray="${n(u * 2)} ${n(u * 1.5)}"/>`;
+  },
+  perennial(it, o, rng) {
+    const rx = it.w / 2, ry = it.h / 2, u = o.u;
+    let s = `<ellipse rx="${n(rx)}" ry="${n(ry)}" ${fillOf('perennial', o, '#fff')} stroke="${INK}" stroke-width="${n(u * 1.15)}"/>`;
+    const step = 1.35;
+    for (let y = -ry + step * 0.6; y < ry; y += step * 0.86) {
+      for (let x = -rx + step * 0.5 + ((Math.round((y + ry) / (step * 0.86)) % 2) * step / 2); x < rx; x += step) {
+        const jx = x + (rng() - 0.5) * 0.4, jy = y + (rng() - 0.5) * 0.4;
+        if ((jx / (rx - 0.65)) ** 2 + (jy / (ry - 0.65)) ** 2 < 1) s += `<circle cx="${n(jx)}" cy="${n(jy)}" r="0.48" fill="none" stroke="${INK}" stroke-width="${n(u * 0.65)}"/>`;
+      }
+    }
+    return s;
+  },
+  annual(it, o) {
+    const rx = it.w / 2, ry = it.h / 2, u = o.u;
+    let s = `<ellipse rx="${n(rx)}" ry="${n(ry)}" ${fillOf('annual', o, '#fff')} stroke="${INK}" stroke-width="${n(u * 1.15)}"/><path d="`;
+    const st = 0.62, dr = Math.max(0.07, u * 0.75);
+    let row = 0;
+    for (let y = -ry + st; y < ry; y += st, row++) {
+      for (let x = -rx + st + (row % 2) * st / 2; x < rx; x += st) {
+        if ((x / (rx - 0.4)) ** 2 + (y / (ry - 0.4)) ** 2 < 1) s += `M${n(x - dr)},${n(y)}a${n(dr)},${n(dr)} 0 1,0 ${n(dr * 2)},0a${n(dr)},${n(dr)} 0 1,0 ${n(-dr * 2)},0`;
+      }
+    }
+    return s + `" fill="${INK}"/>`;
+  },
+  groundcover(it, o) {
+    const w = it.w, h = it.h, u = o.u, rr = Math.min(1.2, h / 4, w / 4);
+    let s = `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" rx="${n(rr)}" ${fillOf('groundcover', o, '#fff')} stroke="${INK}" stroke-width="${n(u * 1.15)}"/><path d="`;
+    for (let x = -w / 2 + 0.5; x < w / 2 - 0.3; x += 0.5) {
+      const edge = Math.min(x + w / 2, w / 2 - x);
+      const inset = edge < rr ? rr - Math.sqrt(Math.max(0, rr * rr - (rr - edge) ** 2)) + 0.35 : 0.35;
+      s += `M${n(x)},${n(-h / 2 + inset)}V${n(h / 2 - inset)}`;
+    }
+    return s + `" stroke="${INK}" stroke-width="${n(u * 0.6)}" fill="none"/>`;
+  },
+  patio(it, o) {
+    const w = it.w, h = it.h, f = it.finish || 'stone', R = `x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}"`;
+    return `<rect ${R} fill="${finishFill(f, o)}"/><rect ${R} fill="url(#${DRAFT_HATCH[f]})" stroke="${INK}" stroke-width="${n(o.u * 1.3)}"/>`;
+  },
+  deck(it, o) {
+    const w = it.w, h = it.h, x0 = -w / 2, y0 = -h / 2, u = o.u;
+    let s = `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" ${fillOf('deck', o, '#fff')}/><path d="`;
+    for (let y = y0 + 0.6; y < -y0 - 0.2; y += 0.6) s += `M${n(x0)},${n(y)}H${n(-x0)}`;
+    return s + `" stroke="${INK}" stroke-width="${n(u * 0.5)}" fill="none"/><rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" fill="none" stroke="${INK}" stroke-width="${n(u * 1.3)}"/>`;
+  },
+  veg(it, o) {
+    const w = it.w, h = it.h, u = o.u, x0 = -w / 2, y0 = -h / 2;
+    let s = `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" ${fillOf('veg', o, '#fff')} stroke="${INK}" stroke-width="${n(u * 1.2)}"/>`;
+    let lines = '', dots = '';
+    const rows = Math.max(1, Math.floor(h / 2)), gap = h / rows;
+    for (let k = 0; k < rows; k++) {
+      const y = y0 + gap * (k + 0.5);
+      lines += `M${n(x0 + 0.6)},${n(y)}H${n(-x0 - 0.6)}`;
+      for (let x = x0 + 1.1; x < -x0 - 0.7; x += 1.2) dots += `<circle cx="${n(x)}" cy="${n(y)}" r="0.36"/>`;
+    }
+    return s + `<path d="${lines}" stroke="${INK}" stroke-width="${n(u * 0.5)}" fill="none"/><g fill="${o.color ? '#8DBA62' : '#fff'}" stroke="${INK}" stroke-width="${n(u * 0.55)}">${dots}</g>`;
+  },
+  wood(it, o) {
+    const w = it.w, h = it.h, u = o.u, x0 = -w / 2, y0 = -h / 2;
+    let s = `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" ${fillOf('wood', o, '#fff')} stroke="${INK}" stroke-width="${n(u * 1.2)}"/><g fill="${o.color ? '#E9D2AE' : '#fff'}" stroke="${INK}" stroke-width="${n(u * 0.6)}">`;
+    let row = 0, dots = '';
+    for (let y = y0 + 0.5; y <= -y0 - 0.45; y += 0.74, row++) {
+      for (let x = x0 + 0.5 + (row % 2) * 0.42; x <= -x0 - 0.45; x += 0.85) { s += `<circle cx="${n(x)}" cy="${n(y)}" r="0.38"/>`; dots += `M${n(x - 0.07)},${n(y)}h0.14`; }
+    }
+    return s + `</g><path d="${dots}" stroke="${INK}" stroke-width="${n(u * 1.1)}"/>`;
+  },
+  lawn(it, o) {
+    const w = it.w, h = it.h, rr = Math.min(3, w / 4, h / 4), R = `x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" rx="${n(rr)}"`;
+    return `<rect ${R} ${fillOf('lawn', o, '#fff')} stroke="${INK}" stroke-width="${n(o.u * 1.1)}"/><rect ${R} fill="url(#dd-sparse)"/>`;
+  },
+  path(it, o) {
+    const d = ptsD(it.pts), w = it.width || 4, f = it.finish || 'concrete';
+    return `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${n(w + o.u * 2.4)}" stroke-linejoin="round"/>` +
+      `<path d="${d}" fill="none" stroke="${finishFill(f, o)}" stroke-width="${n(w)}" stroke-linejoin="round"/>` +
+      `<path d="${d}" fill="none" stroke="url(#${DRAFT_HATCH[f]})" stroke-width="${n(w)}" stroke-linejoin="round"/>`;
+  },
+  fence(it, o) {
+    const d = ptsD(it.pts), u = o.u, ps = Math.max(0.5, u * 4);
+    return `<path d="${d}" fill="none" stroke="${o.color ? '#5B4630' : INK}" stroke-width="${n(u * 1.6)}" stroke-linejoin="round"/>` +
+      `<g fill="${INK}">` + fencePosts(it.pts).map((p) => `<rect x="${n(p[0] - ps / 2)}" y="${n(p[1] - ps / 2)}" width="${n(ps)}" height="${n(ps)}"/>`).join('') + '</g>';
+  },
+  bubble(it, o) {
+    const z = ZONES[it.zone] || ZONES.private, u = o.u;
+    const fill = o.color ? `fill="${z.tint}" fill-opacity="0.55"` : 'fill="transparent"';
+    let s = `<ellipse rx="${n(it.w / 2)}" ry="${n(it.h / 2)}" ${fill} stroke="${INK}" stroke-width="${n(u * 1.4)}" stroke-dasharray="${n(u * 7)} ${n(u * 4)}"/>`;
+    if (!o.icon) {
+      const fs = clamp(Math.min(it.w, it.h) * 0.12, 1.2, 2.6);
+      s += `<g transform="rotate(${n(-(it.rot || 0))})"><text text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-weight="600" font-size="${n(fs)}" letter-spacing="0.06em" fill="${INK}">${esc((it.label || z.name).toUpperCase())}</text>`;
+      if (it.label) s += `<text y="${n(fs * 1.05)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-weight="500" font-size="${n(fs * 0.6)}" letter-spacing="0.08em" fill="#4A4A4A">${esc(z.name.toUpperCase())} ZONE</text>`;
+      s += '</g>';
+    }
+    return s;
+  },
+  arrow(it, o) {
+    const pts = it.pts.map((p) => p.slice()), u = o.u;
+    const a = pts[pts.length - 2], b = pts[pts.length - 1];
+    const L = Math.max(1.4, u * 10), W = L * 0.42, len = dist(a, b) || 1;
+    const ux = (b[0] - a[0]) / len, uy = (b[1] - a[1]) / len, base = [b[0] - ux * L, b[1] - uy * L];
+    pts[pts.length - 1] = [b[0] - ux * L * 0.7, b[1] - uy * L * 0.7];
+    const col = o.color ? '#0E3A21' : INK;
+    return `<path d="${ptsD(pts)}" fill="none" stroke="${col}" stroke-width="${n(u * 2)}" stroke-linejoin="round" stroke-linecap="round"/>` +
+      `<path d="M${n(b[0])},${n(b[1])}L${n(base[0] - uy * W)},${n(base[1] + ux * W)}L${n(base[0] + uy * W)},${n(base[1] - ux * W)}Z" fill="${col}"/>`;
+  },
+  label(it) {
+    return `<text text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-weight="600" font-size="${n(it.size)}" letter-spacing="0.04em" fill="${INK}" paint-order="stroke" stroke="#fff" stroke-width="${n(it.size * 0.28)}" stroke-linejoin="round">${esc(it.text || '')}</text>`;
+  },
+  bedShape(it, o, rng) { return shapeRender(it, o, rng); },
+  lawnShape(it, o, rng) { return shapeRender(it, o, rng); },
+  paveShape(it, o, rng) { return shapeRender(it, o, rng); },
+};
+
+/* draw one item. o: {u: ink width (ft), render, color, tags, hit, icon} */
+function drawItem(it, o) {
+  const t = T[it.type], rng = rngFor(it.id);
+  const fn = (o.render && RDRAW[it.type]) || DDRAW[it.type];
+  const inner = fn(it, o, rng);
+  let g;
+  if (t.kind === 'circle' || t.kind === 'text') g = `<g transform="translate(${n(it.x)} ${n(it.y)})">${inner}</g>`;
+  else if (t.kind === 'box') g = `<g transform="translate(${n(it.x)} ${n(it.y)}) rotate(${n(it.rot || 0)})">${inner}</g>`;
+  else {
+    g = inner;
+    if (o.hit && t.kind === 'line') g += `<path d="${ptsD(it.pts)}" fill="none" stroke="transparent" stroke-width="${n(Math.max(2, (it.width || 0) + 1))}" stroke-linejoin="round"/>`;
+  }
+  if (!o.icon) g += itemLabel(it, o);
+  return `<g${o.hit ? ` data-id="${esc(it.id)}"` : ''}${it.hidden ? ' display="none"' : ''}>${g}</g>`;
+}
+function itemCenter(it) {
+  const k = T[it.type].kind;
+  if (k === 'line') return pointAlong(it.pts, polyLen(it.pts) / 2);
+  if (k === 'shape') { const p = shapePoly(it.pts, it.smooth); return [p.reduce((s, q) => s + q[0], 0) / p.length, p.reduce((s, q) => s + q[1], 0) / p.length]; }
+  return [it.x, it.y];
+}
+function itemLabel(it, o) {
+  const t = T[it.type];
+  if (t.kind === 'text' || it.type === 'bubble') return '';
+  let s = '';
+  const sp = spOf(it);
+  // plant tag: key code in a white tag, like a professional planting plan
+  if (o.tags && sp && sp.t !== 'turf') {
+    const code = PLANT_CODE[sp.id];
+    let x, y;
+    if (t.kind === 'circle') { x = it.x + it.r * 0.62; y = it.y + it.r * 0.62; } else [x, y] = itemCenter(it);
+    const fs = 1.15, w = code.length * fs * 0.62 + 0.7;
+    s += `<g><rect x="${n(x - w / 2)}" y="${n(y - fs * 0.62)}" width="${n(w)}" height="${n(fs * 1.24)}" rx="0.25" fill="#fff" stroke="${INK}" stroke-width="0.08"/>` +
+      `<text x="${n(x)}" y="${n(y)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-weight="600" font-size="${fs}" fill="${INK}">${code}</text></g>`;
+  }
+  if (it.label) {
+    const fs = 1.45;
+    let x, y;
+    if (t.kind === 'circle') { x = it.x; y = it.y + it.r + fs * 0.9; } else if (t.kind === 'line') { [x, y] = itemCenter(it); y -= (it.width || 0) / 2 + fs * 1.1; } else { [x, y] = itemCenter(it); if (o.tags && sp) y -= fs * 1.4; }
+    s += `<text x="${n(x)}" y="${n(y)}" text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-weight="600" font-size="${fs}" letter-spacing="0.05em" fill="${INK}" paint-order="stroke" stroke="#fff" stroke-width="${n(fs * 0.3)}" stroke-linejoin="round">${esc(it.label)}</text>`;
+  }
+  return s;
+}
+
+/* icons for tools, library, schedule and the sheet key */
+const ICON = {
+  dtree: { r: 5 }, etree: { r: 5 }, bshrub: { r: 5 }, dshrub: { r: 5 }, birdbath: { r: 5 },
+  perennial: { w: 10, h: 6.5, vb: [-5.6, -4.8, 11.2, 9.6] },
+  annual: { w: 10, h: 6.5, vb: [-5.6, -4.8, 11.2, 9.6] },
+  groundcover: { w: 8, h: 5.5, vb: [-4.5, -3.8, 9, 7.6] },
+  bedShape: { pts: [[-4.5, -1], [-1, -3.4], [3.8, -2.2], [4.4, 2.2], [0, 3.4], [-3.6, 2.6]], smooth: true, sp: 'ecpu', vb: [-5.6, -4.8, 11.2, 9.6] },
+  lawnShape: { pts: [[-4.8, -2], [-1.5, -3.8], [4, -3], [4.8, 2.4], [-1, 3.8], [-4.4, 2]], smooth: true, sp: 'cyda', vb: [-5.6, -4.8, 11.2, 9.6] },
+  paveShape: { pts: [[-4.6, -3.6], [2.4, -3.6], [4.6, -0.6], [4.6, 3.6], [-4.6, 3.6]], smooth: false, finish: 'flagstone', vb: [-5.6, -4.8, 11.2, 9.6] },
+  patio: { w: 9, h: 7, finish: 'stone', vb: [-5, -4.2, 10, 8.4] },
+  deck: { w: 6, h: 5, vb: [-3.4, -2.9, 6.8, 5.8] },
+  veg: { w: 6, h: 5, vb: [-3.4, -2.9, 6.8, 5.8] },
+  wood: { w: 5, h: 3.6, vb: [-2.8, -2.4, 5.6, 4.8] },
+  lawn: { w: 12, h: 9, vb: [-6.6, -5.6, 13.2, 11.2] },
+  bubble: { w: 11, h: 7.4, zone: 'private', vb: [-6, -5, 12, 10] },
+  path: { pts: [[-4, 3], [-1, -0.5], [4, -2]], width: 2.4, finish: 'pavers', vb: [-5.6, -4.8, 11.2, 9.6] },
+  fence: { pts: [[-5, 3], [-1, 3], [4, -3]], vb: [-5.6, -4.8, 11.2, 9.6] },
+  arrow: { pts: [[-4.5, 3], [0, -1], [4.5, -1]], vb: [-5.6, -4.8, 11.2, 9.6] },
+};
+const CIRCLE_VB = [-5.6, -5.6, 11.2, 11.2];
+function iconItem(type, sp) {
+  const spec = ICON[type] || {};
+  const it = Object.assign({ id: 'icon-' + type + (sp || ''), type, x: 0, y: 0, rot: 0 }, clone(spec));
+  delete it.vb;
+  if (sp) it.sp = sp; else if (T[type].d.sp && !it.sp) it.sp = T[type].d.sp;
+  return { it, vb: spec.vb || CIRCLE_VB };
+}
+/* standalone <svg> icon (uses the page's shared defs) */
+function iconSVG(type, style, sp) {
+  const { it, vb } = iconItem(type, sp);
+  const o = { u: vb[2] / 40 * 1.1, render: style === 'render', color: style !== 'bw', icon: true };
+  return `<svg viewBox="${vb.join(' ')}" aria-hidden="true" focusable="false">${drawItem(it, o)}</svg>`;
+}
+/* icon placed into an SVG sheet at (cx,cy) inside a bw x bh box */
+function iconAt(type, cx, cy, bw, bh, style, sp) {
+  const { it, vb } = iconItem(type, sp);
+  const sc = Math.min(bw / vb[2], bh / vb[3]);
+  const o = { u: 1.1 / sc, render: style === 'render', color: style !== 'bw', icon: true };
+  return `<g transform="translate(${n(cx - (vb[0] + vb[2] / 2) * sc)} ${n(cy - (vb[1] + vb[3] / 2) * sc)}) scale(${n(sc * 1000) / 1000})">${drawItem(it, o)}</g>`;
+}

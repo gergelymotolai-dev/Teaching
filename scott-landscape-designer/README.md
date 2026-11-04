@@ -2,6 +2,10 @@
 
 An online version of the AGPS 1024 landscape design lab: students design the Scott family's yard on the real base plan, then export a sheet to turn in.
 
+A professional-style landscape design tool (modeled on PRO Landscape): rendered presentation plans, a 57-plant library for central Arkansas, freeform beds, lawns and paving, multi-select/align/snap editing, named undo history, an automatic plant schedule and material takeoff, and an 11×17 presentation-board export.
+
+Open `dist/landscape-designer.html` in any browser. Press `?` in the app for keyboard shortcuts.
+
 ## Hand it to Claude Code
 
 1. Unzip this folder.
