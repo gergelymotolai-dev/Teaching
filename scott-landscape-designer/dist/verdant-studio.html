@@ -1892,6 +1892,23 @@ const STORE_KEY = 'scottDesign.v1';
 const INDEX_KEY = 'ldProjects';
 const PROJ_KEY = (id) => 'ldProject.' + id;
 const NORTHS = { left: 'Left', up: 'Up', right: 'Right', down: 'Down' };
+/* north = degrees clockwise from the top of the page (0 up, 90 right, 180 down, 270 left) */
+const NORTH_DEG = { up: 0, right: 90, down: 180, left: 270 };
+const ARROW_STYLES = { classic: 'Classic', simple: 'Simple arrow with N', rose: 'Compass rose' };
+const toNorthDeg = (v) => (typeof v === 'string' && v in NORTH_DEG ? NORTH_DEG[v] : (Number.isFinite(+v) ? (((Math.round(+v) % 360) + 360) % 360) : 0));
+const northDeg = () => (isScott() ? 270 : toNorthDeg(state.site.north));
+const arrowStyle = () => (state.title && ARROW_STYLES[state.title.arrow] ? state.title.arrow : 'classic');
+function northWords(d) { const k = Object.keys(NORTH_DEG).find((x) => NORTH_DEG[x] === d); return k ? `${NORTHS[k]} (${d}°)` : `${d}° clockwise from the top of the page`; }
+/* north arrow symbol centred on (cx,cy) with radius R (any units); N letters stay upright */
+function northSymbol(cx, cy, R, deg, style) {
+  const k = R / 30, rad = deg * Math.PI / 180, up = (d) => [n(cx + Math.sin(rad) * d * k), n(cy - Math.cos(rad) * d * k)];
+  const g = (body) => `<g transform="translate(${n(cx)} ${n(cy)}) rotate(${deg}) scale(${n(k * 1000) / 1000})">${body}</g>`;
+  const letter = (d, size) => { const [x, y] = up(d); return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-weight="700" font-size="${n(size * k)}" fill="${INK}">N</text>`; };
+  if (style === 'simple') return g(`<path d="M0,24V-12" stroke="${INK}" stroke-width="2.6"/><path d="M0,-26L-9,-8L0,-12L9,-8Z" fill="${INK}"/>`) + letter(36, 15);
+  if (style === 'rose') return g(`<circle r="17" fill="none" stroke="${INK}" stroke-width="1"/><path d="M0,-28L5,-5L0,0Z" fill="${INK}"/><path d="M0,-28L-5,-5L0,0Z" fill="#fff" stroke="${INK}" stroke-width="0.8"/>` +
+    `<path d="M0,20L4,4L0,0L-4,4Z M20,0L4,-4L0,0L4,4Z M-20,0L-4,-4L0,0L-4,4Z" fill="#fff" stroke="${INK}" stroke-width="0.8"/>`) + letter(37, 12);
+  return g(`<circle r="30" fill="#fff" fill-opacity="0.85" stroke="${INK}" stroke-width="1.2"/><path d="M0,-26L-10,20L0,11Z" fill="${INK}"/><path d="M0,-26L10,20L0,11Z" fill="#fff" stroke="${INK}"/>`);
+}
 const STREETS = { bottom: 'Bottom', top: 'Top', left: 'Left', right: 'Right', none: 'No street' };
 const VIEW_KEY = 'scottDesign.v3.view';
 const WANTS = [
@@ -2060,7 +2077,7 @@ function cleanState(raw) {
   const st = blankState();
   const m = raw.meta && typeof raw.meta === 'object' ? raw.meta : {};
   for (const k of ['name', 'section', 'date']) st.meta[k] = typeof m[k] === 'string' ? m[k].slice(0, 80) : '';
-  if (raw.title && typeof raw.title === 'object') { st.title = {}; for (const k of TITLE_KEYS) if (typeof raw.title[k] === 'string') st.title[k] = raw.title[k].slice(0, 80); }
+  if (raw.title && typeof raw.title === 'object') { st.title = {}; for (const k of TITLE_KEYS) if (typeof raw.title[k] === 'string') st.title[k] = raw.title[k].slice(0, 80); if (ARROW_STYLES[raw.title.arrow]) st.title.arrow = raw.title.arrow; }
   const cleanWants = (w) => w.slice(0, 40).filter((x) => x && typeof x.t === 'string' && x.t.trim()).map((x) => ({ t: x.t.slice(0, 120), d: !!x.d }));
   /* older Scott files kept a fixed list of seven checkboxes; turn it into the editable list */
   st.wants = Array.isArray(raw.wants) ? cleanWants(raw.wants) : WANTS.map((t, i) => ({ t, d: Array.isArray(raw.checklist) && !!raw.checklist[i] }));
@@ -2070,7 +2087,7 @@ function cleanState(raw) {
     let w, h;
     try { w = numOr(r.w, 10, 2000); h = numOr(r.h, 10, 2000); } catch (e) { throw new Error('The lot size in this file is missing or not a number.'); }
     st.site = { kind: 'custom', name: typeof r.name === 'string' ? r.name.slice(0, 60) : 'My yard', client: typeof r.client === 'string' ? r.client.slice(0, 60) : '',
-      w, h, street: STREETS[r.street] ? r.street : 'bottom', north: NORTHS[r.north] ? r.north : 'up', streetName: typeof r.streetName === 'string' ? r.streetName.slice(0, 40) : '' };
+      w, h, street: STREETS[r.street] ? r.street : 'bottom', north: r.north === undefined ? 0 : toNorthDeg(r.north), streetName: typeof r.streetName === 'string' ? r.streetName.slice(0, 40) : '' };
     const im = r.img;
     if (im && typeof im === 'object' && typeof im.src === 'string' && /^data:image\/(png|jpeg|webp);base64,/.test(im.src) && im.src.length < 6e6) {
       try { st.site.img = { src: im.src, x: numOr(im.x, -2000, 4000), y: numOr(im.y, -2000, 4000), w: numOr(im.w, 1, 6000), h: numOr(im.h, 1, 6000), op: numOr(im.op, 0.05, 1, 0.6) }; } catch (e) { /* drop a broken image */ }
@@ -2159,6 +2176,12 @@ css.textContent = `
 .props-h{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:500;font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.05em}
 .props-h .chip{width:28px;height:24px}.props-h .chip svg{width:26px;height:22px}
 .mixrow{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.dlg .northrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dlg .northrow>input{width:76px;height:30px;padding:3px 7px;border:1px solid var(--line-2);border-radius:2px;background:var(--well);color:var(--text);font-size:15px}
+.dlg .northpick{display:flex;align-items:center;gap:10px;flex:1 1 100%}
+.dlg .northpick>svg{width:56px;height:56px;flex:none;background:#fff;border-radius:3px}
+.dlg .northpick .seg button{height:26px;padding:0 8px;white-space:nowrap;font-size:12px}
+.dlg .northpick .seg{flex-wrap:nowrap}
 .dlg .exgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
 .dlg .exgrid .preview img{max-height:48vh}
 .dlg [aria-invalid="true"]{border-color:#E0705F !important;box-shadow:0 0 0 1px #E0705F}
@@ -2338,10 +2361,9 @@ function customBase(o) {
   s += `<rect x="0" y="0" width="${n(L.w)}" height="${n(L.h)}" fill="none" stroke="${INK}" stroke-width="0.19" stroke-dasharray="2.7 0.5 0.4 0.5 0.4 0.5"/>`;
   return s;
 }
-function northArrow(x, y, size, dir) {
-  const rot = { left: 0, up: 90, right: 180, down: 270 }[dir] || 0;
-  return `<g transform="translate(${n(x)} ${n(y)}) rotate(${rot}) scale(${n(size / 30)})"><circle r="30" fill="#fff" fill-opacity="0.85" stroke="${INK}" stroke-width="1.2"/><path d="M-26,0L20,-10L11,0Z" fill="${INK}"/><path d="M-26,0L20,10L11,0Z" fill="#fff" stroke="${INK}"/></g>` +
-    `<text x="${n(x)}" y="${n(y + size * 1.45)}" text-anchor="middle" font-family="${FONT}" font-size="${n(size * 0.42)}" font-weight="600" letter-spacing="0.08em" fill="${INK}">NORTH</text>`;
+function northArrow(x, y, size) {
+  const st = arrowStyle();
+  return northSymbol(x, y, size, northDeg(), st) + (st === 'classic' ? `<text x="${n(x)}" y="${n(y + size * 1.45)}" text-anchor="middle" font-family="${FONT}" font-size="${n(size * 0.42)}" font-weight="600" letter-spacing="0.08em" fill="${INK}">NORTH</text>` : '');
 }
 function customSite() {
   const L = lot();
@@ -2354,7 +2376,7 @@ function customSite() {
   const ftl = (v) => `${Math.floor(v)}'-${Math.round((v % 1) * 12)}"`;
   const sw = state.site.street;
   return dim(0, sw === 'top' ? L.h + 3.5 : -3.5, L.w, sw === 'top' ? L.h + 3.5 : -3.5, ftl(L.w)) + dim(sw === 'left' ? L.w + 3.5 : -3.5, 0, sw === 'left' ? L.w + 3.5 : -3.5, L.h, ftl(L.h), true) +
-    northArrow(sw === 'right' ? 4 : L.w - 4, sw === 'top' ? L.h - 5 : 5, 2.4, state.site.north);
+    northArrow(sw === 'right' ? 4 : L.w - 4, sw === 'top' ? L.h - 5 : 5, 2.4);
 }
 function imageMarkup() {
   const im = !isScott() && state.site.img;
@@ -3638,7 +3660,7 @@ function showBrief() {
   if (!isScott()) {
     const st = state.site;
     openDialog(`<h3>${esc(projName())}</h3><table><tr><td><b>Client</b></td><td>${esc(st.client || '—')}</td></tr><tr><td><b>Lot</b></td><td>${n(st.w)} × ${n(st.h)} ft (${Math.round(st.w * st.h).toLocaleString()} sq ft)</td></tr>
-      <tr><td><b>Street side</b></td><td>${STREETS[st.street]}</td></tr><tr><td><b>North points</b></td><td>${NORTHS[st.north]}</td></tr></table>
+      <tr><td><b>Street side</b></td><td>${STREETS[st.street]}</td></tr><tr><td><b>North points</b></td><td>${northWords(toNorthDeg(st.north))}</td></tr></table>
       <div class="btnrow"><button type="button" class="btn" id="bBriefEdit">Change settings…</button><button type="button" class="btn" data-close autofocus>Close</button></div>`);
     $('bBriefEdit').addEventListener('click', showSiteSettings);
     return;
@@ -3840,8 +3862,7 @@ function titleBlock(TY, scale) {
   s += tx(gx, TY + 78, `1 IN = ${scale} FT`, 13, `font-weight="600" fill="${INK}"`) + tx(gx, TY + 96, 'WHEN PRINTED ON 11×17', 11, 'fill="#4A4A4A"');
   const nx = 948, ny = TY + 62;
   s += tx(nx, TY + 22, 'NORTH', 11, 'text-anchor="middle" fill="#4A4A4A" letter-spacing="0.08em"');
-  const rot = isScott() ? 0 : ({ left: 0, up: 90, right: 180, down: 270 }[state.site.north] || 0);
-  s += `<circle cx="${nx}" cy="${ny}" r="30" fill="none" stroke="${INK}" stroke-width="1.2"/><g transform="rotate(${rot} ${nx} ${ny})"><path d="M${nx - 26},${ny} L${nx + 20},${ny - 10} L${nx + 11},${ny} Z" fill="${INK}"/><path d="M${nx - 26},${ny} L${nx + 20},${ny + 10} L${nx + 11},${ny} Z" fill="#fff" stroke="${INK}"/></g>`;
+  s += northSymbol(nx, ny + (arrowStyle() === 'classic' ? 0 : 4), arrowStyle() === 'classic' ? 30 : 28, northDeg(), arrowStyle());
   return s;
 }
 const SHEET_SCALE = 3;  // 3168 x 4896 px (~288 dpi); stays under the iOS canvas pixel limit
@@ -3918,7 +3939,11 @@ function exportDialog(err) {
     <div class="exgrid"><div>
       <div class="fieldlabel" style="margin-bottom:6px">Title block${own ? ' <span class="muted" style="text-transform:none;letter-spacing:0">(fields with * are needed)</span>' : ''}</div>
       ${fields.map(([k, l, ph, req]) => fld(`${l}${own && req ? ' *' : ''}`, `<input data-title="${k}" value="${esc(ti[k])}" placeholder="${esc(ph)}" maxlength="80"${missing.includes(k) && err ? ' aria-invalid="true"' : ''}>`)).join('')}
-      ${own ? '' : '<div class="btnrow"><button type="button" class="btn" id="titleReset">Reset to the Scott lab title</button></div>'}
+      ${own ? '' : '<div class="btnrow" style="margin-bottom:10px"><button type="button" class="btn" id="titleReset">Reset to the Scott lab title</button></div>'}
+      <div class="fieldlabel" style="margin:4px 0 6px">North arrow</div>
+      ${fld('Arrow style', `<select id="exArrow">${Object.entries(ARROW_STYLES).map(([k, l]) => `<option value="${k}" ${arrowStyle() === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}
+      ${own ? `<div class="northrow"><span class="muted">North points</span><input id="exNorth" type="number" min="0" max="359" step="1" value="${northDeg()}" aria-label="North angle in degrees"><span class="muted">° clockwise from the top of the page</span>${northControl('ex', northDeg())}</div>`
+    : `<div class="northrow"><svg id="exNPrev" viewBox="-44 -46 88 88" aria-hidden="true" style="width:56px;height:56px;background:#fff;border-radius:3px">${northSymbol(0, 0, 30, 270, arrowStyle())}</svg><p class="muted" style="margin:0">North points left on the Scott lab plan: the busy street is on the west side, as in the client brief. For your own yard, use New → My own yard and set any direction.</p></div>`}
     </div><div>
       <div class="preview"><img id="exPreview" src="" alt="Preview of your 11 by 17 design plan sheet"></div>
       <p class="muted">Prints at 1 in = ${sheetFrame().scale} ft on 11×17 with the plant schedule and material takeoff, in the plan style and layers you have on now.</p>
@@ -3937,6 +3962,15 @@ function exportDialog(err) {
     baseKey = ''; renderBase();
     commitSoon('Edit title block'); clearTimeout(t0); t0 = setTimeout(refresh, 300);
   }));
+  $('exArrow').addEventListener('change', (e) => {
+    state.title = state.title || {}; state.title.arrow = e.target.value;
+    baseKey = ''; renderBase(); commit('Change north arrow style'); refresh();
+    const pv = $('exNPrev'); if (pv) pv.innerHTML = northSymbol(0, 0, 30, northDeg(), arrowStyle());
+  });
+  if ($('exNorth')) $('exNorth').addEventListener('input', (e) => {
+    state.site.north = toNorthDeg(e.target.value);
+    baseKey = ''; renderBase(); commitSoon('Change north direction'); clearTimeout(t0); t0 = setTimeout(refresh, 250);
+  });
   if ($('titleReset')) $('titleReset').addEventListener('click', () => { if (state.title) for (const k of ['project', 'client', 'company']) delete state.title[k]; commit('Reset title block'); exportDialog(); });
   const first = err && $('dlgBody').querySelector('[aria-invalid="true"]');
   if (first) first.focus(); else if (own && missing.length) $('dlgBody').querySelector(`[data-title="${missing[0]}"]`).focus();
@@ -3967,16 +4001,17 @@ function switchTo(st, msg) {
   if (msg) toast(msg);
 }
 function siteFields(st) {
-  st = st || { name: 'My yard', client: '', w: 75, h: 120, street: 'bottom', north: 'up', streetName: '' };
+  st = st || { name: 'My yard', client: '', w: 75, h: 120, street: 'bottom', north: 0, streetName: '' };
   const opt = (o, v) => Object.entries(o).map(([k, l]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${l}</option>`).join('');
   return `<div class="row2">${fld('Project name', `<input id="nfName" value="${esc(st.name)}" maxlength="60">`)}${fld('Client / owner', `<input id="nfClient" value="${esc(st.client)}" maxlength="60" placeholder="Optional">`)}</div>
     <div class="row2">${fld('Lot width (ft)', `<input id="nfW" type="number" min="10" max="2000" step="0.5" value="${n(st.w)}">`)}${fld('Lot depth (ft)', `<input id="nfH" type="number" min="10" max="2000" step="0.5" value="${n(st.h)}">`)}</div>
-    <div class="row3">${fld('Street side', `<select id="nfStreet">${opt(STREETS, st.street)}</select>`)}${fld('North points', `<select id="nfNorth">${opt(NORTHS, st.north)}</select>`)}${fld('Street name', `<input id="nfStreetName" value="${esc(st.streetName || '')}" maxlength="40" placeholder="Optional">`)}</div>`;
+    <div class="field"><label>North arrow</label><div class="northrow"><span class="muted">North points</span><input id="nfNorth" type="number" min="0" max="359" step="1" value="${toNorthDeg(st.north)}" aria-label="North angle in degrees"><span class="muted">° clockwise from the top of the page</span>${northControl('nf', toNorthDeg(st.north))}</div></div>
+    <div class="row2">${fld('Street side', `<select id="nfStreet">${opt(STREETS, st.street)}</select>`)}${fld('Street name', `<input id="nfStreetName" value="${esc(st.streetName || '')}" maxlength="40" placeholder="Optional">`)}</div>`;
 }
 function readSiteFields() {
   const w = parseFloat($('nfW').value), h = parseFloat($('nfH').value);
   if (!(w >= 10 && w <= 2000 && h >= 10 && h <= 2000)) throw new Error('Enter a lot width and depth between 10 and 2,000 ft.');
-  return { kind: 'custom', name: $('nfName').value.trim().slice(0, 60) || 'My yard', client: $('nfClient').value.trim().slice(0, 60), w, h, street: $('nfStreet').value, north: $('nfNorth').value, streetName: $('nfStreetName').value.trim().slice(0, 40) };
+  return { kind: 'custom', name: $('nfName').value.trim().slice(0, 60) || 'My yard', client: $('nfClient').value.trim().slice(0, 60), w, h, street: $('nfStreet').value, north: toNorthDeg($('nfNorth').value), streetName: $('nfStreetName').value.trim().slice(0, 40) };
 }
 function showNew(err) {
   openDialog(`<h3>New design</h3>${err ? `<p class="err" role="alert">${esc(err)}</p>` : ''}
@@ -4289,6 +4324,28 @@ $('optCtx').addEventListener('click', (e) => {
   if (b.dataset.freeform !== undefined) { makeFreeform(); return; }
   if (b.dataset.setsmooth) { one.smooth = b.dataset.setsmooth === 'curved'; renderItems([one.id]); renderProps(); commit(one.smooth ? 'Curved edges' : 'Straight edges'); }
 });
+
+
+
+/* ------------------------------------------------------------------ north arrow control */
+const NQ = [[0, '↑ Up'], [90, '→ Right'], [180, '↓ Down'], [270, '← Left']];
+function northControl(p, deg) {
+  return `<div class="northpick"><svg id="${p}NPrev" viewBox="-44 -46 88 88" aria-hidden="true">${northSymbol(0, 0, 30, deg, arrowStyle())}</svg>
+    <div><div class="seg">${NQ.map(([d, l]) => `<button type="button" data-nq="${d}" data-for="${p}North" aria-pressed="${d === deg}">${l}</button>`).join('')}</div>
+    <p class="muted" style="margin:6px 0 0">Which way north points on your plan. Type any angle for a lot that isn't square to the compass, e.g. 25°.</p></div></div>`;
+}
+function syncNorthPreview(inp) {
+  const d = toNorthDeg(inp.value), pv = $(inp.id.replace(/North$/, 'NPrev'));
+  if (pv) pv.innerHTML = northSymbol(0, 0, 30, d, arrowStyle());
+  document.querySelectorAll(`[data-for="${inp.id}"]`).forEach((b) => b.setAttribute('aria-pressed', +b.dataset.nq === d));
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-nq]');
+  if (!b) return;
+  const inp = $(b.dataset.for);
+  if (inp) { inp.value = b.dataset.nq; inp.dispatchEvent(new Event('input', { bubbles: true })); }
+});
+document.addEventListener('input', (e) => { if (e.target.id && /North$/.test(e.target.id) && e.target.type === 'number') syncNorthPreview(e.target); });
 
 (function boot() {
   try {
