@@ -32,6 +32,7 @@ Right now students do this on paper. This tool lets them do it online too: place
 - Students can add their own plants (library → Add your own plant). They live in `state.customPlants` (ids `u…`), are validated by `cleanCustomPlants()` and merged into `PLANTS`/`PLANT_BY_ID`/`PLANT_CODE` by `registerCustom()` on load, undo and design switch; new designs copy them.
 - Fences have a `style` (privacy, picket, split, chain, iron) and `height`; Arrange → Fence the property line and the New design dialog add one along the non-street lot lines.
 - The Scott house draws as a clean hip-roof plan (`cleanHouse()`), with door stoops, A/C and gas meter. The original floor plan from core.json (`BASE_FLOOR`, everything from the house polygon on) is the optional "House floor plan" layer.
+- Title block: `titleInfo()` is the single source for the sheet header and title block (project, client, address, company, contact, designer, section, date). The Scott lab defaults to the lab title (editable, *Reset to the Scott lab title*); an own-yard design prints only what the student typed and the Export dialog requires project, client and designer before a PDF/PNG. Extra fields live in `state.title`; project/client of own-yard designs live in `state.site`.
 - The export picks the largest engineering scale (1 in = 10, 20, 30… ft) that fits a custom lot; the Scott sheet stays at 1 in = 10 ft.
 
 Build with `python3 scripts/build.py`. Test with Playwright: Chromium and Playwright are usually installed already.

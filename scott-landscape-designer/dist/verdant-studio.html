@@ -1959,6 +1959,24 @@ function fitRect() {
   if (st.street === 'left') x = -sw; if (st.street === 'right') x2 = st.w + sw;
   return { x, y, w: x2 - x, h: y2 - y };
 }
+/* what prints in the title block and sheet header. The Scott lab has defaults; an own-yard design prints only what the student typed */
+const LAB_TITLE = { project: 'Scott Residence', client: 'The Scott family', company: 'AGPS 1024 · Arkansas Tech University' };
+const TITLE_KEYS = ['project', 'client', 'address', 'company', 'contact'];
+function titleInfo() {
+  const t = state.title || {}, m = state.meta;
+  const base = isScott() ? { project: t.project || LAB_TITLE.project, client: t.client ?? LAB_TITLE.client, company: t.company ?? LAB_TITLE.company }
+    : { project: state.site.name || '', client: state.site.client || '', company: t.company || '' };
+  return Object.assign(base, { address: t.address || '', contact: t.contact || '', designer: m.name || '', section: m.section || '', date: m.date || '' });
+}
+function setTitleField(k, v) {
+  v = String(v).slice(0, 80);
+  if (k === 'designer') state.meta.name = v;
+  else if (k === 'section') state.meta.section = v;
+  else if (k === 'date') state.meta.date = v;
+  else if (!isScott() && k === 'project') state.site.name = v;
+  else if (!isScott() && k === 'client') state.site.client = v;
+  else { state.title = state.title || {}; state.title[k] = v; }
+}
 function wantList() { if (!Array.isArray(state.wants)) state.wants = []; return state.wants; }
 function buildingPolys() {
   const b = isScott() ? [{ poly: HOUSE, name: 'house' }, { poly: GARAGE, name: 'garage' }] : [];
@@ -2042,6 +2060,7 @@ function cleanState(raw) {
   const st = blankState();
   const m = raw.meta && typeof raw.meta === 'object' ? raw.meta : {};
   for (const k of ['name', 'section', 'date']) st.meta[k] = typeof m[k] === 'string' ? m[k].slice(0, 80) : '';
+  if (raw.title && typeof raw.title === 'object') { st.title = {}; for (const k of TITLE_KEYS) if (typeof raw.title[k] === 'string') st.title[k] = raw.title[k].slice(0, 80); }
   const cleanWants = (w) => w.slice(0, 40).filter((x) => x && typeof x.t === 'string' && x.t.trim()).map((x) => ({ t: x.t.slice(0, 120), d: !!x.d }));
   /* older Scott files kept a fixed list of seven checkboxes; turn it into the editable list */
   st.wants = Array.isArray(raw.wants) ? cleanWants(raw.wants) : WANTS.map((t, i) => ({ t, d: Array.isArray(raw.checklist) && !!raw.checklist[i] }));
@@ -2140,6 +2159,10 @@ css.textContent = `
 .props-h{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:500;font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.05em}
 .props-h .chip{width:28px;height:24px}.props-h .chip svg{width:26px;height:22px}
 .mixrow{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.dlg .exgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+.dlg .exgrid .preview img{max-height:48vh}
+.dlg [aria-invalid="true"]{border-color:#E0705F !important;box-shadow:0 0 0 1px #E0705F}
+@media (max-width:640px){.dlg .exgrid{grid-template-columns:1fr}}
 .shapeseg button{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;white-space:nowrap}
 .shapeseg svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 #optCtx{display:flex;align-items:center;gap:8px;flex:none}
@@ -3733,8 +3756,8 @@ function sheetSVG() {
   const fontCss = ($('fontFaces') || {}).textContent || '';
   let s = `<svg xmlns="${NS}" width="${SW}" height="${SH}" viewBox="0 0 ${SW} ${SH}"><style>${fontCss}</style>${DEFS}<rect width="${SW}" height="${SH}" fill="#fff"/>`;
   s += `<defs><clipPath id="planClip"><rect x="40" y="78" width="976" height="1222"/></clipPath><filter id="gray"><feColorMatrix type="saturate" values="0"/></filter></defs>`;
-  const client = clientName();
-  s += `<text x="48" y="66" font-family="${FONT}" font-weight="700" font-size="26" fill="${GREEN}"${projName().length > 34 ? ' textLength="620" lengthAdjust="spacingAndGlyphs"' : ''}>${esc(projName().toUpperCase())} — DESIGN PLAN${client ? `<tspan dx="14" font-weight="500" font-size="14" fill="#4A4A4A" letter-spacing="0.08em">· CLIENT: ${esc(client.toUpperCase())}</tspan>` : ''}</text>`;
+  const ti = titleInfo(), client = ti.client, pname = ti.project || 'Landscape design';
+  s += `<text x="48" y="66" font-family="${FONT}" font-weight="700" font-size="26" fill="${GREEN}"${pname.length > 34 ? ' textLength="620" lengthAdjust="spacingAndGlyphs"' : ''}>${esc(pname.toUpperCase())} — DESIGN PLAN${client ? `<tspan dx="14" font-weight="500" font-size="14" fill="#4A4A4A" letter-spacing="0.08em">· CLIENT: ${esc(client.toUpperCase())}</tspan>` : ''}</text>`;
   s += `<g clip-path="url(#planClip)"><g transform="translate(${n(fr.ox)} ${n(fr.oy)}) scale(${n(fr.s * 1000) / 1000})">`;
   if (view.img) s += imageMarkup();
   if (view.base) s += `<g${view.style === 'bw' ? ' filter="url(#gray)"' : ''}>${baseMarkup(o)}</g>`;
@@ -3795,19 +3818,20 @@ function titleBlock(TY, scale) {
   const TH = 108;
   const tx = (x, y, str, size, extra) => `<text x="${x}" y="${y}" font-family="${FONT}" font-size="${size}" ${extra || ''}>${esc(str)}</text>`;
   let s = `<rect x="48" y="${TY}" width="960" height="${TH}" fill="#fff" stroke="${INK}" stroke-width="1.5"/><rect x="48" y="${TY}" width="320" height="${TH}" fill="${GREEN}"/>`;
-  const title = projName().toUpperCase();
-  s += tx(68, TY + 42, title, 30, `font-weight="700" fill="#fff"${title.length > 15 ? ' textLength="282" lengthAdjust="spacingAndGlyphs"' : ''}`) + tx(68, TY + 64, 'DESIGN PLAN', 14, 'font-weight="600" fill="#FFCE00" letter-spacing="0.12em"');
-  const sub = isScott() ? 'AGPS 1024 · ARKANSAS TECH UNIVERSITY' : (clientName() ? 'CLIENT: ' + clientName().toUpperCase() : 'RESIDENTIAL LANDSCAPE PLAN');
-  s += `<rect x="68" y="${TY + 74}" width="56" height="3" fill="#FFCE00"/>` + tx(68, TY + 96, sub, 11, `fill="#fff" letter-spacing="0.06em"${sub.length > 40 ? ' textLength="282" lengthAdjust="spacingAndGlyphs"' : ''}`);
-  const FX2 = 648, half = (FX2 - 388 - 20) / 2;
+  const ti = titleInfo(), title = (ti.project || 'LANDSCAPE DESIGN').toUpperCase();
+  s += tx(68, TY + 40, title, 30, `font-weight="700" fill="#fff"${title.length > 15 ? ' textLength="282" lengthAdjust="spacingAndGlyphs"' : ''}`) + tx(68, TY + 61, 'DESIGN PLAN', 14, 'font-weight="600" fill="#FFCE00" letter-spacing="0.12em"');
+  s += `<rect x="68" y="${TY + 70}" width="56" height="3" fill="#FFCE00"/>`;
+  const fit = (str, w, px) => (str.length * px > w ? ` textLength="${w}" lengthAdjust="spacingAndGlyphs"` : '');
+  const line3 = (ti.company || ti.address).toUpperCase();
+  if (line3) s += tx(68, TY + 89, line3, 11, `fill="#fff" letter-spacing="0.06em"${fit(line3, 282, 7)}`);
+  if (ti.contact) s += tx(68, TY + 102, ti.contact, 9.5, `fill="#D7E3DA" letter-spacing="0.04em"${fit(ti.contact, 282, 5.6)}`);
+  const L1 = 388, R2 = 648, mid = (L1 + R2) / 2, half = (R2 - L1 - 20) / 2;
   const lab = (x, y, str) => tx(x, y, str, 11, 'fill="#4A4A4A" letter-spacing="0.08em"');
-  const val = (x, y, str, max) => `<text x="${x}" y="${y}" font-family="'Source Sans 3', Arial, sans-serif" font-size="17" font-weight="600" fill="${INK}"${String(str).length > max ? ` textLength="${Math.round(max * 8.2)}" lengthAdjust="spacingAndGlyphs"` : ''}>${esc(str)}</text>`;
-  s += lab(388, TY + 22, 'DESIGNER') + `<line x1="388" y1="${TY + 48}" x2="${FX2}" y2="${TY + 48}" stroke="${INK}"/>`;
-  s += lab(388, TY + 70, 'LAB SECTION') + `<line x1="388" y1="${TY + 96}" x2="${388 + half}" y2="${TY + 96}" stroke="${INK}"/>`;
-  s += lab(408 + half, TY + 70, 'DATE') + `<line x1="${408 + half}" y1="${TY + 96}" x2="${FX2}" y2="${TY + 96}" stroke="${INK}"/>`;
-  if (state.meta.name) s += val(392, TY + 43, state.meta.name, 30);
-  if (state.meta.section) s += val(392, TY + 91, state.meta.section, 13);
-  if (state.meta.date) s += val(412 + half, TY + 91, state.meta.date, 13);
+  const val = (x, y, str, w) => (str ? `<text x="${x}" y="${y}" font-family="'Source Sans 3', Arial, sans-serif" font-size="15" font-weight="600" fill="${INK}"${fit(String(str), w, 7.6)}>${esc(str)}</text>` : '');
+  const box = (x, y, label, value, w) => lab(x, y, label) + `<line x1="${x}" y1="${y + 26}" x2="${x + w}" y2="${y + 26}" stroke="${INK}"/>` + val(x + 3, y + 21, value, w - 6);
+  s += box(L1, TY + 22, 'CLIENT', ti.client, half) + box(mid + 10, TY + 22, 'DESIGNER', ti.designer, half);
+  s += isScott() ? box(L1, TY + 70, 'LAB SECTION', ti.section, half) : box(L1, TY + 70, 'PROJECT ADDRESS', ti.address, half);
+  s += box(mid + 10, TY + 70, 'DATE', ti.date, half);
   s += `<line x1="668" y1="${TY}" x2="668" y2="${TY + TH}" stroke="${INK}" stroke-width="1.2"/><line x1="888" y1="${TY}" x2="888" y2="${TY + TH}" stroke="${INK}" stroke-width="1.2"/>`;
   const gx = 688;
   s += lab(gx, TY + 22, 'SCALE IN FEET');
@@ -3877,25 +3901,52 @@ async function doExport(fmt, btn) {
     if (btn && btn.isConnected) { btn.disabled = false; btn.innerHTML = old; }
   }
 }
-$('bExport').addEventListener('click', () => {
+const TITLE_FIELDS = [
+  ['project', 'Project name', 'e.g. Garcia Backyard', true], ['client', 'Client', 'e.g. Maria Garcia', true],
+  ['address', 'Project address', 'e.g. 1204 Oak St., Russellville, AR', false], ['designer', 'Designer', 'Your name', true],
+  ['company', 'Company or school', 'e.g. Green Leaf Landscapes', false], ['contact', 'Phone or email', 'Optional', false],
+  ['section', 'Lab section', 'e.g. 02', false], ['date', 'Date', 'mm/dd/yyyy', false],
+];
+function exportDialog(err) {
   flush();
-  const src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(sheetSVG());
-  const warn = [];
-  if (!state.meta.name.trim()) warn.push('your name');
-  if (!state.meta.section.trim()) warn.push('your lab section');
-  if (!state.meta.date.trim()) warn.push('the date');
+  const ti = titleInfo(), own = !isScott();
+  const fields = TITLE_FIELDS.filter(([k]) => (own ? k !== 'section' : true));
+  const missing = own ? fields.filter(([k, , , req]) => req && !String(ti[k]).trim()).map(([k]) => k) : [];
   const open = wantList().filter((w) => !w.d).length;
   openDialog(`<h3>Export to turn in</h3>
-    ${warn.length ? `<p class="warn">Add ${warn.join(', ').replace(/, ([^,]*)$/, ' and $1')} in the header so they print in the title block.</p>` : ''}
-    ${open ? `<p class="warn">${open} client want${open > 1 ? 's are' : ' is'} not checked off yet. Run the design check before you turn it in.</p>` : ''}
-    <div class="preview"><img src="${src}" alt="Preview of your 11 by 17 design plan sheet"></div>
-    <p class="muted">Prints at 1 in = ${sheetFrame().scale} ft on 11×17 with the plant schedule and material takeoff. Uses the plan style and layers you have on now.</p>
-    <div class="fmt"><button type="button" class="btn gold" data-fmt="pdf" autofocus>PDF<small>11×17 sheet to turn in</small></button>
+    ${err ? `<p class="err" role="alert">${esc(err)}</p>` : ''}
+    <div class="exgrid"><div>
+      <div class="fieldlabel" style="margin-bottom:6px">Title block${own ? ' <span class="muted" style="text-transform:none;letter-spacing:0">(fields with * are needed)</span>' : ''}</div>
+      ${fields.map(([k, l, ph, req]) => fld(`${l}${own && req ? ' *' : ''}`, `<input data-title="${k}" value="${esc(ti[k])}" placeholder="${esc(ph)}" maxlength="80"${missing.includes(k) && err ? ' aria-invalid="true"' : ''}>`)).join('')}
+      ${own ? '' : '<div class="btnrow"><button type="button" class="btn" id="titleReset">Reset to the Scott lab title</button></div>'}
+    </div><div>
+      <div class="preview"><img id="exPreview" src="" alt="Preview of your 11 by 17 design plan sheet"></div>
+      <p class="muted">Prints at 1 in = ${sheetFrame().scale} ft on 11×17 with the plant schedule and material takeoff, in the plan style and layers you have on now.</p>
+      ${open ? `<p class="warn">${open} client want${open > 1 ? 's are' : ' is'} not checked off yet.</p>` : ''}
+    </div></div>
+    <div class="fmt"><button type="button" class="btn gold" data-fmt="pdf" autofocus>PDF<small>11×17 sheet</small></button>
       <button type="button" class="btn" data-fmt="png">PNG image<small>3168×4896 px</small></button>
       <button type="button" class="btn" data-fmt="json">Design file<small>.json to reopen later</small></button></div>
     <div class="btnrow"><button type="button" class="btn" data-close>Close</button></div>`);
-  $('dlgBody').querySelectorAll('[data-fmt]').forEach((b) => b.addEventListener('click', () => doExport(b.dataset.fmt, b)));
-});
+  const refresh = () => { $('exPreview').src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(sheetSVG()); };
+  refresh();
+  let t0;
+  $('dlgBody').querySelectorAll('[data-title]').forEach((inp) => inp.addEventListener('input', () => {
+    setTitleField(inp.dataset.title, inp.value); inp.removeAttribute('aria-invalid');
+    for (const [id, k] of Object.entries(META)) if (document.activeElement !== $(id)) $(id).value = state.meta[k] || '';
+    baseKey = ''; renderBase();
+    commitSoon('Edit title block'); clearTimeout(t0); t0 = setTimeout(refresh, 300);
+  }));
+  if ($('titleReset')) $('titleReset').addEventListener('click', () => { if (state.title) for (const k of ['project', 'client', 'company']) delete state.title[k]; commit('Reset title block'); exportDialog(); });
+  const first = err && $('dlgBody').querySelector('[aria-invalid="true"]');
+  if (first) first.focus(); else if (own && missing.length) $('dlgBody').querySelector(`[data-title="${missing[0]}"]`).focus();
+  $('dlgBody').querySelectorAll('[data-fmt]').forEach((b) => b.addEventListener('click', () => {
+    const need = own ? TITLE_FIELDS.filter(([k, , , req]) => req && !String(titleInfo()[k]).trim()).map(([, l]) => l.toLowerCase()) : [];
+    if (need.length && b.dataset.fmt !== 'json') { exportDialog(`Fill in the ${need.join(', ').replace(/, ([^,]*)$/, ' and $1')} for the title block first.`); return; }
+    doExport(b.dataset.fmt, b);
+  }));
+}
+$('bExport').addEventListener('click', () => exportDialog());
 
 /* ------------------------------------------------------------------ boot */
 function renderAll() {
