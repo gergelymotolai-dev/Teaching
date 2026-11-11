@@ -1328,7 +1328,7 @@ function wrapped(S, x, y, pad, draw) {
   for (const ox of x < pad ? [0, S] : x > S - pad ? [0, -S] : [0]) for (const oy of y < pad ? [0, S] : y > S - pad ? [0, -S] : [0]) draw(x + ox, y + oy);
 }
 /* a grass's library color, pulled toward the deeper, less yellow green real turf has from above */
-const turfColor = (c) => mixHex(c, '#47742F', 0.5);
+const turfColor = (c) => mixHex(c, '#8CC05A', 0.3);
 function makeTextures() {
   if (typeof document === 'undefined') return null;
   try {
@@ -1355,11 +1355,11 @@ function makeTextures() {
     /* turf: mottled tone, fine grain and thousands of short blades; laid over each grass's own color */
     {
       const S = 384, a = tileNoise(S, 5, R), b = tileNoise(S, 16, R), c2 = tileNoise(S, 56, R);
-      const [c, g] = overlay(S, (i) => (a[i] - 0.5) * 0.2 + (b[i] - 0.5) * 0.85 + (c2[i] - 0.5) * 0.95 + (R() - 0.5) * 0.7, [226, 232, 150], [10, 44, 20], 0.32, 0.4);
+      const [c, g] = overlay(S, (i) => (a[i] - 0.5) * 0.2 + (b[i] - 0.5) * 0.85 + (c2[i] - 0.5) * 0.95 + (R() - 0.5) * 0.7, [236, 242, 168], [22, 72, 30], 0.3, 0.24);
       g.lineCap = 'round';
       for (let i = 0; i < 9000; i++) {
         const x = R() * S, y = R() * S, ang = -Math.PI / 2 + (R() - 0.5) * 1.5, L = 2 + R() * 4.5, lit = R() < 0.5;
-        g.strokeStyle = lit ? `rgba(238,244,178,${0.1 + R() * 0.16})` : `rgba(6,34,12,${0.12 + R() * 0.2})`;
+        g.strokeStyle = lit ? `rgba(240,246,184,${0.1 + R() * 0.16})` : `rgba(18,66,26,${0.08 + R() * 0.14})`;
         g.lineWidth = 0.8 + R() * 0.6;
         wrapped(S, x, y, 8, (px, py) => { g.beginPath(); g.moveTo(px, py); g.lineTo(px + Math.cos(ang) * L, py + Math.sin(ang) * L); g.stroke(); });
       }
@@ -1368,20 +1368,20 @@ function makeTextures() {
     /* large, soft tone changes for big lawns: a 37 ft tile, so it never lines up with the 10 ft turf tile */
     {
       const S = 128, a = tileNoise(S, 4, R), b = tileNoise(S, 9, R);
-      out.mottle = overlay(S, (i) => (a[i] - 0.5) * 1.5 + (b[i] - 0.5) * 0.9, [236, 240, 160], [8, 40, 18], 0.2, 0.26)[0].toDataURL('image/png');
+      out.mottle = overlay(S, (i) => (a[i] - 0.5) * 1.5 + (b[i] - 0.5) * 0.9, [240, 244, 170], [20, 70, 28], 0.16, 0.13)[0].toDataURL('image/png');
     }
     /* foliage: sunlit and shaded leaf clusters; laid over each canopy's own color */
     {
       const S = 256, a = tileNoise(S, 6, R), b = tileNoise(S, 24, R);
-      const [c, g] = overlay(S, (i) => (a[i] - 0.5) * 0.9 + (b[i] - 0.5) * 0.7 + (R() - 0.5) * 0.5, [240, 246, 190], [6, 30, 10], 0.22, 0.32);
+      const [c, g] = overlay(S, (i) => (a[i] - 0.5) * 0.9 + (b[i] - 0.5) * 0.7 + (R() - 0.5) * 0.5, [244, 250, 200], [8, 44, 14], 0.2, 0.17);
       for (let i = 0; i < 1300; i++) {
         const x = R() * S, y = R() * S, r = 2.5 + R() * 6.5;
         wrapped(S, x, y, 12, (px, py) => {
           let gr = g.createRadialGradient(px - r * 0.25, py + r * 0.25, 0, px - r * 0.25, py + r * 0.25, r);   // shaded side, away from the sun
-          gr.addColorStop(0, 'rgba(4,26,8,0.34)'); gr.addColorStop(1, 'rgba(4,26,8,0)');
+          gr.addColorStop(0, 'rgba(6,40,12,0.2)'); gr.addColorStop(1, 'rgba(6,40,12,0)');
           g.fillStyle = gr; g.beginPath(); g.arc(px - r * 0.25, py + r * 0.25, r, 0, 6.3); g.fill();
           gr = g.createRadialGradient(px + r * 0.3, py - r * 0.3, 0, px + r * 0.3, py - r * 0.3, r * 0.75);      // sunlit side
-          gr.addColorStop(0, 'rgba(246,250,200,0.3)'); gr.addColorStop(1, 'rgba(246,250,200,0)');
+          gr.addColorStop(0, 'rgba(248,252,206,0.28)'); gr.addColorStop(1, 'rgba(248,252,206,0)');
           g.fillStyle = gr; g.beginPath(); g.arc(px + r * 0.3, py - r * 0.3, r * 0.75, 0, 6.3); g.fill();
         });
       }
@@ -1396,13 +1396,13 @@ function makeTextures() {
     /* mulch: shredded bark chips with their own small shadows */
     {
       const S = 256, a = tileNoise(S, 6, R);
-      const [c, g] = solid(S, '#553827', (i) => (a[i] - 0.5) * 1.2 + (R() - 0.5), 0.22);
-      const chips = ['#6E4C33', '#4A3020', '#7F5A3C', '#3B271A', '#8C6746', '#5E3F2A', '#9A7552', '#452D1E'];
+      const [c, g] = solid(S, '#6B4A31', (i) => (a[i] - 0.5) * 1.2 + (R() - 0.5), 0.2);
+      const chips = ['#7E583B', '#5A3C28', '#8F6845', '#4C3322', '#9C7650', '#6E4B32', '#AA845C', '#573A27'];
       for (let i = 0; i < 2600; i++) {
         const x = R() * S, y = R() * S, ang = R() * Math.PI, L = 4 + R() * 8, w = 1.4 + R() * 2.2, col = chips[Math.floor(R() * chips.length)];
         wrapped(S, x, y, 12, (px, py) => {
           g.save(); g.translate(px, py); g.rotate(ang);
-          g.fillStyle = 'rgba(20,10,4,0.45)'; g.fillRect(-L / 2 - 0.6, -w / 2 + 0.9, L, w);
+          g.fillStyle = 'rgba(20,10,4,0.32)'; g.fillRect(-L / 2 - 0.6, -w / 2 + 0.9, L, w);
           g.fillStyle = col; g.fillRect(-L / 2, -w / 2, L, w);
           g.fillStyle = 'rgba(255,230,190,0.13)'; g.fillRect(-L / 2, -w / 2, L, w * 0.35);
           g.restore();
@@ -1590,7 +1590,7 @@ function foliage(r, c, rng, count, size) {
   for (let i = 0; i < count; i++) {
     const a = rng() * 2 * Math.PI, dd = Math.sqrt(rng()) * r * 0.68, cr = r * (size + rng() * size * 0.8);
     const light = Math.cos(a) * 0.5 - Math.sin(a) * 0.3 + (rng() - 0.5) > 0;
-    s += `<path d="${lobed(cr, 6, rng, 0.25)}" transform="translate(${n(dd * Math.cos(a))} ${n(dd * Math.sin(a))})" fill="${shade(c, light ? 0.2 : -0.28)}" fill-opacity="0.45"/>`;
+    s += `<path d="${lobed(cr, 6, rng, 0.25)}" transform="translate(${n(dd * Math.cos(a))} ${n(dd * Math.sin(a))})" fill="${shade(c, light ? 0.22 : -0.22)}" fill-opacity="0.4"/>`;
   }
   return s;
 }
@@ -1638,7 +1638,7 @@ function leaves(shape, R, count, size, rng, c, spread, op) {
     if (light > 0) lit += p; else dark += p;
   }
   const f = Math.min(1, (op || 0.85) + 0.1);
-  return `<g fill="${shade(c, -0.32)}" fill-opacity="${n(0.42 * f)}">${dark}</g><g fill="${shade(c, 0.22)}" fill-opacity="${n(0.5 * f)}">${lit}</g>`;
+  return `<g fill="${shade(c, -0.26)}" fill-opacity="${n(0.3 * f)}">${dark}</g><g fill="${shade(c, 0.24)}" fill-opacity="${n(0.5 * f)}">${lit}</g>`;
 }
 function limbs(r, k, rng, c, len, w) {
   let d = '';
@@ -1655,7 +1655,7 @@ const trunks = (r, k, c) => {
   return s;
 };
 /* a crown: its own color with a thin, soft edge (a heavy dark outline is what makes a symbol look like a cartoon) */
-const outlineFill = (D, c, o, extra) => `<path d="${D}" fill="${c}" stroke="${shade(c, -0.42)}" stroke-opacity="0.75" stroke-width="${n(o.u * 0.5)}"${extra || ''}/>`;
+const outlineFill = (D, c, o, extra) => `<path d="${D}" fill="${c}" stroke="${shade(c, -0.55)}" stroke-opacity="0.9" stroke-width="${n(o.u * 0.75)}"${extra || ''}/>`;
 let leafTex = 'ld-leafA';   // foliage texture for the plant being drawn: coarser for trees, finer for shrubs
 const dome = (D) => `<path d="${D}" fill="url(#${leafTex})"/><path d="${D}" fill="url(#ld-dome)"/>`;
 function flowers4(r, fl, rng, count, size) {   // dogwood-style four-bract flowers
@@ -3649,9 +3649,9 @@ function imageMarkup() {
 }
 function baseMarkup(o) {
   if (!isScott()) return customBase(o);
-  const paved = o.render ? `<rect x="-5" y="112" width="92" height="9" fill="#8F908C"/><rect x="-5" y="112" width="92" height="9" fill="url(#ld-asphalt)"/><path d="M-5,112H87" stroke="#D9D6CE" stroke-width="0.5"/><path d="M-5,112.3H87" stroke="#3A3A38" stroke-opacity="0.35" stroke-width="0.12"/>` +
+  const paved = o.render ? `<rect x="-5" y="112" width="92" height="9" fill="#B6B7B2"/><rect x="-5" y="112" width="92" height="9" fill="url(#ld-asphalt)"/><path d="M-5,112H87" stroke="#D9D6CE" stroke-width="0.5"/><path d="M-5,112.3H87" stroke="#3A3A38" stroke-opacity="0.35" stroke-width="0.12"/>` +
     `<rect x="0" y="107" width="82" height="3.5" fill="url(#ld-concrete)" stroke="#77736A" stroke-width="0.1"/><path d="${ptsD(DRIVE_POLY)}Z" fill="url(#ld-concrete)" stroke="#77736A" stroke-width="0.12"/>` +
-    `<text x="41" y="117.3" text-anchor="middle" font-family="${FONT}" font-weight="600" font-size="2" letter-spacing="0.3em" fill="#F2F1EC">${esc((CORE.base.find((e) => /letter-spacing="0.3em"/.test(e)) || '').replace(/<[^>]+>/g, '') || 'STREET')}</text>` : '';
+    `<text x="41" y="117.3" text-anchor="middle" font-family="${FONT}" font-weight="600" font-size="2" letter-spacing="0.3em" fill="#2A2A28">${esc((CORE.base.find((e) => /letter-spacing="0.3em"/.test(e)) || '').replace(/<[^>]+>/g, '') || 'STREET')}</text>` : '';
   return `<g transform="${CORE_T}">${BASE_LOT}${view.floor ? BASE_FLOOR : ''}</g>` + paved + (view.floor ? '' : cleanHouse(o));
 }
 function siteMarkup() {

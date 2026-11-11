@@ -702,9 +702,9 @@ function imageMarkup() {
 }
 function baseMarkup(o) {
   if (!isScott()) return customBase(o);
-  const paved = o.render ? `<rect x="-5" y="112" width="92" height="9" fill="#8F908C"/><rect x="-5" y="112" width="92" height="9" fill="url(#ld-asphalt)"/><path d="M-5,112H87" stroke="#D9D6CE" stroke-width="0.5"/><path d="M-5,112.3H87" stroke="#3A3A38" stroke-opacity="0.35" stroke-width="0.12"/>` +
+  const paved = o.render ? `<rect x="-5" y="112" width="92" height="9" fill="#B6B7B2"/><rect x="-5" y="112" width="92" height="9" fill="url(#ld-asphalt)"/><path d="M-5,112H87" stroke="#D9D6CE" stroke-width="0.5"/><path d="M-5,112.3H87" stroke="#3A3A38" stroke-opacity="0.35" stroke-width="0.12"/>` +
     `<rect x="0" y="107" width="82" height="3.5" fill="url(#ld-concrete)" stroke="#77736A" stroke-width="0.1"/><path d="${ptsD(DRIVE_POLY)}Z" fill="url(#ld-concrete)" stroke="#77736A" stroke-width="0.12"/>` +
-    `<text x="41" y="117.3" text-anchor="middle" font-family="${FONT}" font-weight="600" font-size="2" letter-spacing="0.3em" fill="#F2F1EC">${esc((CORE.base.find((e) => /letter-spacing="0.3em"/.test(e)) || '').replace(/<[^>]+>/g, '') || 'STREET')}</text>` : '';
+    `<text x="41" y="117.3" text-anchor="middle" font-family="${FONT}" font-weight="600" font-size="2" letter-spacing="0.3em" fill="#2A2A28">${esc((CORE.base.find((e) => /letter-spacing="0.3em"/.test(e)) || '').replace(/<[^>]+>/g, '') || 'STREET')}</text>` : '';
   return `<g transform="${CORE_T}">${BASE_LOT}${view.floor ? BASE_FLOOR : ''}</g>` + paved + (view.floor ? '' : cleanHouse(o));
 }
 function siteMarkup() {
