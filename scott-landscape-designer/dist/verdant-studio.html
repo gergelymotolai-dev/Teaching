@@ -155,7 +155,8 @@ aside.rail{background:var(--chrome-2);border-right:1px solid #000;padding:6px 0;
 .ruler.top{grid-column:2;grid-row:1;border-bottom:1px solid #000}
 .ruler.left{grid-column:1;grid-row:2;border-right:1px solid #000}
 .canvas{grid-column:2;grid-row:2;position:relative;min-width:0;min-height:0;overflow:hidden}
-#plan{width:100%;height:100%;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+/* the plan is drawn 160px larger than the viewport on every side, so panning can slide it on the GPU without blank edges */
+#plan{position:absolute;left:-160px;top:-160px;width:calc(100% + 320px);height:calc(100% + 320px);display:block;touch-action:none;user-select:none;-webkit-user-select:none;will-change:transform;transform-origin:50% 50%;contain:strict}
 .zoom{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:1px;background:#000;border:1px solid #000;border-radius:3px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.35)}
 .zoom .btn{width:32px;min-height:30px;justify-content:center;padding:0;border:0;border-radius:0;background:#2B2C29}
 .zoom .btn:hover{background:#3A3B36}
@@ -222,6 +223,9 @@ aside.dock{border-left:1px solid #000;display:flex;flex-direction:column}
 .hist .hn{color:var(--dim);font-size:11px;width:20px;text-align:right;font-variant-numeric:tabular-nums}
 .nav{position:relative;background:#1E1F1C;margin:-10px -12px -12px;height:180px;cursor:pointer;touch-action:none}
 .nav svg{width:100%;height:100%;display:block}
+.nav{overflow:hidden;contain:strict;isolation:isolate}
+#navRect{position:absolute;left:0;top:0;border:1.5px solid #E0453A;background:rgba(79,155,217,.14);pointer-events:none;will-change:transform;box-sizing:border-box}
+
 table.sched{width:100%;border-collapse:collapse;font-size:12.5px}
 table.sched th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);padding:4px 3px;border-bottom:1px solid var(--line)}
 table.sched td{padding:5px 3px;border-bottom:1px solid #22231F;vertical-align:top}
@@ -3038,8 +3042,7 @@ function cleanState(raw) {
 const svg = $('plan');
 svg.setAttribute('xmlns', NS);
 svg.innerHTML = DEFS +
-  `<defs><filter id="sheetShadow" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="0.6" stdDeviation="1.2" flood-color="#000" flood-opacity="0.5"/></filter></defs>` +
-  `<rect id="sheetRect" fill="#fff" filter="url(#sheetShadow)"/>` +
+  `<rect id="sheetShade" fill="#000" fill-opacity="0.28"/><rect id="sheetRect" fill="#fff"/>` +
   `<g id="gImg" pointer-events="none"></g><g id="gBase" pointer-events="none"></g><g id="gGrid" pointer-events="none"></g><g id="gDesign"></g>` +
   `<g id="gSite" pointer-events="none"></g>` +
   `<g id="gDiagram"></g><g id="gOver"></g>`;
@@ -3116,21 +3119,60 @@ css.textContent = `
 document.head.appendChild(css);
 
 /* ------------------------------------------------------------------ view / zoom / rulers */
-function size() { const r = svg.getBoundingClientRect(); return { W: Math.max(1, r.width), H: Math.max(1, r.height), L: r.left, T: r.top }; }
-function applyView() {
-  const { W, H } = size();
-  svg.setAttribute('viewBox', `${n(view.cx - W / 2 / view.k)} ${n(view.cy - H / 2 / view.k)} ${n(W / view.k)} ${n(H / view.k)}`);
-  renderOverlay(); renderRulers(); renderNavRect();
-  $('sbZoom').innerHTML = `Zoom <b>${Math.round(view.k / PX * 100)}%</b>`;
+const OVER = 160;   // px of plan drawn beyond each edge of the viewport (matches #plan in the template)
+const viewport = svg.parentElement;
+let sizeCache = null;
+function size() {
+  if (!sizeCache) {
+    const r = viewport.getBoundingClientRect();
+    sizeCache = { W: Math.max(1, r.width), H: Math.max(1, r.height), L: r.left, T: r.top };
+    requestAnimationFrame(() => { sizeCache = null; });
+  }
+  return sizeCache;
 }
+addEventListener('scroll', () => { sizeCache = null; }, true);
+addEventListener('resize', () => { sizeCache = null; });
+let baked = null, bakeTimer = 0;
+/* draw the plan sharp at the current view */
+function bakeView() {
+  clearTimeout(bakeTimer); bakeTimer = 0;
+  const { W, H } = size();
+  /* a fixed pixel size: a percentage-sized SVG is re-laid out, all of it, by every layout pass anywhere on the page */
+  const pw = n(W + 2 * OVER) + 'px', ph = n(H + 2 * OVER) + 'px';
+  if (svg.style.width !== pw) svg.style.width = pw;
+  if (svg.style.height !== ph) svg.style.height = ph;
+  const vb = `${n(view.cx - (W / 2 + OVER) / view.k)} ${n(view.cy - (H / 2 + OVER) / view.k)} ${n((W + 2 * OVER) / view.k)} ${n((H + 2 * OVER) / view.k)}`;
+  if (svg.getAttribute('viewBox') !== vb) svg.setAttribute('viewBox', vb);
+  if (svg.style.transform) svg.style.transform = '';
+  baked = { cx: view.cx, cy: view.cy, k: view.k, W, H };
+}
+/* live = part of a pan / zoom gesture: move the drawn plan with a GPU transform and redraw sharp once the gesture pauses */
+function applyView(live) {
+  const { W, H } = size();
+  let slid = false;
+  if (live && baked && baked.W === W && baked.H === H) {
+    const s = view.k / baked.k, tx = (baked.cx - view.cx) * view.k, ty = (baked.cy - view.cy) * view.k;
+    const covered = (W / 2 + OVER) * s - Math.abs(tx) >= W / 2 && (H / 2 + OVER) * s - Math.abs(ty) >= H / 2;
+    if (covered && s > 0.45 && s < 2.6) {
+      svg.style.transform = s === 1 && !tx && !ty ? '' : `translate(${n(tx)}px,${n(ty)}px) scale(${Math.round(s * 1e4) / 1e4})`;
+      clearTimeout(bakeTimer); bakeTimer = setTimeout(bakeView, 140);
+      slid = true;
+    }
+  }
+  if (!slid) bakeView();
+  renderOverlay(); renderRulers(); renderNavRect();
+  const z = `Zoom <b>${Math.round(view.k / PX * 100)}%</b>`;
+  if ($('sbZoom').innerHTML !== z) $('sbZoom').innerHTML = z;
+}
+function settleView() { if (bakeTimer) bakeView(); }
 function fitK() { const { W, H } = size(), F = fitRect(); return Math.min(W / F.w, H / F.h) * 0.96; }
 function fit() { const F = fitRect(); view.k = fitK(); view.cx = F.x + F.w / 2; view.cy = F.y + F.h / 2; applyView(); }
 function toWorld(cx, cy) { const { W, H, L, T: Tp } = size(); return [view.cx + (cx - L - W / 2) / view.k, view.cy + (cy - Tp - H / 2) / view.k]; }
-function zoomAt(sx, sy, f) {
+function zoomAt(sx, sy, f, live) {
   const p = toWorld(sx, sy), { W, H, L, T: Tp } = size();
   view.k = clamp(view.k * f, fitK() * 0.4, 160);
   view.cx = p[0] - (sx - L - W / 2) / view.k; view.cy = p[1] - (sy - Tp - H / 2) / view.k;
-  applyView();
+  applyView(live);
 }
 function zoomCenter(f) { const { W, H, L, T: Tp } = size(); zoomAt(L + W / 2, Tp + H / 2, f); }
 function zoomActual() { view.k = PX; applyView(); }
@@ -3149,12 +3191,19 @@ function rulerMarks(len, w0, k, vertical) {
   return `<path d="${d}" stroke="#7D8077" stroke-width="1" fill="none"/><g fill="#A9ACA2" font-size="9" font-family="'Source Sans 3',Arial,sans-serif">${txt}</g>` +
     `<line id="${vertical ? 'rlCur' : 'rtCur'}" ${vertical ? 'x1="0" x2="20"' : 'y1="0" y2="20"'} stroke="#FFCE00" stroke-width="1" visibility="hidden"/>`;
 }
-function renderRulers() {
-  const top = $('rulerTop'), left = $('rulerLeft');
-  if (!top || !top.clientWidth) return;
-  const { W, H } = size();
-  top.innerHTML = rulerMarks(W, view.cx - W / 2 / view.k, view.k, false);
-  left.innerHTML = rulerMarks(H, view.cy - H / 2 / view.k, view.k, true);
+let rulerRaf = 0, rulerKey = '';
+function renderRulers() {   // at most once a frame, and only when the view really changed
+  if (rulerRaf) return;
+  rulerRaf = requestAnimationFrame(() => {
+    rulerRaf = 0;
+    const top = $('rulerTop'), left = $('rulerLeft');
+    if (!top || !top.clientWidth) return;
+    const { W, H } = size(), key = [W, H, n(view.cx), n(view.cy), view.k].join(',');
+    if (key === rulerKey) return;
+    rulerKey = key;
+    top.innerHTML = rulerMarks(W, view.cx - W / 2 / view.k, view.k, false);
+    left.innerHTML = rulerMarks(H, view.cy - H / 2 / view.k, view.k, true);
+  });
 }
 function trackCursor(p) {
   const { W, H } = size(), rt = $('rtCur'), rl = $('rlCur');
@@ -3174,24 +3223,68 @@ function trackCursor(p) {
 const nav = $('nav');
 nav.innerHTML = `<svg id="navSvg" preserveAspectRatio="xMidYMid meet" pointer-events="none">` +
   `<rect id="navBg" fill="#fff"/>` +
-  '<use href="#gImg"/><use href="#gBase"/><use href="#gDesign"/><use href="#gDiagram"/>' +
-  '<rect id="navRect" fill="rgba(79,155,217,.12)" stroke="#E0453A" stroke-width="0.9"/></svg>';
+  '<g id="navBase"></g><g id="navItems"></g></svg>' +
+  '<div id="navRect"></div>';
+/* each item as a flat footprint in its own color: enough to find your way, cheap to redraw */
+function navColor(it) {
+  const t = T[it.type], sp = PLANT_BY_ID[it.sp];
+  if (it.type === 'lawn' || it.type === 'lawnShape') return (sp && sp.c) || '#7DAA5B';
+  if (t.plant && !t.bed) return (sp && sp.c) || t.tint || '#5E9C6B';
+  if (isBedType(it.type)) return '#6B4A32';
+  if (it.type === 'pondShape' || it.type === 'stream' || /^pool/.test(it.type) || it.type === 'hottub') return '#4F9FC4';
+  if (it.type === 'building') return '#B9B3A8';
+  if (it.type === 'fence' || it.type === 'wall') return '#7A5B3C';
+  if (it.type === 'lights') return '#E0B23A';
+  if (layerOf(it) === 'diagram') return '#C98A2B';
+  return t.tint || '#B8B0A0';
+}
+function navBaseMarkup() {
+  const L = lot();
+  let s = `<path d="${ptsD(L.poly)}Z" fill="#F4F2EA" stroke="#55584F" stroke-width="0.5" stroke-dasharray="2 1"/>`;
+  if (isScott()) s += '<rect x="-6" y="112" width="94" height="9" fill="#DAD8D2"/><rect x="0" y="107" width="82" height="3.5" fill="#E6E3DB"/><path d="M16,80H32V107H16Z" fill="#E6E3DB"/>';
+  for (const b of buildingPolys()) if (!b.id) s += `<path d="${ptsD(b.poly)}Z" fill="#B9B3A8" stroke="#3A3A36" stroke-width="0.5"/>`;
+  return s;
+}
+function navMarkup() {
+  let s = '';
+  for (const it of state.items) {
+    if (it.hidden || !(layerOf(it) === 'design' ? view.design : view.diagram)) continue;
+    const t = T[it.type], c = navColor(it), dia = layerOf(it) === 'diagram';
+    if (t.kind === 'circle') s += `<circle cx="${n(it.x)}" cy="${n(it.y)}" r="${n(it.r)}" fill="${c}"${t.tree ? ' fill-opacity="0.8"' : ''}/>`;
+    else if (t.kind === 'box') s += dia ? `<ellipse cx="${n(it.x)}" cy="${n(it.y)}" rx="${n(it.w / 2)}" ry="${n(it.h / 2)}" fill="none" stroke="${c}" stroke-width="0.6" transform="rotate(${n(it.rot || 0)} ${n(it.x)} ${n(it.y)})"/>` : `<rect x="${n(it.x - it.w / 2)}" y="${n(it.y - it.h / 2)}" width="${n(it.w)}" height="${n(it.h)}" rx="${isBedType(it.type) && bedForm(it) === 'oval' ? n(Math.min(it.w, it.h) / 2) : 0.3}" fill="${c}" transform="rotate(${n(it.rot || 0)} ${n(it.x)} ${n(it.y)})"/>`;
+    else if (t.kind === 'shape') s += `<path d="${shapeD(it.pts, it.smooth)}" fill="${c}"/>`;
+    else if (t.kind === 'line') s += `<path d="${ptsD(it.pts)}" fill="none" stroke="${c}" stroke-width="${n(Math.max(0.8, it.width || 0))}" stroke-linejoin="round"/>`;
+  }
+  return s;
+}
+let navKey = '', navBaseKey = '', navTimer = 0;
+function renderNav() {   // off the critical path: redrawn shortly after the plan settles
+  clearTimeout(navTimer);
+  navTimer = setTimeout(() => { const el = $('navItems'); if (!el || !nav.clientWidth) return; const s = navMarkup(), b = navBaseMarkup(); if (b !== navBaseKey) { navBaseKey = b; $('navBase').innerHTML = b; } if (s !== navKey) { navKey = s; el.innerHTML = s; } renderNavRect(); }, 120);
+}
+/* where the navigator's drawing sits inside its box: scale (px per ft) and offsets */
+function navFrame() {
+  const F = fitRect(), w = nav.clientWidth, h = nav.clientHeight, vw = F.w + 4, vh = F.h + 4;
+  const s = Math.min(w / vw, h / vh) || 1;
+  return { s, ox: (w - vw * s) / 2 - (F.x - 2) * s, oy: (h - vh * s) / 2 - (F.y - 2) * s };
+}
+/* the red view box is its own little layer, so moving it never repaints the navigator drawing */
 function renderNavRect() {
   const r = $('navRect');
-  if (!r) return;
-  const { W, H } = size();
-  r.setAttribute('x', n(view.cx - W / 2 / view.k)); r.setAttribute('y', n(view.cy - H / 2 / view.k));
-  r.setAttribute('width', n(W / view.k)); r.setAttribute('height', n(H / view.k));
+  if (!r || !nav.clientWidth) return;
+  const { W, H } = size(), f = navFrame();
+  const w = Math.max(4, W / view.k * f.s), h = Math.max(4, H / view.k * f.s);
+  r.style.width = n(w) + 'px'; r.style.height = n(h) + 'px';
+  r.style.transform = `translate(${n(f.ox + (view.cx - W / 2 / view.k) * f.s)}px,${n(f.oy + (view.cy - H / 2 / view.k) * f.s)}px)`;
 }
 function navTo(e) {
-  const F = fitRect(), r = nav.getBoundingClientRect(), vw = F.w + 4, vh = F.h + 4;
-  const s = Math.min(r.width / vw, r.height / vh), ox = (r.width - vw * s) / 2, oy = (r.height - vh * s) / 2;
-  view.cx = F.x - 2 + (e.clientX - r.left - ox) / s; view.cy = F.y - 2 + (e.clientY - r.top - oy) / s;
-  applyView();
+  const r = nav.getBoundingClientRect(), f = navFrame();
+  view.cx = (e.clientX - r.left - f.ox) / f.s; view.cy = (e.clientY - r.top - f.oy) / f.s;
+  applyView(true);
 }
 nav.addEventListener('pointerdown', (e) => { nav.setPointerCapture(e.pointerId); navTo(e); nav.dataset.drag = '1'; });
 nav.addEventListener('pointermove', (e) => { if (nav.dataset.drag) navTo(e); });
-nav.addEventListener('pointerup', () => { delete nav.dataset.drag; });
+nav.addEventListener('pointerup', () => { delete nav.dataset.drag; settleView(); });
 
 
 /* ------------------------------------------------------------------ base plan: Scott lab house or the student's own lot */
@@ -3309,7 +3402,7 @@ function siteMarkup() {
   if (view.site) s += `<g transform="${CORE_T}">${SITE_NOTES}${view.floor ? '' : BASE_NOTES}</g>` + (view.floor ? '' : houseNotes());
   return s;
 }
-let baseKey = '';
+let baseKey = '', overKey = '';
 function renderBase() {
   const o = drawOpts();
   const key = [isScott() ? 'scott' : JSON.stringify(Object.assign({}, state.site, { img: state.site.img ? [state.site.img.x, state.site.img.y, state.site.img.w, state.site.img.op, state.site.img.src.length] : 0 })), view.style, view.floor, view.site, view.util].join('|');
@@ -3318,8 +3411,9 @@ function renderBase() {
   gBase.innerHTML = baseMarkup(o);
   gSite.innerHTML = siteMarkup();
   gImg.innerHTML = imageMarkup();
-  const F = fitRect(), r = $('sheetRect');
+  const F = fitRect(), r = $('sheetRect'), rs = $('sheetShade');
   r.setAttribute('x', F.x - 2); r.setAttribute('y', F.y - 2); r.setAttribute('width', F.w + 4); r.setAttribute('height', F.h + 4);
+  rs.setAttribute('x', F.x - 1.5); rs.setAttribute('y', F.y - 1.3); rs.setAttribute('width', F.w + 4); rs.setAttribute('height', F.h + 4);
   const ns = $('navSvg'), nb = $('navBg');
   ns.setAttribute('viewBox', `${F.x - 2} ${F.y - 2} ${F.w + 4} ${F.h + 4}`);
   nb.setAttribute('x', F.x - 2); nb.setAttribute('y', F.y - 2); nb.setAttribute('width', F.w + 4); nb.setAttribute('height', F.h + 4);
@@ -3357,10 +3451,42 @@ function addCopies(copies, originals) {
     if (o >= 0) state.items.splice(o + 1, 0, c); else addItem(c);
   });
 }
+/* one item's markup; a symbol that fails to draw becomes a marked box instead of taking the whole plan down */
+function safeDraw(it, o) {
+  try { return drawItem(it, o); } catch (err) {
+    if (!drawFails.has(it.id)) { drawFails.add(it.id); console.warn('Could not draw', it.type, it.id, err); }
+    const b = (() => { try { return bbox(it); } catch (e2) { return { x1: 0, y1: 0, x2: 4, y2: 4 }; } })();
+    return `<g data-id="${esc(it.id)}"><rect x="${n(b.x1)}" y="${n(b.y1)}" width="${n(Math.max(1, b.x2 - b.x1))}" height="${n(Math.max(1, b.y2 - b.y1))}" fill="#F6C2B9" fill-opacity="0.5" stroke="#B23A2B" stroke-width="${n(o.u * 1.5)}" stroke-dasharray="0.6 0.4"/></g>`;
+  }
+}
+const drawFails = new Set();
+/* keep a layer's DOM in step with its items, touching only what changed: unchanged symbols keep their nodes
+ * (so placing one plant no longer rebuilds the other two hundred) */
+const drawn = { design: new Map(), diagram: new Map() };
+const parseBox = document.createElementNS(NS, 'g');
+function syncLayer(g, cache, items, o) {
+  const next = items.map((it) => [it.id, safeDraw(it, o)]), want = new Set(next.map((x) => x[0]));
+  const have = new Map();
+  for (const el of [...g.children]) { const id = el.getAttribute('data-id'); if (id === null || !want.has(id) || have.has(id)) { el.remove(); if (id !== null && !want.has(id)) cache.delete(id); } else have.set(id, el); }
+  let ref = g.firstElementChild;
+  for (const [id, html] of next) {
+    let el = have.get(id);
+    if (!el || cache.get(id) !== html) {
+      parseBox.innerHTML = html;
+      const fresh = parseBox.firstElementChild;
+      if (!fresh) continue;
+      if (el) { el.replaceWith(fresh); if (el === ref) ref = fresh; }
+      el = fresh; cache.set(id, html);
+    }
+    if (el === ref) ref = ref.nextElementSibling; else g.insertBefore(el, ref);
+  }
+  for (const id of [...cache.keys()]) if (!want.has(id)) cache.delete(id);
+}
 function renderPlan() {
   const o = drawOpts({ hit: true });
-  gDesign.innerHTML = sortedItems('design').map((it) => drawItem(it, o)).join('');
-  gDiagram.innerHTML = sortedItems('diagram').map((it) => drawItem(it, o)).join('');
+  syncLayer(gDesign, drawn.design, sortedItems('design'), o);
+  syncLayer(gDiagram, drawn.diagram, sortedItems('diagram'), o);
+  renderNav();
   renderBase();
   gBase.style.display = view.base ? '' : 'none';
   gSite.style.display = '';
@@ -3377,7 +3503,10 @@ function renderItems(ids) {
   if (ids.some((id) => { const it = byId(id); return it && (it.type === 'pondShape' || it.type === 'stream'); })) ids = [...new Set(ids.concat(o.water.map((w) => w.id)))];   // a stream and its pond redraw together
   for (const id of ids) {
     const it = byId(id), el = svg.querySelector(`[data-id="${CSS.escape(id)}"]`);
-    if (it && el) el.outerHTML = drawItem(it, o);
+    if (!it || !el) continue;
+    const html = safeDraw(it, o), cache = drawn[layerOf(it)];
+    if (cache.get(id) === html) continue;
+    el.outerHTML = html; cache.set(id, html);
   }
   renderOverlay();
 }
@@ -3462,7 +3591,7 @@ function renderOverlay() {
     if (d > 0.2) s += `<text x="${n((a[0] + b[0]) / 2)}" y="${n((a[1] + b[1]) / 2 - 8 / k)}" text-anchor="middle" font-family="${FONT}" font-weight="600" font-size="${n(fs)}" fill="#8E2414" paint-order="stroke" stroke="#fff" stroke-width="${n(4 / k)}" stroke-linejoin="round">${n(r1(d))} FT (${ftIn(d)})</text>`;
     s += '</g>';
   }
-  gOver.innerHTML = s;
+  if (s !== overKey) { overKey = s; gOver.innerHTML = s; }
   statusSel();
 }
 function nameOf(it) {
@@ -3683,7 +3812,7 @@ document.addEventListener('pointermove', (e) => {
   }
   e.preventDefault();
   ghostEl.style.left = e.clientX + 'px'; ghostEl.style.top = e.clientY + 'px';
-  const r = svg.getBoundingClientRect(), over = e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom;
+  const r = viewport.getBoundingClientRect(), over = e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom;
   ghostEl.classList.toggle('over', over);
   if (over) trackCursor(toWorld(e.clientX, e.clientY));
 });
@@ -3695,7 +3824,7 @@ function endLibDrag(e, cancel) {
   if (!d.on) return;
   libNoClick = true; setTimeout(() => { libNoClick = false; }, 50);
   if (cancel) return;
-  const r = svg.getBoundingClientRect();
+  const r = viewport.getBoundingClientRect();
   if (e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom) { if (d.el) dropEntry(d.id, e.clientX, e.clientY); else dropPlant(d.id, e.clientX, e.clientY); }
   else toast('Drop it on the plan');
 }
@@ -3906,8 +4035,9 @@ function setSel(ids) {
   flush();
   sel = ids.filter((id) => byId(id));
   renderProps(); renderOverlay(); if (view.lib) renderLibInfo();
-  if (tabOpen('pObjects')) renderObjects();
+  markObjSel();
 }
+function markObjSel() { if (tabOpen('pObjects')) for (const r of $('objList').querySelectorAll('[data-obj]')) { const on = sel.includes(r.dataset.obj); if ((r.getAttribute('aria-selected') === 'true') !== on) r.setAttribute('aria-selected', on); } }
 const select = (id) => setSel(id ? [id] : []);
 const editable = () => selItems().filter((i) => !i.locked);
 function removeSel() {
@@ -4167,7 +4297,7 @@ svg.addEventListener('pointermove', (e) => {
     const [a, b] = [...pointers.values()];
     const d = Math.hypot(a[0] - b[0], a[1] - b[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
     view.cx -= (m[0] - pinch.m[0]) / view.k; view.cy -= (m[1] - pinch.m[1]) / view.k;
-    if (pinch.d > 0) zoomAt(m[0], m[1], d / pinch.d); else applyView();
+    if (pinch.d > 0) zoomAt(m[0], m[1], d / pinch.d, true); else applyView(true);
     pinch = { d, m };
     return;
   }
@@ -4184,7 +4314,7 @@ svg.addEventListener('pointermove', (e) => {
   switch (drag.mode) {
     case 'pan':
       view.cx = drag.cx - (e.clientX - drag.sx) / view.k; view.cy = drag.cy - (e.clientY - drag.sy) / view.k;
-      svg.classList.add('panning'); applyView();
+      svg.classList.add('panning'); applyView(true);
       break;
     case 'tap':
       if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 8) drag.mode = 'pan';
@@ -4239,6 +4369,7 @@ function endPointer(e, cancelled) {
   const d = drag;
   drag = null;
   svg.classList.remove('panning');
+  if (d && d.mode === 'pan') settleView();
   if (!d) return;
   if ((d.mode === 'move' || d.mode === 'handle') && (d.moved || d.copied)) { snapMark = null; renderPlan(); commit(d.label); renderProps(); }
   if (d.mode === 'marquee') { marquee = null; setSel(sel); }
@@ -4256,12 +4387,12 @@ svg.addEventListener('dblclick', (e) => { e.preventDefault(); if (draft) finishD
 svg.addEventListener('wheel', (e) => {
   e.preventDefault();
   const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
-  zoomAt(e.clientX, e.clientY, Math.exp(-dy * 0.0015));
+  zoomAt(e.clientX, e.clientY, Math.exp(-dy * 0.0015), true);
 }, { passive: false });
 $('zIn').addEventListener('click', () => zoomCenter(1.3));
 $('zOut').addEventListener('click', () => zoomCenter(1 / 1.3));
 $('zFit').addEventListener('click', fit);
-if (window.ResizeObserver) new ResizeObserver(() => applyView()).observe(svg); else window.addEventListener('resize', applyView);
+if (window.ResizeObserver) new ResizeObserver(() => { sizeCache = null; applyView(); }).observe(viewport); else window.addEventListener('resize', () => applyView());
 
 /* ------------------------------------------------------------------ menus (menu bar and right-click) */
 const ctx = $('ctx');
