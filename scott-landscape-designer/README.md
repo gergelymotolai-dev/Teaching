@@ -31,4 +31,5 @@ CLAUDE.md has the full brief. It covers what's done, what's left, the base plan 
 python3 scripts/build.py   # → dist/verdant-studio.html
 node scripts/e2e_test.js   # Playwright end-to-end check at 1440×900 and 390×844
 node scripts/e2e_custom.js # own-yard flow: new design, trace image, export, My designs
+node scripts/e2e_pro.js    # textures, smooth pan/zoom, lawn fill, edge snapping, safe saving
 ```
