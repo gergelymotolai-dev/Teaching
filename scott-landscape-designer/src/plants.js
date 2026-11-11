@@ -3,6 +3,7 @@
  * cn/bn: common and botanical name; w/h: mature spread and height (ft); sun: F full, P part, S shade
  * z: USDA hardiness zones; c: foliage color for the rendered plan; fl: flower color (optional)
  * spc: on-center spacing (ft) for bed plants, used to estimate quantities; note: one line for students.
+ * g: an ornamental grass (its own library group and tufted symbol; pl: 'haze' draws a soft cloud of bloom instead of plumes).
  */
 const PLANTS = [
   // ---- deciduous trees
@@ -66,14 +67,38 @@ const PLANTS = [
   { id: 'trja', t: 'groundcover', cn: 'Asiatic jasmine', bn: 'Trachelospermum asiaticum', w: 3, h: 0.75, sun: 'F/P/S', z: '7–10', c: '#3C6534', spc: 1.5, note: 'Evergreen carpet; slopes and shade.' },
   { id: 'phsu', t: 'groundcover', cn: 'Creeping phlox', bn: 'Phlox subulata', w: 2, h: 0.5, sun: 'F', z: '3–9', c: '#5F8A42', fl: '#C995D8', spc: 1.5, note: 'Spring carpet of flowers.' },
   { id: 'ajre', t: 'groundcover', cn: 'Ajuga', bn: 'Ajuga reptans', w: 1.5, h: 0.5, sun: 'P/S', z: '3–9', c: '#5A4A5E', fl: '#5B5FC0', spc: 1, note: 'Bronze leaves; blue spring spikes.' },
+  // ---- ornamental grasses: big clumps are placed one by one (as shrubs); small ones are planted in beds
+  { id: 'cose', t: 'dshrub', g: true, f: 'grass', cn: 'Pampas grass', bn: 'Cortaderia selloana', w: 6, h: 8, sun: 'F', z: '7–10', c: '#8FA868', fl: '#F4EEDC', note: 'Huge clump with white plumes; give it room, sharp leaf edges.' },
+  { id: 'misi', t: 'dshrub', g: true, f: 'grass', cn: 'Maiden grass', bn: "Miscanthus sinensis 'Gracillimus'", w: 4, h: 6, sun: 'F', z: '5–9', c: '#7C9E58', fl: '#DCC9AE', note: 'Fine arching leaves; coppery plumes in fall. A soft screen.' },
+  { id: 'pavi', t: 'dshrub', g: true, f: 'grass', cn: 'Switchgrass', bn: "Panicum virgatum 'Shenandoah'", w: 3, h: 4, sun: 'F', z: '4–9', c: '#6F9450', fl: '#B4576A', pl: 'haze', note: 'Native prairie grass; leaves turn burgundy by late summer.' },
+  { id: 'muca', t: 'dshrub', g: true, f: 'grass', cn: 'Pink muhly grass', bn: 'Muhlenbergia capillaris', w: 3, h: 3, sun: 'F', z: '6–10', c: '#6E9052', fl: '#EC8FBC', pl: 'haze', note: 'Native; a pink cloud of bloom in October. Needs sun and drainage.' },
+  { id: 'peal', t: 'dshrub', g: true, f: 'grass', cn: 'Dwarf fountain grass', bn: "Pennisetum alopecuroides 'Hameln'", w: 2.5, h: 2.5, sun: 'F/P', z: '5–9', c: '#7FA65A', fl: '#EADFC4', note: 'Neat mound with bottlebrush plumes; good along a walk.' },
+  { id: 'caac', t: 'dshrub', g: true, f: 'grass', cn: 'Feather reed grass', bn: "Calamagrostis × acutiflora 'Karl Foerster'", w: 2, h: 5, sun: 'F/P', z: '4–9', c: '#6C924A', fl: '#DCC48C', note: 'Narrow and upright; wheat-colored plumes all summer.' },
+  { id: 'fegl', t: 'perennial', g: true, cn: 'Blue fescue', bn: 'Festuca glauca', w: 1, h: 1, sun: 'F', z: '4–8', c: '#7FA6AC', spc: 1, note: 'Small blue tufts for edging; wants sun and dry feet.' },
+  { id: 'scsc', t: 'perennial', g: true, cn: 'Little bluestem', bn: 'Schizachyrium scoparium', w: 2, h: 3, sun: 'F', z: '3–9', c: '#7E9E8C', fl: '#C98A5A', spc: 2, note: 'Native prairie grass; blue-green in summer, copper in fall.' },
+  { id: 'chla', t: 'perennial', g: true, cn: 'Northern sea oats', bn: 'Chasmanthium latifolium', w: 2, h: 3, sun: 'P/S', z: '4–9', c: '#6F9E4E', fl: '#C9B37A', spc: 2, note: 'Native; one of the few grasses for shade. Dangling oat seed heads.' },
+  { id: 'nate', t: 'perennial', g: true, cn: 'Mexican feather grass', bn: 'Nassella tenuissima', w: 1.5, h: 2, sun: 'F', z: '6–10', c: '#A9BC6A', fl: '#E6DDB0', spc: 1.5, note: 'Hair-fine blades that move in any breeze.' },
+  { id: 'caos', t: 'perennial', g: true, cn: 'Evergold sedge', bn: "Carex oshimensis 'Evergold'", w: 1.5, h: 1, sun: 'P/S', z: '5–9', c: '#C6C768', spc: 1.25, note: 'Grass-like gold and green tufts; evergreen, for shade.' },
   // ---- turf
   { id: 'cyda', t: 'turf', cn: 'Bermudagrass', bn: 'Cynodon dactylon', w: 0, h: 0, sun: 'F', z: '7–10', c: '#7DB24F', note: 'Full sun; takes heavy play. Dormant brown in winter.' },
   { id: 'zoja', t: 'turf', cn: 'Zoysiagrass', bn: 'Zoysia japonica', w: 0, h: 0, sun: 'F/P', z: '6–10', c: '#6EA74A', note: 'Dense; some shade; slow to establish.' },
   { id: 'feur', t: 'turf', cn: 'Tall fescue', bn: 'Festuca arundinacea', w: 0, h: 0, sun: 'P', z: '4–7', c: '#5E9A48', note: 'Cool-season; stays green in winter; part shade.' },
+  { id: 'erop', t: 'turf', cn: 'Centipedegrass', bn: 'Eremochloa ophiuroides', w: 0, h: 0, sun: 'F/P', z: '7–10', c: '#98C460', note: 'Light apple green; slow, low-care lawn. Does not take heavy play.' },
+  { id: 'stse', t: 'turf', cn: 'St. Augustinegrass', bn: 'Stenotaphrum secundatum', w: 0, h: 0, sun: 'F/P/S', z: '8–10', c: '#5C9E4C', note: 'Coarse, blue-green; the best warm-season grass for shade. Can winter-kill here.' },
+  { id: 'popr', t: 'turf', cn: 'Kentucky bluegrass', bn: 'Poa pratensis', w: 0, h: 0, sun: 'F', z: '2–7', c: '#4F8E58', note: 'Dark blue-green, fine blades; cool-season, struggles in Arkansas summers.' },
+  { id: 'boda', t: 'turf', cn: 'Buffalograss', bn: 'Bouteloua dactyloides', w: 0, h: 0, sun: 'F', z: '4–8', c: '#9AAE78', note: 'Native, gray-green; very little water or mowing. Thin look.' },
+  { id: 'lope', t: 'turf', cn: 'Perennial ryegrass', bn: 'Lolium perenne', w: 0, h: 0, sun: 'F/P', z: '3–7', c: '#5EAE46', note: 'Bright green; overseeded on bermuda for a green winter lawn.' },
+  { id: 'feru', t: 'turf', cn: 'Fine fescue', bn: 'Festuca rubra', w: 0, h: 0, sun: 'P/S', z: '3–7', c: '#6A9C5E', note: 'Very fine blades; the cool-season grass for dry shade.' },
 ];
 const PLANT_BY_ID = Object.fromEntries(PLANTS.map((p) => [p.id, p]));
 const SP_DEFAULT = { dtree: 'acru', etree: 'juvi', bshrub: 'ilvn', dshrub: 'hyqu', perennial: 'ruhi', annual: 'ziel', groundcover: 'limu', turf: 'cyda' };
 const SUN_NAMES = { F: 'Full sun', P: 'Part shade', S: 'Shade' };
+/* library and schedule groups: ornamental grasses get their own, whatever item type they are planted as */
+const catOf = (sp) => (sp.g ? 'grass' : sp.t);
+const LIB_CATS = [
+  ['dtree', 'Deciduous trees'], ['etree', 'Evergreen trees'], ['bshrub', 'Broadleaf evergreen shrubs'], ['dshrub', 'Deciduous shrubs'],
+  ['perennial', 'Perennials'], ['annual', 'Annuals'], ['grass', 'Ornamental grasses'], ['groundcover', 'Ground covers'], ['turf', 'Lawn grasses'],
+];
 const CATS = [
   ['dtree', 'Deciduous trees'], ['etree', 'Evergreen trees'], ['bshrub', 'Broadleaf evergreen shrubs'], ['dshrub', 'Deciduous shrubs'],
   ['perennial', 'Perennials'], ['annual', 'Annuals'], ['groundcover', 'Ground covers'], ['turf', 'Lawn grasses'],

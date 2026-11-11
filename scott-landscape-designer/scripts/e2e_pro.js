@@ -140,6 +140,24 @@ const FILE = 'file://' + path.resolve(__dirname, '../dist/verdant-studio.html');
   ok(/Greenhouse, 12 × 16 ft/.test(await p.textContent('#sched')), 'the takeoff lists it');
   await p.keyboard.press('Escape');
 
+  // 6d. grasses: more lawn grasses, and ornamental grasses in their own group
+  await p.click('[data-libtab="plants"]');
+  const cats = await p.evaluate(() => [...document.querySelectorAll('#libCat option')].map((o) => o.textContent));
+  ok(cats.some((c) => /^Ornamental grasses \(11\)/.test(c)) && cats.some((c) => /^Lawn grasses \(9\)/.test(c)), 'the library has 11 ornamental grasses and 9 lawn grasses');
+  await p.selectOption('#libCat', 'grass'); await p.waitForTimeout(200);
+  ok(await p.isVisible('[data-sp="muca"]') && await p.isVisible('[data-sp="fegl"]') && !(await p.$('[data-sp="hyqu"]')), 'the Ornamental grasses group lists only grasses');
+  await p.click('#zFit'); await p.waitForTimeout(300);   // earlier steps picked items from the Layers list, which zooms in on them
+  await p.click('[data-sp="muca"]');
+  await click(70, 60); await p.keyboard.press('Escape');
+  const muhly = (await items()).find((i) => i.sp === 'muca');
+  ok(muhly && muhly.type === 'dshrub' && muhly.r === 1.5, 'pink muhly grass is planted at its 3 ft spread');
+  await p.selectOption('#libCat', 'turf'); await p.waitForTimeout(200);
+  ok(await p.isVisible('[data-sp="erop"]') && await p.isVisible('[data-sp="popr"]') && await p.evaluate(() => !!document.getElementById('ld-lawn-boda')), 'centipede, bluegrass and buffalograss are there, each with its own turf');
+  await p.selectOption('#libCat', 'all');
+  await p.click('[data-pane="pSched"]'); await p.waitForTimeout(200);
+  ok(/Ornamental grasses/.test(await p.textContent('#sched')), 'the schedule groups ornamental grasses');
+  await p.keyboard.press('Escape');
+
   // 7. export still works with the textures
   await p.fill('#fName', 'Pat Student');
   await p.click('#bExport'); await p.waitForTimeout(300);

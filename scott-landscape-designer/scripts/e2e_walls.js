@@ -88,6 +88,20 @@ const FILE = 'file://' + path.resolve(__dirname, '../dist/verdant-studio.html');
   if (widthIn) { await widthIn.fill('5'); await widthIn.dispatchEvent('input'); await p.waitForTimeout(700); ok((await get(stream.id)).width === 5, 'stream widened to 5 ft under Properties'); }
   else ok(false, 'stream width field under Properties');
 
+  // a second stream drawn toward the first joins it: its end snaps onto the first stream and the banks open
+  await p.keyboard.press('Escape');
+  ids = (await items()).map((i) => i.id);
+  const main = await get(stream.id), mid = [(main.pts[0][0] + main.pts[1][0]) / 2, (main.pts[0][1] + main.pts[1][1]) / 2];
+  await p.click('[data-libtab="living"]'); await p.click('[data-el="stream-1"]');
+  for (const [x, y] of [[78, 8], [74, 12], [mid[0] + 2.2, mid[1] + 0.6]]) await click(x, y);
+  await p.keyboard.press('Enter'); await p.waitForTimeout(250);
+  const trib = await newest(ids);
+  const tEnd = trib.pts[trib.pts.length - 1];
+  ok(trib && trib.type === 'stream' && Math.hypot(tEnd[0] - mid[0], tEnd[1] - mid[1]) < 2.4 && Math.hypot(tEnd[0] - (mid[0] + 2.2), tEnd[1] - (mid[1] + 0.6)) > 0.8, `a stream drawn up to another stream snaps onto it (${tEnd})`);
+  const jn = await p.evaluate(([a, b]) => ({ gap: !!document.querySelector(`#gDesign [data-id="${a}"] mask[id^="sg-"]`), cut: !!document.querySelector(`#gDesign [data-id="${b}"] mask[id^="sm-"] path[stroke="#000"]`) }), [stream.id, trib.id]);
+  ok(jn.gap && jn.cut, 'the two streams join: the first opens its bank and the second ends in its water');
+  await p.keyboard.press('Escape');
+
   // takeoff, drafting style, export
   await p.click('[data-pane="pSched"]');
   const sched = await p.textContent('#sched');
@@ -99,7 +113,7 @@ const FILE = 'file://' + path.resolve(__dirname, '../dist/verdant-studio.html');
   await p.click('[data-style="render"]');
   // round trip through the saved file format
   const back = await p.evaluate(() => { const s = JSON.parse(localStorage.getItem('scottDesign.v1')); return s.items.filter((i) => ['wall', 'lights', 'pondShape', 'stream'].includes(i.type)).length; });
-  ok(back === 5, 'walls, lights, pond and stream saved with the design');
+  ok(back === 6, 'walls, lights, pond and streams saved with the design');
   ok(errs.length === 0, 'no console errors ' + errs.join(' | '));
   await b.close();
 })();

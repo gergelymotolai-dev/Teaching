@@ -936,6 +936,24 @@ const FORMS = {
     }
     return s;
   },
+  /* ornamental grasses: a fountain of arching blades from one crown, with plumes or a haze of bloom at the tips */
+  grass(r, sp, o, rng) {
+    const c = sp.c, k = clamp(Math.round(22 + r * 9), 22, 64), D = lobed(r * 0.86, 12, rng, 0.2);
+    const sets = ['', '', ''], tips = [];
+    for (let i = 0; i < k; i++) {
+      const a = 2 * Math.PI * i / k + (rng() - 0.5) * 0.3, L = r * (0.66 + rng() * 0.36), bend = (rng() - 0.5) * 0.9;
+      const mx = L * 0.55 * Math.cos(a + bend * 0.5), my = L * 0.55 * Math.sin(a + bend * 0.5), tx = L * Math.cos(a + bend), ty = L * Math.sin(a + bend);
+      const light = Math.cos(a) * 0.6 - Math.sin(a) * 0.3 + (rng() - 0.5) * 0.6;
+      sets[light > 0.25 ? 2 : light < -0.25 ? 0 : 1] += `M0,0Q${n(mx)},${n(my)} ${n(tx)},${n(ty)}`;
+      tips.push([tx, ty, a + bend]);
+    }
+    const bw = n(Math.max(0.05, r * 0.045));
+    let s = shadowOf(D, r, o, 0.26) + `<path d="${D}" fill="${tone(c, 0.05, -0.16, 6)}" fill-opacity="0.55"/>`;
+    s += `<g fill="none" stroke-linecap="round" stroke-width="${bw}"><path d="${sets[0]}" stroke="${tone(c, 0.1, -0.13, 8)}"/><path d="${sets[1]}" stroke="${c}"/><path d="${sets[2]}" stroke="${tone(c, 0.12, 0.12, -8)}"/></g>`;
+    if (sp.fl && sp.pl === 'haze') s += `<path d="${lobed(r * 0.98, 14, rng, 0.14)}" fill="${sp.fl}" fill-opacity="0.34"/><path d="${tips.filter((t, i) => i % 2 === 0).map(([x, y, a]) => `M${n(x * 0.8)},${n(y * 0.8)}L${n(x * 1.04)},${n(y * 1.04)}`).join('')}" stroke="${sp.fl}" stroke-opacity="0.8" stroke-width="${n(Math.max(0.05, r * 0.05))}" stroke-linecap="round"/>`;
+    else if (sp.fl) s += `<g fill="${sp.fl}" stroke="${shade(sp.fl, -0.25)}" stroke-width="0.03">${tips.filter((t, i) => i % 3 === 0).map(([x, y, a]) => `<ellipse transform="${at(x * 0.92, y * 0.92, a * 180 / Math.PI)}" rx="${n(Math.max(0.16, r * 0.14))}" ry="${n(Math.max(0.06, r * 0.045))}"/>`).join('')}</g>`;
+    return s + `<circle r="${n(Math.max(0.1, r * 0.09))}" fill="${tone(c, 0, -0.24)}"/>`;
+  },
   /* shrubs */
   shrub(r, sp, o, rng) {
     const c = sp.c, D = lobed(r, clamp(Math.round(7 + r), 7, 14), rng, 0.14);
@@ -1093,6 +1111,11 @@ function fencePosts(pts, gap) {
 /* one plant clump (rendered) */
 function clump(sp, px, py, rng, o, spc) {
   const kind = sp.t, rr = spc * (kind === 'annual' ? 0.5 : kind === 'groundcover' ? 0.55 : 0.46), c = tone(sp.c, 0.3, -0.04);
+  if (sp.g) {   // a small tuft of blades
+    let dk = '', lt = '';
+    for (let i = 0; i < 12; i++) { const a = 2 * Math.PI * i / 12 + (rng() - 0.5) * 0.4, L = rr * (0.75 + rng() * 0.4), b = (rng() - 0.5) * 0.8, p = `M0,0Q${n(L * 0.55 * Math.cos(a + b * 0.5))},${n(L * 0.55 * Math.sin(a + b * 0.5))} ${n(L * Math.cos(a + b))},${n(L * Math.sin(a + b))}`; if (Math.cos(a) - Math.sin(a) * 0.5 > 0) lt += p; else dk += p; }
+    return `<g transform="translate(${n(px)} ${n(py)})" fill="none" stroke-linecap="round" stroke-width="${n(Math.max(0.05, rr * 0.16))}"><circle r="${n(rr * 0.6)}" fill="${tone(c, 0, -0.14)}" fill-opacity="0.5" stroke="none"/><path d="${dk}" stroke="${tone(c, 0.1, -0.1, 8)}"/><path d="${lt}" stroke="${tone(c, 0.1, 0.1, -8)}"/>${sp.fl ? `<circle r="${n(rr * 0.16)}" fill="${sp.fl}" stroke="none"/>` : ''}</g>`;
+  }
   let s = `<g transform="translate(${n(px)} ${n(py)})"><path d="${lobed(rr, kind === 'groundcover' ? 9 : 6, rng, 0.2)}" fill="${shade(c, (rng() - 0.5) * 0.18)}" stroke="${shade(c, -0.4)}" stroke-opacity="0.6" stroke-width="${n(o.u * 0.4)}"/><path d="${lobed(rr * 0.55, 5, rng, 0.3)}" transform="translate(${n(rr * 0.16)} ${n(-rr * 0.16)})" fill="${tone(c, 0.15, 0.13, -8)}" fill-opacity="0.55"/>`;
   if (sp.fl) {
     const cnt = kind === 'annual' ? 6 : kind === 'groundcover' ? 3 : 4;
@@ -1259,6 +1282,12 @@ const DDRAW = {
     return scallop(it.r * 0.9, k, o.u, fillOf('bshrub', o, o.icon ? 'none' : 'transparent')) + `<circle r="${n(o.u * 1.5)}" fill="${INK}"/>`;
   },
   dshrub(it, o) {
+    const gs = spOf(it);
+    if (gs && gs.f === 'grass') {
+      let d = '';
+      for (let i = 0; i < 14; i++) { const a = 2 * Math.PI * i / 14 + (i % 2) * 0.12, L = it.r * (i % 2 ? 0.78 : 1); d += `M0,0L${n(L * Math.cos(a))},${n(L * Math.sin(a))}`; }
+      return `<circle r="${n(it.r)}" fill="${o.color ? '#DDEBC4' : (o.icon ? 'none' : 'transparent')}" fill-opacity="${o.color ? 0.6 : 1}"/><path d="${d}" stroke="${INK}" stroke-width="${n(o.u * 0.8)}" stroke-linecap="round"/><circle r="${n(o.u * 1.5)}" fill="${INK}"/>`;
+    }
     return `<circle r="${n(it.r)}" ${fillOf('dshrub', o, o.icon ? 'none' : 'transparent')} stroke="${INK}" stroke-width="${n(o.u * 1.1)}"/>` +
       `<circle r="${n(it.r * 0.55)}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 0.65)}"/><circle r="${n(o.u * 1.5)}" fill="${INK}"/>`;
   },
@@ -2002,14 +2031,33 @@ function segCross(a, b, c, d) {
   const t = ((c[0] - a[0]) * s[1] - (c[1] - a[1]) * s[0]) / den, u = ((c[0] - a[0]) * r[1] - (c[1] - a[1]) * r[0]) / den;
   return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? t : null;
 }
+const streamLine = (st) => (st.smooth ? openSpline(st.pts, 0.4) : st.pts);
+function nearestOnLine(p, line) {
+  let best = line[0], bd = Infinity;
+  for (let i = 1; i < line.length; i++) {
+    const a = line[i - 1], b = line[i], dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy || 1;
+    const t = clamp(((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2, 0, 1), q = [a[0] + dx * t, a[1] + dy * t], d = dist(p, q);
+    if (d < bd) { bd = d; best = q; }
+  }
+  return { q: best, d: bd };
+}
+/* where a stream's own line crosses the bank of the stream it joins (walking back from the joined end) */
+function bankPoint(line, other, fromEnd) {
+  const L = polyLen(line);
+  for (let d = 0; d <= L; d += 0.2) { const p = pointAlong(line, fromEnd ? L - d : d); if (nearestOnLine(p, other.line).d >= other.w / 2) return p; }
+  return fromEnd ? line[0] : line[line.length - 1];
+}
 const pondGeo = (pd) => ({ id: pd.id, poly: shapePoly(pd.pts, pd.smooth), d: shapeD(pd.pts, pd.smooth) });
 function streamCourse(it, o) {
   const w = it.width || 3;
   let line = it.smooth ? openSpline(it.pts, 0.4) : it.pts.map((p) => p.slice());
   const ponds = (o.water || []).filter((x) => x.type === 'pondShape' && !x.hidden).map(pondGeo);
   const touch = (p) => ponds.find((pd) => inPoly(p, pd.poly) || nearestOnPoly(p, pd.poly).d < 2 + w / 2);
+  /* other streams: an end that lands on one joins it (a tributary), and the water flows that way */
+  const others = (o.water || []).filter((x) => x.type === 'stream' && x.id !== it.id && !x.hidden).map((x) => ({ id: x.id, line: streamLine(x), w: x.width || 3 }));
+  const onStream = (p) => others.find((x) => nearestOnLine(p, x.line).d < x.w / 2 + 0.6);
   const t0 = touch(line[0]), t1 = touch(line[line.length - 1]);
-  if (t0 && !t1) line = line.slice().reverse();
+  if ((t0 && !t1) || (!t0 && !t1 && onStream(line[0]) && !onStream(line[line.length - 1]))) line = line.slice().reverse();
   const pond = t0 && !t1 ? t0 : t1;
   let mouth = null;
   if (pond) {
@@ -2033,7 +2081,23 @@ function streamCourse(it, o) {
       along += dist(a, b);
     }
   }
-  return { line, ponds, mouth, w };
+  const joins = [];
+  if (!pond) {
+    const e = line[line.length - 1], x = onStream(e);
+    if (x) { const { q } = nearestOnLine(e, x.line); if (dist(e, q) > 0.05) line = line.concat([q]); joins.push({ s: x, p: bankPoint(line, x, true) }); }
+  }
+  { const x = onStream(line[0]); if (x && !joins.some((j) => j.s.id === x.id)) joins.push({ s: x, p: bankPoint(line, x, false) }); }
+  return { line, ponds, mouth, w, joins };
+}
+/* the places where other streams run into this one: its banks open there */
+function streamInlets(it, o) {
+  const out = [];
+  for (const x of (o.water || [])) {
+    if (x.type !== 'stream' || x.id === it.id || x.hidden) continue;
+    const c = streamCourse(x, o);
+    for (const j of c.joins) if (j.s.id === it.id) out.push({ p: j.p, w: c.w });
+  }
+  return out;
 }
 /* the inlets other streams make in this pond */
 function pondInlets(pd, o) {
@@ -2053,19 +2117,24 @@ function streamDraw(it, o, rng) {
   const box = `x="${n(Math.min(...xs) - m)}" y="${n(Math.min(...ys) - m)}" width="${n(Math.max(...xs) - Math.min(...xs) + 2 * m)}" height="${n(Math.max(...ys) - Math.min(...ys) + 2 * m)}"`;
   const wet = c.ponds.filter((pd) => line.some((p) => inPoly(p, pd.poly)));
   // a mask that lets the stream melt into the pond water (soft in Rendered, a clean cut in the drafting styles)
-  const mid = `sm-${uid0}`, masked = wet.length && !o.icon;
-  let s = masked ? `<defs><mask id="${mid}" maskUnits="userSpaceOnUse" ${box}><rect ${box} fill="#fff"/>${wet.map((pd) => `<path d="${pd.d}" fill="#000"${o.render ? ' filter="url(#ld-mouth)"' : ''}/>`).join('')}</mask></defs>` : '';
+  const joinS = c.joins.map((j) => j.s), inl = o.icon ? [] : streamInlets(it, o);
+  const mid = `sm-${uid0}`, masked = (wet.length || joinS.length) && !o.icon;
+  /* the banks open where another stream comes in */
+  const gid = `sg-${uid0}`, gap = (svg) => (inl.length ? `<g mask="url(#${gid})">${svg}</g>` : svg);
+  const gapDefs = inl.length ? `<defs><mask id="${gid}" maskUnits="userSpaceOnUse" ${box}><rect ${box} fill="#fff"/>${inl.map((j) => `<circle cx="${n(j.p[0])}" cy="${n(j.p[1])}" r="${n(j.w / 2 + 0.2)}" fill="#000"/>`).join('')}</mask></defs>` : '';
+  let s = masked ? `<defs><mask id="${mid}" maskUnits="userSpaceOnUse" ${box}><rect ${box} fill="#fff"/>${wet.map((pd) => `<path d="${pd.d}" fill="#000"${o.render ? ' filter="url(#ld-mouth)"' : ''}/>`).join('')}${joinS.map((x) => `<path d="${ptsD(x.line)}" fill="none" stroke="#000" stroke-width="${n(x.w - 0.05)}" stroke-linecap="round" stroke-linejoin="round"/>`).join('')}</mask></defs>` : '';
+  s += gapDefs;
   const at = (dd) => { const p = pointAlong(line, dd), a = pointAlong(line, Math.max(0, dd - 0.15)), b = pointAlong(line, Math.min(L, dd + 0.15)); return [p, Math.atan2(b[1] - a[1], b[0] - a[0])]; };
   const flowLen = c.mouth ? c.mouth.d : L;
   if (!o.render) {
-    let g = `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${n(w)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${o.color ? '#D3E9EC' : '#fff'}" stroke-width="${n(Math.max(0.1, w - o.u * 2.4))}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="url(#dd-water)" stroke-width="${n(Math.max(0.1, w - o.u * 2.4))}" stroke-linejoin="round" stroke-linecap="round"/>`;
+    let g = gap(`<path d="${d}" fill="none" stroke="${INK}" stroke-width="${n(w)}" stroke-linejoin="round" stroke-linecap="round"/>`) + `<path d="${d}" fill="none" stroke="${o.color ? '#D3E9EC' : '#fff'}" stroke-width="${n(Math.max(0.1, w - o.u * 2.4))}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="url(#dd-water)" stroke-width="${n(Math.max(0.1, w - o.u * 2.4))}" stroke-linejoin="round" stroke-linecap="round"/>`;
     for (let dd = Math.min(4, flowLen / 2); dd < flowLen - 1; dd += 7) {   // flow arrows, pointing downstream
       const [p, a] = at(dd), k = Math.min(0.9, w * 0.3);
       g += `<g transform="translate(${n(p[0])} ${n(p[1])}) rotate(${n(a * 180 / Math.PI)})"><path d="M${n(-k * 1.4)},0H${n(k * 0.6)}" stroke="${INK}" stroke-width="${n(o.u * 0.8)}"/><path d="M${n(k)},0L${n(-k * 0.2)},${n(-k * 0.55)}V${n(k * 0.55)}Z" fill="${INK}"/></g>`;
     }
     return masked ? `<g mask="url(#${mid})">${g}</g>` + s : g;
   }
-  let g = `<path d="${d}" fill="none" stroke="#8A7F68" stroke-width="${n(w + 1.4)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#A39880" stroke-width="${n(w + 0.9)}" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="0.3 0.25"/>`;
+  let g = gap(`<path d="${d}" fill="none" stroke="#8A7F68" stroke-width="${n(w + 1.4)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#A39880" stroke-width="${n(w + 0.9)}" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="0.3 0.25"/>`);
   g += `<path d="${d}" fill="none" stroke="#2B6268" stroke-width="${n(w)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#3F8288" stroke-width="${n(w * 0.7)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#66A8AA" stroke-opacity="0.75" stroke-width="${n(w * 0.32)}" stroke-linejoin="round" stroke-linecap="round"/>`;
   // ripples (bowed downstream) and the odd riffle stone
   for (let dd = 0.8; dd < flowLen - 0.6; dd += 0.9 + rng() * 0.8) {
@@ -2083,7 +2152,7 @@ function streamDraw(it, o, rng) {
   // rocks along both banks, stopping at the pond edge
   for (const side of [-1, 1]) for (let dd = rng() * 0.6; dd < L; dd += 0.7 + rng() * 0.7) {
     const [p, a] = at(dd), r = 0.22 + rng() * 0.35, off = side * (w / 2 + 0.25 + rng() * 0.2), q = [p[0] - Math.sin(a) * off, p[1] + Math.cos(a) * off];
-    if (!inPond(q, 0.9)) s += boulder(q[0], q[1], r, rng);
+    if (!inPond(q, 0.9) && !joinS.some((x) => nearestOnLine(q, x.line).d < x.w / 2 + 0.55) && !inl.some((jn) => dist(q, jn.p) < jn.w / 2 + 0.5)) s += boulder(q[0], q[1], r, rng);
   }
   if (c.mouth && !o.icon) {   // where it pours in: two boulders frame the mouth, foam, and rings spreading over the pond
     const { p, dir } = c.mouth, nx = -dir[1], ny = dir[0];

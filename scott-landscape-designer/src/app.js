@@ -78,7 +78,7 @@ const TIPS = {
   lawn: 'Rectangle of lawn. Pick the grass in the library.', lawnShape: 'Draw a curved lawn edge point by point.',
   patio: 'Rectangle patio. Choose stone, pavers, brick or concrete.', paveShape: 'Draw any paved shape point by point.',
   deck: 'Wood deck.', path: 'Click each corner of the walk, double-click to finish.', fence: 'Click each corner of the fence, double-click to finish. Pick the style (privacy, picket, split rail, chain link, metal) under Properties, or use Arrange → Fence the property line.',
-  pondShape: 'Draw a natural pond: click around the edge, then the first dot to close.', stream: 'Click along the course of the stream, double-click to finish. Click near a pond and the point snaps onto its edge, so the stream runs into it. Set its width under Properties.',
+  pondShape: 'Draw a natural pond: click around the edge, then the first dot to close.', stream: 'Click along the course of the stream, double-click to finish. Click near a pond or another stream and the point snaps onto it, so the water joins up. Set its width under Properties.',
   shed: 'Click to place the shed, then turn it with the yellow dot so the doors (the ramp end) face where you want them. Drag the corner dot to resize.',
   stairs: 'Click to place steps, then turn them with the yellow dot so the top points uphill. Drag the corner dot for width and length; longer steps climb higher.',
   gate: 'Click on or near a fence: the gate sets into the fence line, takes its style, and the fence opens for it.',
@@ -1004,7 +1004,7 @@ function setTool(tl) {
     if (L === 'design' && !view.design) { view.design = true; $('tDesign').checked = true; renderPlan(); toast('Design layer turned on'); }
     if (L === 'diagram' && !view.diagram) { view.diagram = true; $('tDiagram').checked = true; renderPlan(); toast('Functional diagram turned on'); }
     const cats = spCats(tl);
-    if (cats.length && curSp[tl] && PLANT_BY_ID[curSp[tl]]) { libSp = curSp[tl]; if (!cats.includes(libCat) && libCat !== 'all') libCat = cats[0]; renderLib(); }
+    if (cats.length && curSp[tl] && PLANT_BY_ID[curSp[tl]]) { libSp = curSp[tl]; if (!cats.includes(libCat) && libCat !== 'all' && !(libCat === 'grass' && PLANT_BY_ID[libSp].g)) libCat = cats[0]; renderLib(); }
   }
   document.querySelectorAll('[data-tool]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.tool === tl ? 'true' : 'false'));
   svg.classList.toggle('sel', tl === 'select');
@@ -1040,7 +1040,7 @@ function libActions(sp) {
   return `<div class="btnrow" style="margin-top:6px">${h}</div>`;
 }
 function renderLibControls() {
-  $('libCat').innerHTML = `<option value="all">All plants (${PLANTS.length})</option>` + CATS.map(([k, name]) => `<option value="${k}">${name} (${PLANTS.filter((p) => p.t === k).length})</option>`).join('');
+  $('libCat').innerHTML = `<option value="all">All plants (${PLANTS.length})</option>` + LIB_CATS.map(([k, name]) => `<option value="${k}">${name} (${PLANTS.filter((p) => catOf(p) === k).length})</option>`).join('');
   $('libSun').innerHTML = [['', 'Any light'], ['F', 'Full sun'], ['P', 'Part shade'], ['S', 'Shade']].map(([k, l]) => `<button type="button" data-sun="${k}" aria-pressed="${libSun === k}">${l}</button>`).join('');
 }
 function renderLib() {
@@ -1051,10 +1051,10 @@ function renderLib() {
   $('libCat').value = libCat;
   $('libSun').querySelectorAll('[data-sun]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.sun === libSun));
   const q = libQ.trim().toLowerCase();
-  const list = PLANTS.filter((p) => (libCat === 'all' || p.t === libCat) && (!libSun || p.sun.includes(libSun)) && (!q || (p.cn + ' ' + p.bn + ' ' + p.note).toLowerCase().includes(q)));
+  const list = PLANTS.filter((p) => (libCat === 'all' || catOf(p) === libCat) && (!libSun || p.sun.includes(libSun)) && (!q || (p.cn + ' ' + p.bn + ' ' + p.note).toLowerCase().includes(q)));
   let h = '';
-  for (const [cat, name] of CATS) {
-    const rows = list.filter((p) => p.t === cat);
+  for (const [cat, name] of LIB_CATS) {
+    const rows = list.filter((p) => catOf(p) === cat);
     if (!rows.length) continue;
     h += `<div class="libcat">${name}</div>`;
     h += rows.map((p) => `<button type="button" class="plant" data-sp="${p.id}" aria-pressed="${libSp === p.id}"><span class="thumb">${plantThumb(p)}</span><span class="pn"><b>${esc(p.cn)}${p.custom ? ' <span class="yours">YOURS</span>' : ''}</b><i>${esc(p.bn)}</i><span>${p.t === 'turf' ? 'Lawn grass' : `${p.w}′ W × ${p.h}′ H`} ${sunDots(p.sun)} ${p.z ? `<span>Z ${esc(p.z)}</span>` : ''}</span></span></button>`).join('');
@@ -1494,9 +1494,14 @@ function newItem(type, p) {
 }
 /* snapping: corners of other items and of the base plan within 10 px, else the 1 ft grid */
 /* a stream point near a pond lands exactly on the pond's edge, so the stream runs into it (works even with Snap off) */
-function pondSnap(p) {
+function pondSnap(p, exceptId) {
   const tol = Math.max(5, 30 / view.k);
   let best = null, bd = tol;
+  for (const it of state.items) {   // another stream: land on its centre line, so this one runs into it
+    if (it.type !== 'stream' || it.hidden || it.id === exceptId) continue;
+    const r = nearestOnLine(p, streamLine(it)), lim = Math.max(tol * 0.6, (it.width || 3) / 2 + 1);
+    if (r.d < bd && r.d < lim) { bd = r.d; best = r.q; }
+  }
   for (const it of state.items) {
     if (it.type !== 'pondShape' || it.hidden) continue;
     const poly = shapePoly(it.pts, it.smooth), r = nearestOnPoly(p, poly), d = inPoly(p, poly) ? 0 : r.d;
@@ -1537,7 +1542,7 @@ function snapGeometry(exceptId) {
 }
 function snapPt(p, exceptId, type) {
   snapMark = null; snapPond = false; snapGuide = [];
-  if (type === 'stream') { const q = pondSnap(p); if (q) { snapMark = q; snapPond = true; return [q[0], q[1]]; } }
+  if (type === 'stream') { const q = pondSnap(p, exceptId); if (q) { snapMark = q; snapPond = true; return [q[0], q[1]]; } }
   if (!view.snap) return p;
   const tol = 10 / view.k, G = snapGeometry(exceptId || null);
   const cand = draft ? G.pts.concat(draft.pts) : G.pts;
@@ -2083,8 +2088,8 @@ function takeoff() {
       addM('pool', 'Swimming pool (water area)', it.type, wa, 'sq ft');
     } else if (t.furn) addM('furn-' + it.type, t.name, it.type, 1, 'ea');
   }
-  const order = CATS.map((c) => c[0]);
-  const plantRows = Object.values(plants).sort((a, b) => order.indexOf(a.sp.t) - order.indexOf(b.sp.t) || a.sp.cn.localeCompare(b.sp.cn));
+  const order = LIB_CATS.map((c) => c[0]);
+  const plantRows = Object.values(plants).sort((a, b) => order.indexOf(catOf(a.sp)) - order.indexOf(catOf(b.sp)) || a.sp.cn.localeCompare(b.sp.cn));
   return { plants: plantRows, mats: Object.values(mats) };
 }
 const fmtQty = (r) => (r.sp.t === 'turf' ? `${Math.round(r.area).toLocaleString()} sq ft` : `${r.approx ? '≈' : ''}${r.qty}`);
@@ -2095,7 +2100,7 @@ function renderSched() {
   let h = '<table class="sched"><thead><tr><th>Key</th><th>Plant</th><th style="text-align:right">Qty</th></tr></thead><tbody>';
   let lastCat = '';
   for (const r of plants) {
-    if (r.sp.t !== lastCat) { lastCat = r.sp.t; h += `<tr class="grp"><td colspan="3">${CATS.find((c) => c[0] === lastCat)[1]}</td></tr>`; }
+    if (catOf(r.sp) !== lastCat) { lastCat = catOf(r.sp); h += `<tr class="grp"><td colspan="3">${LIB_CATS.find((c) => c[0] === lastCat)[1]}</td></tr>`; }
     h += `<tr><td><span class="code">${PLANT_CODE[r.sp.id]}</span></td><td>${esc(r.sp.cn)}<i>${esc(r.sp.bn)}${r.sp.t === 'turf' ? '' : ` · ${r.sp.w}′×${r.sp.h}′`}</i></td><td class="n">${fmtQty(r)}</td></tr>`;
   }
   if (mats.length) {

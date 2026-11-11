@@ -830,6 +830,7 @@ const CORE = {"base": ["<rect x=\"72.0\" y=\"1203.2\" width=\"883.2\" height=\"8
  * cn/bn: common and botanical name; w/h: mature spread and height (ft); sun: F full, P part, S shade
  * z: USDA hardiness zones; c: foliage color for the rendered plan; fl: flower color (optional)
  * spc: on-center spacing (ft) for bed plants, used to estimate quantities; note: one line for students.
+ * g: an ornamental grass (its own library group and tufted symbol; pl: 'haze' draws a soft cloud of bloom instead of plumes).
  */
 const PLANTS = [
   // ---- deciduous trees
@@ -893,14 +894,38 @@ const PLANTS = [
   { id: 'trja', t: 'groundcover', cn: 'Asiatic jasmine', bn: 'Trachelospermum asiaticum', w: 3, h: 0.75, sun: 'F/P/S', z: '7–10', c: '#3C6534', spc: 1.5, note: 'Evergreen carpet; slopes and shade.' },
   { id: 'phsu', t: 'groundcover', cn: 'Creeping phlox', bn: 'Phlox subulata', w: 2, h: 0.5, sun: 'F', z: '3–9', c: '#5F8A42', fl: '#C995D8', spc: 1.5, note: 'Spring carpet of flowers.' },
   { id: 'ajre', t: 'groundcover', cn: 'Ajuga', bn: 'Ajuga reptans', w: 1.5, h: 0.5, sun: 'P/S', z: '3–9', c: '#5A4A5E', fl: '#5B5FC0', spc: 1, note: 'Bronze leaves; blue spring spikes.' },
+  // ---- ornamental grasses: big clumps are placed one by one (as shrubs); small ones are planted in beds
+  { id: 'cose', t: 'dshrub', g: true, f: 'grass', cn: 'Pampas grass', bn: 'Cortaderia selloana', w: 6, h: 8, sun: 'F', z: '7–10', c: '#8FA868', fl: '#F4EEDC', note: 'Huge clump with white plumes; give it room, sharp leaf edges.' },
+  { id: 'misi', t: 'dshrub', g: true, f: 'grass', cn: 'Maiden grass', bn: "Miscanthus sinensis 'Gracillimus'", w: 4, h: 6, sun: 'F', z: '5–9', c: '#7C9E58', fl: '#DCC9AE', note: 'Fine arching leaves; coppery plumes in fall. A soft screen.' },
+  { id: 'pavi', t: 'dshrub', g: true, f: 'grass', cn: 'Switchgrass', bn: "Panicum virgatum 'Shenandoah'", w: 3, h: 4, sun: 'F', z: '4–9', c: '#6F9450', fl: '#B4576A', pl: 'haze', note: 'Native prairie grass; leaves turn burgundy by late summer.' },
+  { id: 'muca', t: 'dshrub', g: true, f: 'grass', cn: 'Pink muhly grass', bn: 'Muhlenbergia capillaris', w: 3, h: 3, sun: 'F', z: '6–10', c: '#6E9052', fl: '#EC8FBC', pl: 'haze', note: 'Native; a pink cloud of bloom in October. Needs sun and drainage.' },
+  { id: 'peal', t: 'dshrub', g: true, f: 'grass', cn: 'Dwarf fountain grass', bn: "Pennisetum alopecuroides 'Hameln'", w: 2.5, h: 2.5, sun: 'F/P', z: '5–9', c: '#7FA65A', fl: '#EADFC4', note: 'Neat mound with bottlebrush plumes; good along a walk.' },
+  { id: 'caac', t: 'dshrub', g: true, f: 'grass', cn: 'Feather reed grass', bn: "Calamagrostis × acutiflora 'Karl Foerster'", w: 2, h: 5, sun: 'F/P', z: '4–9', c: '#6C924A', fl: '#DCC48C', note: 'Narrow and upright; wheat-colored plumes all summer.' },
+  { id: 'fegl', t: 'perennial', g: true, cn: 'Blue fescue', bn: 'Festuca glauca', w: 1, h: 1, sun: 'F', z: '4–8', c: '#7FA6AC', spc: 1, note: 'Small blue tufts for edging; wants sun and dry feet.' },
+  { id: 'scsc', t: 'perennial', g: true, cn: 'Little bluestem', bn: 'Schizachyrium scoparium', w: 2, h: 3, sun: 'F', z: '3–9', c: '#7E9E8C', fl: '#C98A5A', spc: 2, note: 'Native prairie grass; blue-green in summer, copper in fall.' },
+  { id: 'chla', t: 'perennial', g: true, cn: 'Northern sea oats', bn: 'Chasmanthium latifolium', w: 2, h: 3, sun: 'P/S', z: '4–9', c: '#6F9E4E', fl: '#C9B37A', spc: 2, note: 'Native; one of the few grasses for shade. Dangling oat seed heads.' },
+  { id: 'nate', t: 'perennial', g: true, cn: 'Mexican feather grass', bn: 'Nassella tenuissima', w: 1.5, h: 2, sun: 'F', z: '6–10', c: '#A9BC6A', fl: '#E6DDB0', spc: 1.5, note: 'Hair-fine blades that move in any breeze.' },
+  { id: 'caos', t: 'perennial', g: true, cn: 'Evergold sedge', bn: "Carex oshimensis 'Evergold'", w: 1.5, h: 1, sun: 'P/S', z: '5–9', c: '#C6C768', spc: 1.25, note: 'Grass-like gold and green tufts; evergreen, for shade.' },
   // ---- turf
   { id: 'cyda', t: 'turf', cn: 'Bermudagrass', bn: 'Cynodon dactylon', w: 0, h: 0, sun: 'F', z: '7–10', c: '#7DB24F', note: 'Full sun; takes heavy play. Dormant brown in winter.' },
   { id: 'zoja', t: 'turf', cn: 'Zoysiagrass', bn: 'Zoysia japonica', w: 0, h: 0, sun: 'F/P', z: '6–10', c: '#6EA74A', note: 'Dense; some shade; slow to establish.' },
   { id: 'feur', t: 'turf', cn: 'Tall fescue', bn: 'Festuca arundinacea', w: 0, h: 0, sun: 'P', z: '4–7', c: '#5E9A48', note: 'Cool-season; stays green in winter; part shade.' },
+  { id: 'erop', t: 'turf', cn: 'Centipedegrass', bn: 'Eremochloa ophiuroides', w: 0, h: 0, sun: 'F/P', z: '7–10', c: '#98C460', note: 'Light apple green; slow, low-care lawn. Does not take heavy play.' },
+  { id: 'stse', t: 'turf', cn: 'St. Augustinegrass', bn: 'Stenotaphrum secundatum', w: 0, h: 0, sun: 'F/P/S', z: '8–10', c: '#5C9E4C', note: 'Coarse, blue-green; the best warm-season grass for shade. Can winter-kill here.' },
+  { id: 'popr', t: 'turf', cn: 'Kentucky bluegrass', bn: 'Poa pratensis', w: 0, h: 0, sun: 'F', z: '2–7', c: '#4F8E58', note: 'Dark blue-green, fine blades; cool-season, struggles in Arkansas summers.' },
+  { id: 'boda', t: 'turf', cn: 'Buffalograss', bn: 'Bouteloua dactyloides', w: 0, h: 0, sun: 'F', z: '4–8', c: '#9AAE78', note: 'Native, gray-green; very little water or mowing. Thin look.' },
+  { id: 'lope', t: 'turf', cn: 'Perennial ryegrass', bn: 'Lolium perenne', w: 0, h: 0, sun: 'F/P', z: '3–7', c: '#5EAE46', note: 'Bright green; overseeded on bermuda for a green winter lawn.' },
+  { id: 'feru', t: 'turf', cn: 'Fine fescue', bn: 'Festuca rubra', w: 0, h: 0, sun: 'P/S', z: '3–7', c: '#6A9C5E', note: 'Very fine blades; the cool-season grass for dry shade.' },
 ];
 const PLANT_BY_ID = Object.fromEntries(PLANTS.map((p) => [p.id, p]));
 const SP_DEFAULT = { dtree: 'acru', etree: 'juvi', bshrub: 'ilvn', dshrub: 'hyqu', perennial: 'ruhi', annual: 'ziel', groundcover: 'limu', turf: 'cyda' };
 const SUN_NAMES = { F: 'Full sun', P: 'Part shade', S: 'Shade' };
+/* library and schedule groups: ornamental grasses get their own, whatever item type they are planted as */
+const catOf = (sp) => (sp.g ? 'grass' : sp.t);
+const LIB_CATS = [
+  ['dtree', 'Deciduous trees'], ['etree', 'Evergreen trees'], ['bshrub', 'Broadleaf evergreen shrubs'], ['dshrub', 'Deciduous shrubs'],
+  ['perennial', 'Perennials'], ['annual', 'Annuals'], ['grass', 'Ornamental grasses'], ['groundcover', 'Ground covers'], ['turf', 'Lawn grasses'],
+];
 const CATS = [
   ['dtree', 'Deciduous trees'], ['etree', 'Evergreen trees'], ['bshrub', 'Broadleaf evergreen shrubs'], ['dshrub', 'Deciduous shrubs'],
   ['perennial', 'Perennials'], ['annual', 'Annuals'], ['groundcover', 'Ground covers'], ['turf', 'Lawn grasses'],
@@ -1857,6 +1882,24 @@ const FORMS = {
     }
     return s;
   },
+  /* ornamental grasses: a fountain of arching blades from one crown, with plumes or a haze of bloom at the tips */
+  grass(r, sp, o, rng) {
+    const c = sp.c, k = clamp(Math.round(22 + r * 9), 22, 64), D = lobed(r * 0.86, 12, rng, 0.2);
+    const sets = ['', '', ''], tips = [];
+    for (let i = 0; i < k; i++) {
+      const a = 2 * Math.PI * i / k + (rng() - 0.5) * 0.3, L = r * (0.66 + rng() * 0.36), bend = (rng() - 0.5) * 0.9;
+      const mx = L * 0.55 * Math.cos(a + bend * 0.5), my = L * 0.55 * Math.sin(a + bend * 0.5), tx = L * Math.cos(a + bend), ty = L * Math.sin(a + bend);
+      const light = Math.cos(a) * 0.6 - Math.sin(a) * 0.3 + (rng() - 0.5) * 0.6;
+      sets[light > 0.25 ? 2 : light < -0.25 ? 0 : 1] += `M0,0Q${n(mx)},${n(my)} ${n(tx)},${n(ty)}`;
+      tips.push([tx, ty, a + bend]);
+    }
+    const bw = n(Math.max(0.05, r * 0.045));
+    let s = shadowOf(D, r, o, 0.26) + `<path d="${D}" fill="${tone(c, 0.05, -0.16, 6)}" fill-opacity="0.55"/>`;
+    s += `<g fill="none" stroke-linecap="round" stroke-width="${bw}"><path d="${sets[0]}" stroke="${tone(c, 0.1, -0.13, 8)}"/><path d="${sets[1]}" stroke="${c}"/><path d="${sets[2]}" stroke="${tone(c, 0.12, 0.12, -8)}"/></g>`;
+    if (sp.fl && sp.pl === 'haze') s += `<path d="${lobed(r * 0.98, 14, rng, 0.14)}" fill="${sp.fl}" fill-opacity="0.34"/><path d="${tips.filter((t, i) => i % 2 === 0).map(([x, y, a]) => `M${n(x * 0.8)},${n(y * 0.8)}L${n(x * 1.04)},${n(y * 1.04)}`).join('')}" stroke="${sp.fl}" stroke-opacity="0.8" stroke-width="${n(Math.max(0.05, r * 0.05))}" stroke-linecap="round"/>`;
+    else if (sp.fl) s += `<g fill="${sp.fl}" stroke="${shade(sp.fl, -0.25)}" stroke-width="0.03">${tips.filter((t, i) => i % 3 === 0).map(([x, y, a]) => `<ellipse transform="${at(x * 0.92, y * 0.92, a * 180 / Math.PI)}" rx="${n(Math.max(0.16, r * 0.14))}" ry="${n(Math.max(0.06, r * 0.045))}"/>`).join('')}</g>`;
+    return s + `<circle r="${n(Math.max(0.1, r * 0.09))}" fill="${tone(c, 0, -0.24)}"/>`;
+  },
   /* shrubs */
   shrub(r, sp, o, rng) {
     const c = sp.c, D = lobed(r, clamp(Math.round(7 + r), 7, 14), rng, 0.14);
@@ -2014,6 +2057,11 @@ function fencePosts(pts, gap) {
 /* one plant clump (rendered) */
 function clump(sp, px, py, rng, o, spc) {
   const kind = sp.t, rr = spc * (kind === 'annual' ? 0.5 : kind === 'groundcover' ? 0.55 : 0.46), c = tone(sp.c, 0.3, -0.04);
+  if (sp.g) {   // a small tuft of blades
+    let dk = '', lt = '';
+    for (let i = 0; i < 12; i++) { const a = 2 * Math.PI * i / 12 + (rng() - 0.5) * 0.4, L = rr * (0.75 + rng() * 0.4), b = (rng() - 0.5) * 0.8, p = `M0,0Q${n(L * 0.55 * Math.cos(a + b * 0.5))},${n(L * 0.55 * Math.sin(a + b * 0.5))} ${n(L * Math.cos(a + b))},${n(L * Math.sin(a + b))}`; if (Math.cos(a) - Math.sin(a) * 0.5 > 0) lt += p; else dk += p; }
+    return `<g transform="translate(${n(px)} ${n(py)})" fill="none" stroke-linecap="round" stroke-width="${n(Math.max(0.05, rr * 0.16))}"><circle r="${n(rr * 0.6)}" fill="${tone(c, 0, -0.14)}" fill-opacity="0.5" stroke="none"/><path d="${dk}" stroke="${tone(c, 0.1, -0.1, 8)}"/><path d="${lt}" stroke="${tone(c, 0.1, 0.1, -8)}"/>${sp.fl ? `<circle r="${n(rr * 0.16)}" fill="${sp.fl}" stroke="none"/>` : ''}</g>`;
+  }
   let s = `<g transform="translate(${n(px)} ${n(py)})"><path d="${lobed(rr, kind === 'groundcover' ? 9 : 6, rng, 0.2)}" fill="${shade(c, (rng() - 0.5) * 0.18)}" stroke="${shade(c, -0.4)}" stroke-opacity="0.6" stroke-width="${n(o.u * 0.4)}"/><path d="${lobed(rr * 0.55, 5, rng, 0.3)}" transform="translate(${n(rr * 0.16)} ${n(-rr * 0.16)})" fill="${tone(c, 0.15, 0.13, -8)}" fill-opacity="0.55"/>`;
   if (sp.fl) {
     const cnt = kind === 'annual' ? 6 : kind === 'groundcover' ? 3 : 4;
@@ -2180,6 +2228,12 @@ const DDRAW = {
     return scallop(it.r * 0.9, k, o.u, fillOf('bshrub', o, o.icon ? 'none' : 'transparent')) + `<circle r="${n(o.u * 1.5)}" fill="${INK}"/>`;
   },
   dshrub(it, o) {
+    const gs = spOf(it);
+    if (gs && gs.f === 'grass') {
+      let d = '';
+      for (let i = 0; i < 14; i++) { const a = 2 * Math.PI * i / 14 + (i % 2) * 0.12, L = it.r * (i % 2 ? 0.78 : 1); d += `M0,0L${n(L * Math.cos(a))},${n(L * Math.sin(a))}`; }
+      return `<circle r="${n(it.r)}" fill="${o.color ? '#DDEBC4' : (o.icon ? 'none' : 'transparent')}" fill-opacity="${o.color ? 0.6 : 1}"/><path d="${d}" stroke="${INK}" stroke-width="${n(o.u * 0.8)}" stroke-linecap="round"/><circle r="${n(o.u * 1.5)}" fill="${INK}"/>`;
+    }
     return `<circle r="${n(it.r)}" ${fillOf('dshrub', o, o.icon ? 'none' : 'transparent')} stroke="${INK}" stroke-width="${n(o.u * 1.1)}"/>` +
       `<circle r="${n(it.r * 0.55)}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 0.65)}"/><circle r="${n(o.u * 1.5)}" fill="${INK}"/>`;
   },
@@ -2923,14 +2977,33 @@ function segCross(a, b, c, d) {
   const t = ((c[0] - a[0]) * s[1] - (c[1] - a[1]) * s[0]) / den, u = ((c[0] - a[0]) * r[1] - (c[1] - a[1]) * r[0]) / den;
   return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? t : null;
 }
+const streamLine = (st) => (st.smooth ? openSpline(st.pts, 0.4) : st.pts);
+function nearestOnLine(p, line) {
+  let best = line[0], bd = Infinity;
+  for (let i = 1; i < line.length; i++) {
+    const a = line[i - 1], b = line[i], dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy || 1;
+    const t = clamp(((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2, 0, 1), q = [a[0] + dx * t, a[1] + dy * t], d = dist(p, q);
+    if (d < bd) { bd = d; best = q; }
+  }
+  return { q: best, d: bd };
+}
+/* where a stream's own line crosses the bank of the stream it joins (walking back from the joined end) */
+function bankPoint(line, other, fromEnd) {
+  const L = polyLen(line);
+  for (let d = 0; d <= L; d += 0.2) { const p = pointAlong(line, fromEnd ? L - d : d); if (nearestOnLine(p, other.line).d >= other.w / 2) return p; }
+  return fromEnd ? line[0] : line[line.length - 1];
+}
 const pondGeo = (pd) => ({ id: pd.id, poly: shapePoly(pd.pts, pd.smooth), d: shapeD(pd.pts, pd.smooth) });
 function streamCourse(it, o) {
   const w = it.width || 3;
   let line = it.smooth ? openSpline(it.pts, 0.4) : it.pts.map((p) => p.slice());
   const ponds = (o.water || []).filter((x) => x.type === 'pondShape' && !x.hidden).map(pondGeo);
   const touch = (p) => ponds.find((pd) => inPoly(p, pd.poly) || nearestOnPoly(p, pd.poly).d < 2 + w / 2);
+  /* other streams: an end that lands on one joins it (a tributary), and the water flows that way */
+  const others = (o.water || []).filter((x) => x.type === 'stream' && x.id !== it.id && !x.hidden).map((x) => ({ id: x.id, line: streamLine(x), w: x.width || 3 }));
+  const onStream = (p) => others.find((x) => nearestOnLine(p, x.line).d < x.w / 2 + 0.6);
   const t0 = touch(line[0]), t1 = touch(line[line.length - 1]);
-  if (t0 && !t1) line = line.slice().reverse();
+  if ((t0 && !t1) || (!t0 && !t1 && onStream(line[0]) && !onStream(line[line.length - 1]))) line = line.slice().reverse();
   const pond = t0 && !t1 ? t0 : t1;
   let mouth = null;
   if (pond) {
@@ -2954,7 +3027,23 @@ function streamCourse(it, o) {
       along += dist(a, b);
     }
   }
-  return { line, ponds, mouth, w };
+  const joins = [];
+  if (!pond) {
+    const e = line[line.length - 1], x = onStream(e);
+    if (x) { const { q } = nearestOnLine(e, x.line); if (dist(e, q) > 0.05) line = line.concat([q]); joins.push({ s: x, p: bankPoint(line, x, true) }); }
+  }
+  { const x = onStream(line[0]); if (x && !joins.some((j) => j.s.id === x.id)) joins.push({ s: x, p: bankPoint(line, x, false) }); }
+  return { line, ponds, mouth, w, joins };
+}
+/* the places where other streams run into this one: its banks open there */
+function streamInlets(it, o) {
+  const out = [];
+  for (const x of (o.water || [])) {
+    if (x.type !== 'stream' || x.id === it.id || x.hidden) continue;
+    const c = streamCourse(x, o);
+    for (const j of c.joins) if (j.s.id === it.id) out.push({ p: j.p, w: c.w });
+  }
+  return out;
 }
 /* the inlets other streams make in this pond */
 function pondInlets(pd, o) {
@@ -2974,19 +3063,24 @@ function streamDraw(it, o, rng) {
   const box = `x="${n(Math.min(...xs) - m)}" y="${n(Math.min(...ys) - m)}" width="${n(Math.max(...xs) - Math.min(...xs) + 2 * m)}" height="${n(Math.max(...ys) - Math.min(...ys) + 2 * m)}"`;
   const wet = c.ponds.filter((pd) => line.some((p) => inPoly(p, pd.poly)));
   // a mask that lets the stream melt into the pond water (soft in Rendered, a clean cut in the drafting styles)
-  const mid = `sm-${uid0}`, masked = wet.length && !o.icon;
-  let s = masked ? `<defs><mask id="${mid}" maskUnits="userSpaceOnUse" ${box}><rect ${box} fill="#fff"/>${wet.map((pd) => `<path d="${pd.d}" fill="#000"${o.render ? ' filter="url(#ld-mouth)"' : ''}/>`).join('')}</mask></defs>` : '';
+  const joinS = c.joins.map((j) => j.s), inl = o.icon ? [] : streamInlets(it, o);
+  const mid = `sm-${uid0}`, masked = (wet.length || joinS.length) && !o.icon;
+  /* the banks open where another stream comes in */
+  const gid = `sg-${uid0}`, gap = (svg) => (inl.length ? `<g mask="url(#${gid})">${svg}</g>` : svg);
+  const gapDefs = inl.length ? `<defs><mask id="${gid}" maskUnits="userSpaceOnUse" ${box}><rect ${box} fill="#fff"/>${inl.map((j) => `<circle cx="${n(j.p[0])}" cy="${n(j.p[1])}" r="${n(j.w / 2 + 0.2)}" fill="#000"/>`).join('')}</mask></defs>` : '';
+  let s = masked ? `<defs><mask id="${mid}" maskUnits="userSpaceOnUse" ${box}><rect ${box} fill="#fff"/>${wet.map((pd) => `<path d="${pd.d}" fill="#000"${o.render ? ' filter="url(#ld-mouth)"' : ''}/>`).join('')}${joinS.map((x) => `<path d="${ptsD(x.line)}" fill="none" stroke="#000" stroke-width="${n(x.w - 0.05)}" stroke-linecap="round" stroke-linejoin="round"/>`).join('')}</mask></defs>` : '';
+  s += gapDefs;
   const at = (dd) => { const p = pointAlong(line, dd), a = pointAlong(line, Math.max(0, dd - 0.15)), b = pointAlong(line, Math.min(L, dd + 0.15)); return [p, Math.atan2(b[1] - a[1], b[0] - a[0])]; };
   const flowLen = c.mouth ? c.mouth.d : L;
   if (!o.render) {
-    let g = `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${n(w)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${o.color ? '#D3E9EC' : '#fff'}" stroke-width="${n(Math.max(0.1, w - o.u * 2.4))}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="url(#dd-water)" stroke-width="${n(Math.max(0.1, w - o.u * 2.4))}" stroke-linejoin="round" stroke-linecap="round"/>`;
+    let g = gap(`<path d="${d}" fill="none" stroke="${INK}" stroke-width="${n(w)}" stroke-linejoin="round" stroke-linecap="round"/>`) + `<path d="${d}" fill="none" stroke="${o.color ? '#D3E9EC' : '#fff'}" stroke-width="${n(Math.max(0.1, w - o.u * 2.4))}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="url(#dd-water)" stroke-width="${n(Math.max(0.1, w - o.u * 2.4))}" stroke-linejoin="round" stroke-linecap="round"/>`;
     for (let dd = Math.min(4, flowLen / 2); dd < flowLen - 1; dd += 7) {   // flow arrows, pointing downstream
       const [p, a] = at(dd), k = Math.min(0.9, w * 0.3);
       g += `<g transform="translate(${n(p[0])} ${n(p[1])}) rotate(${n(a * 180 / Math.PI)})"><path d="M${n(-k * 1.4)},0H${n(k * 0.6)}" stroke="${INK}" stroke-width="${n(o.u * 0.8)}"/><path d="M${n(k)},0L${n(-k * 0.2)},${n(-k * 0.55)}V${n(k * 0.55)}Z" fill="${INK}"/></g>`;
     }
     return masked ? `<g mask="url(#${mid})">${g}</g>` + s : g;
   }
-  let g = `<path d="${d}" fill="none" stroke="#8A7F68" stroke-width="${n(w + 1.4)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#A39880" stroke-width="${n(w + 0.9)}" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="0.3 0.25"/>`;
+  let g = gap(`<path d="${d}" fill="none" stroke="#8A7F68" stroke-width="${n(w + 1.4)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#A39880" stroke-width="${n(w + 0.9)}" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="0.3 0.25"/>`);
   g += `<path d="${d}" fill="none" stroke="#2B6268" stroke-width="${n(w)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#3F8288" stroke-width="${n(w * 0.7)}" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#66A8AA" stroke-opacity="0.75" stroke-width="${n(w * 0.32)}" stroke-linejoin="round" stroke-linecap="round"/>`;
   // ripples (bowed downstream) and the odd riffle stone
   for (let dd = 0.8; dd < flowLen - 0.6; dd += 0.9 + rng() * 0.8) {
@@ -3004,7 +3098,7 @@ function streamDraw(it, o, rng) {
   // rocks along both banks, stopping at the pond edge
   for (const side of [-1, 1]) for (let dd = rng() * 0.6; dd < L; dd += 0.7 + rng() * 0.7) {
     const [p, a] = at(dd), r = 0.22 + rng() * 0.35, off = side * (w / 2 + 0.25 + rng() * 0.2), q = [p[0] - Math.sin(a) * off, p[1] + Math.cos(a) * off];
-    if (!inPond(q, 0.9)) s += boulder(q[0], q[1], r, rng);
+    if (!inPond(q, 0.9) && !joinS.some((x) => nearestOnLine(q, x.line).d < x.w / 2 + 0.55) && !inl.some((jn) => dist(q, jn.p) < jn.w / 2 + 0.5)) s += boulder(q[0], q[1], r, rng);
   }
   if (c.mouth && !o.icon) {   // where it pours in: two boulders frame the mouth, foam, and rings spreading over the pond
     const { p, dir } = c.mouth, nx = -dir[1], ny = dir[0];
@@ -3213,7 +3307,7 @@ const TIPS = {
   lawn: 'Rectangle of lawn. Pick the grass in the library.', lawnShape: 'Draw a curved lawn edge point by point.',
   patio: 'Rectangle patio. Choose stone, pavers, brick or concrete.', paveShape: 'Draw any paved shape point by point.',
   deck: 'Wood deck.', path: 'Click each corner of the walk, double-click to finish.', fence: 'Click each corner of the fence, double-click to finish. Pick the style (privacy, picket, split rail, chain link, metal) under Properties, or use Arrange → Fence the property line.',
-  pondShape: 'Draw a natural pond: click around the edge, then the first dot to close.', stream: 'Click along the course of the stream, double-click to finish. Click near a pond and the point snaps onto its edge, so the stream runs into it. Set its width under Properties.',
+  pondShape: 'Draw a natural pond: click around the edge, then the first dot to close.', stream: 'Click along the course of the stream, double-click to finish. Click near a pond or another stream and the point snaps onto it, so the water joins up. Set its width under Properties.',
   shed: 'Click to place the shed, then turn it with the yellow dot so the doors (the ramp end) face where you want them. Drag the corner dot to resize.',
   stairs: 'Click to place steps, then turn them with the yellow dot so the top points uphill. Drag the corner dot for width and length; longer steps climb higher.',
   gate: 'Click on or near a fence: the gate sets into the fence line, takes its style, and the fence opens for it.',
@@ -4139,7 +4233,7 @@ function setTool(tl) {
     if (L === 'design' && !view.design) { view.design = true; $('tDesign').checked = true; renderPlan(); toast('Design layer turned on'); }
     if (L === 'diagram' && !view.diagram) { view.diagram = true; $('tDiagram').checked = true; renderPlan(); toast('Functional diagram turned on'); }
     const cats = spCats(tl);
-    if (cats.length && curSp[tl] && PLANT_BY_ID[curSp[tl]]) { libSp = curSp[tl]; if (!cats.includes(libCat) && libCat !== 'all') libCat = cats[0]; renderLib(); }
+    if (cats.length && curSp[tl] && PLANT_BY_ID[curSp[tl]]) { libSp = curSp[tl]; if (!cats.includes(libCat) && libCat !== 'all' && !(libCat === 'grass' && PLANT_BY_ID[libSp].g)) libCat = cats[0]; renderLib(); }
   }
   document.querySelectorAll('[data-tool]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.tool === tl ? 'true' : 'false'));
   svg.classList.toggle('sel', tl === 'select');
@@ -4175,7 +4269,7 @@ function libActions(sp) {
   return `<div class="btnrow" style="margin-top:6px">${h}</div>`;
 }
 function renderLibControls() {
-  $('libCat').innerHTML = `<option value="all">All plants (${PLANTS.length})</option>` + CATS.map(([k, name]) => `<option value="${k}">${name} (${PLANTS.filter((p) => p.t === k).length})</option>`).join('');
+  $('libCat').innerHTML = `<option value="all">All plants (${PLANTS.length})</option>` + LIB_CATS.map(([k, name]) => `<option value="${k}">${name} (${PLANTS.filter((p) => catOf(p) === k).length})</option>`).join('');
   $('libSun').innerHTML = [['', 'Any light'], ['F', 'Full sun'], ['P', 'Part shade'], ['S', 'Shade']].map(([k, l]) => `<button type="button" data-sun="${k}" aria-pressed="${libSun === k}">${l}</button>`).join('');
 }
 function renderLib() {
@@ -4186,10 +4280,10 @@ function renderLib() {
   $('libCat').value = libCat;
   $('libSun').querySelectorAll('[data-sun]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.sun === libSun));
   const q = libQ.trim().toLowerCase();
-  const list = PLANTS.filter((p) => (libCat === 'all' || p.t === libCat) && (!libSun || p.sun.includes(libSun)) && (!q || (p.cn + ' ' + p.bn + ' ' + p.note).toLowerCase().includes(q)));
+  const list = PLANTS.filter((p) => (libCat === 'all' || catOf(p) === libCat) && (!libSun || p.sun.includes(libSun)) && (!q || (p.cn + ' ' + p.bn + ' ' + p.note).toLowerCase().includes(q)));
   let h = '';
-  for (const [cat, name] of CATS) {
-    const rows = list.filter((p) => p.t === cat);
+  for (const [cat, name] of LIB_CATS) {
+    const rows = list.filter((p) => catOf(p) === cat);
     if (!rows.length) continue;
     h += `<div class="libcat">${name}</div>`;
     h += rows.map((p) => `<button type="button" class="plant" data-sp="${p.id}" aria-pressed="${libSp === p.id}"><span class="thumb">${plantThumb(p)}</span><span class="pn"><b>${esc(p.cn)}${p.custom ? ' <span class="yours">YOURS</span>' : ''}</b><i>${esc(p.bn)}</i><span>${p.t === 'turf' ? 'Lawn grass' : `${p.w}′ W × ${p.h}′ H`} ${sunDots(p.sun)} ${p.z ? `<span>Z ${esc(p.z)}</span>` : ''}</span></span></button>`).join('');
@@ -4629,9 +4723,14 @@ function newItem(type, p) {
 }
 /* snapping: corners of other items and of the base plan within 10 px, else the 1 ft grid */
 /* a stream point near a pond lands exactly on the pond's edge, so the stream runs into it (works even with Snap off) */
-function pondSnap(p) {
+function pondSnap(p, exceptId) {
   const tol = Math.max(5, 30 / view.k);
   let best = null, bd = tol;
+  for (const it of state.items) {   // another stream: land on its centre line, so this one runs into it
+    if (it.type !== 'stream' || it.hidden || it.id === exceptId) continue;
+    const r = nearestOnLine(p, streamLine(it)), lim = Math.max(tol * 0.6, (it.width || 3) / 2 + 1);
+    if (r.d < bd && r.d < lim) { bd = r.d; best = r.q; }
+  }
   for (const it of state.items) {
     if (it.type !== 'pondShape' || it.hidden) continue;
     const poly = shapePoly(it.pts, it.smooth), r = nearestOnPoly(p, poly), d = inPoly(p, poly) ? 0 : r.d;
@@ -4672,7 +4771,7 @@ function snapGeometry(exceptId) {
 }
 function snapPt(p, exceptId, type) {
   snapMark = null; snapPond = false; snapGuide = [];
-  if (type === 'stream') { const q = pondSnap(p); if (q) { snapMark = q; snapPond = true; return [q[0], q[1]]; } }
+  if (type === 'stream') { const q = pondSnap(p, exceptId); if (q) { snapMark = q; snapPond = true; return [q[0], q[1]]; } }
   if (!view.snap) return p;
   const tol = 10 / view.k, G = snapGeometry(exceptId || null);
   const cand = draft ? G.pts.concat(draft.pts) : G.pts;
@@ -5218,8 +5317,8 @@ function takeoff() {
       addM('pool', 'Swimming pool (water area)', it.type, wa, 'sq ft');
     } else if (t.furn) addM('furn-' + it.type, t.name, it.type, 1, 'ea');
   }
-  const order = CATS.map((c) => c[0]);
-  const plantRows = Object.values(plants).sort((a, b) => order.indexOf(a.sp.t) - order.indexOf(b.sp.t) || a.sp.cn.localeCompare(b.sp.cn));
+  const order = LIB_CATS.map((c) => c[0]);
+  const plantRows = Object.values(plants).sort((a, b) => order.indexOf(catOf(a.sp)) - order.indexOf(catOf(b.sp)) || a.sp.cn.localeCompare(b.sp.cn));
   return { plants: plantRows, mats: Object.values(mats) };
 }
 const fmtQty = (r) => (r.sp.t === 'turf' ? `${Math.round(r.area).toLocaleString()} sq ft` : `${r.approx ? '≈' : ''}${r.qty}`);
@@ -5230,7 +5329,7 @@ function renderSched() {
   let h = '<table class="sched"><thead><tr><th>Key</th><th>Plant</th><th style="text-align:right">Qty</th></tr></thead><tbody>';
   let lastCat = '';
   for (const r of plants) {
-    if (r.sp.t !== lastCat) { lastCat = r.sp.t; h += `<tr class="grp"><td colspan="3">${CATS.find((c) => c[0] === lastCat)[1]}</td></tr>`; }
+    if (catOf(r.sp) !== lastCat) { lastCat = catOf(r.sp); h += `<tr class="grp"><td colspan="3">${LIB_CATS.find((c) => c[0] === lastCat)[1]}</td></tr>`; }
     h += `<tr><td><span class="code">${PLANT_CODE[r.sp.id]}</span></td><td>${esc(r.sp.cn)}<i>${esc(r.sp.bn)}${r.sp.t === 'turf' ? '' : ` · ${r.sp.w}′×${r.sp.h}′`}</i></td><td class="n">${fmtQty(r)}</td></tr>`;
   }
   if (mats.length) {
