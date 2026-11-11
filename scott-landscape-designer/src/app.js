@@ -153,7 +153,7 @@ let libSp = SP_DEFAULT.dtree;      // species shown in the library info card
 const view = { cx: 41, cy: 58, k: 6, site: false, util: false, grid: false, diagram: true, design: true, tags: false, base: true, style: 'render', snap: true, lib: true, floor: false, img: true };
 let hist = [], hIdx = -1, commitTimer = null, pendingLabel = 'Edit';
 let checkRun = false;
-let draft = null, hover = null, measure = null, marquee = null, snapMark = null, snapPond = false;
+let draft = null, hover = null, measure = null, marquee = null, snapMark = null, snapPond = false, snapGuide = [], stateRev = 0;
 let clip = [], pasteN = 0;
 const toolPreset = { wall: { style: 'seat', height: 1.5, width: 1.5 } };
 const bedFormPref = { perennial: 'oval', annual: 'oval', groundcover: 'round' };
@@ -163,17 +163,47 @@ const byId = (id) => state.items.find((i) => i.id === id);
 const selItems = () => sel.map(byId).filter(Boolean);
 const single = () => (sel.length === 1 ? byId(sel[0]) || null : null);
 const waterItems = () => state.items.filter((i) => i.type === 'pondShape' || i.type === 'stream');
-const drawOpts = (extra) => Object.assign({ u: 0.125, render: view.style === 'render', color: view.style !== 'bw', tags: view.tags, seeTrees: view.seeTrees, water: waterItems() }, extra || {});
+/* where grass can't grow on the base plan: lawns are clipped to stay off these, so one lawn can cover the whole yard */
+const DRIVE_POLY = (() => {   // the driveway with its flare to the street, as drawn on the base plan
+  const q = (p0, p1, p2) => [0.2, 0.4, 0.6, 0.8, 1].map((t) => [(1 - t) * (1 - t) * p0[0] + 2 * t * (1 - t) * p1[0] + t * t * p2[0], (1 - t) * (1 - t) * p0[1] + 2 * t * (1 - t) * p1[1] + t * t * p2[1]]);
+  return [[16, 80], [32, 80], [32, 103.5], ...q([32, 103.5], [32, 108.5], [36.5, 112]), [11.5, 112], ...q([11.5, 112], [16, 108.5], [16, 103.5])];
+})();
+const keepOut = () => (isScott() ? [HOUSE, GARAGE, DRIVE_POLY, [[0, 107], [82, 107], [82, 110.5], [0, 110.5]]] : []);
+const turfClipDefs = () => `<clipPath id="turfClip"><path clip-rule="evenodd" d="M-600,-600H900V900H-600Z${keepOut().map((p) => ptsD(p) + 'Z').join('')}"/></clipPath>`;
+const drawOpts = (extra) => Object.assign({ u: 0.125, render: view.style === 'render', color: view.style !== 'bw', tags: view.tags, seeTrees: view.seeTrees, water: waterItems(), turfClip: isScott(), turfShadow: isScott() && view.style === 'render' && !view.floor ? `${ptsD(HOUSE)}Z${ptsD(GARAGE)}Z` : '' }, extra || {});
 
 /* ------------------------------------------------------------------ history */
-const snapshot = () => JSON.stringify(state);
+/* An imported site photo can be half a megabyte of text. Undo keeps up to 100 snapshots, so each snapshot holds
+ * a short token for the photo and the photo itself is kept once. */
+const imgPool = new Map();
+function imgToken(src) {
+  let h = 5381;
+  for (let i = 0; i < src.length; i += Math.max(1, Math.floor(src.length / 4000))) h = ((h << 5) + h + src.charCodeAt(i)) | 0;
+  const tok = `\u0001img:${src.length}:${h}`;
+  imgPool.set(tok, src);
+  return tok;
+}
+function snapshot() {
+  const im = state.site && state.site.img;
+  if (!im || typeof im.src !== 'string' || im.src.length < 4000) return JSON.stringify(state);
+  const src = im.src;
+  im.src = imgToken(src);
+  try { return JSON.stringify(state); } finally { im.src = src; }
+}
+function fromSnapshot(s) {
+  const st = JSON.parse(s), im = st.site && st.site.img;
+  if (im && imgPool.has(im.src)) im.src = imgPool.get(im.src);
+  return st;
+}
+/* the full text of a snapshot, photo included, for saving */
+const fullText = (s) => (imgPool.size && s.indexOf('\\u0001img:') >= 0 ? JSON.stringify(fromSnapshot(s)) : s);
 function commit(label) {
-  clearTimeout(commitTimer); commitTimer = null;
+  clearTimeout(commitTimer); commitTimer = null; stateRev++;
   const s = snapshot();
   if (hist[hIdx] && hist[hIdx].s === s) return;
   hist = hist.slice(0, hIdx + 1);
   hist.push({ s, label: label || pendingLabel || 'Edit' });
-  if (hist.length > 150) hist.shift();
+  if (hist.length > 100) hist.shift();
   hIdx = hist.length - 1;
   autosave(s);
   renderSide();
@@ -188,7 +218,8 @@ function jumpTo(i) {
 function undo() { flush(); if (hIdx <= 0) { toast('Nothing to undo'); return; } toast('Undo ' + hist[hIdx].label); jumpTo(hIdx - 1); }
 function redo() { flush(); if (hIdx >= hist.length - 1) { toast('Nothing to redo'); return; } jumpTo(hIdx + 1); toast('Redo ' + hist[hIdx].label); }
 function restore(s) {
-  state = JSON.parse(s);
+  stateRev++;
+  state = fromSnapshot(s);
   registerCustom(state.customPlants);
   sel = sel.filter((id) => byId(id));
   autosave(s);
@@ -196,17 +227,31 @@ function restore(s) {
 }
 let storageWarned = false;
 function readIndex() { try { return JSON.parse(localStorage.getItem(INDEX_KEY) || '{}') || {}; } catch (e) { return {}; } }
-function autosave(s) {
+/* Every change saves the current design at once. Its copy in My designs (and the list entry) follows a moment
+ * later, so a burst of edits writes the big copy once; `now` forces it (switching designs, closing the page). */
+let projPending = null, projTimer = 0;
+function storageFull(e) { if (!storageWarned && e && /quota|storage/i.test(String(e.name) + e.message)) { storageWarned = true; toast('Browser storage is full. Use Save to keep a design file.'); } }
+function flushProj() {
+  clearTimeout(projTimer); projTimer = 0;
+  const p = projPending;
+  projPending = null;
+  if (!p) return;
   try {
-    localStorage.setItem(STORE_KEY, s);
-    localStorage.setItem(PROJ_KEY(state.pid), s);
+    localStorage.setItem(PROJ_KEY(p.pid), p.text);
     const idx = readIndex();
-    idx[state.pid] = { name: projName(), kind: isScott() ? 'scott' : 'custom', t: Date.now(), n: state.items.length, by: state.meta.name || '' };
+    idx[p.pid] = p.entry;
     localStorage.setItem(INDEX_KEY, JSON.stringify(idx));
-  } catch (e) {
-    if (!storageWarned && e && /quota/i.test(e.name + e.message)) { storageWarned = true; toast('Browser storage is full. Use Save to keep a design file.'); }
-  }
+  } catch (e) { storageFull(e); }
 }
+function autosave(s, now) {
+  const text = fullText(s);
+  try { localStorage.setItem(STORE_KEY, text); } catch (e) { storageFull(e); }
+  projPending = { pid: state.pid, text, entry: { name: projName(), kind: isScott() ? 'scott' : 'custom', t: Date.now(), n: state.items.length, by: state.meta.name || '' } };
+  if (now) flushProj(); else { clearTimeout(projTimer); projTimer = setTimeout(flushProj, 700); }
+}
+/* nothing typed or drawn is lost if the tab is closed or put in the background mid-edit */
+addEventListener('pagehide', () => { try { flush(); flushProj(); } catch (e) { /* closing anyway */ } });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { try { flush(); flushProj(); } catch (e) { /* ignore */ } } });
 function saveView() {
   try { localStorage.setItem(VIEW_KEY, JSON.stringify({ site: view.site, grid: view.grid, diagram: view.diagram, design: view.design, tags: view.tags, base: view.base, style: view.style, snap: view.snap, lib: view.lib, floor: view.floor, img: view.img, util: view.util, seeTrees: view.seeTrees, libTab })); } catch (e) { /* ignore */ }
 }
@@ -305,7 +350,7 @@ function cleanState(raw) {
 const svg = $('plan');
 svg.setAttribute('xmlns', NS);
 svg.innerHTML = DEFS +
-  `<rect id="sheetShade" fill="#000" fill-opacity="0.28"/><rect id="sheetRect" fill="#fff"/>` +
+  `<defs id="turfDefs"></defs><rect id="sheetShade" fill="#000" fill-opacity="0.28"/><rect id="sheetRect" fill="#fff"/>` +
   `<g id="gImg" pointer-events="none"></g><g id="gBase" pointer-events="none"></g><g id="gGrid" pointer-events="none"></g><g id="gDesign"></g>` +
   `<g id="gSite" pointer-events="none"></g>` +
   `<g id="gDiagram"></g><g id="gOver"></g>`;
@@ -573,18 +618,19 @@ function hipRoof(x1, y1, x2, y2, o) {
   }
   const line = o.render ? '#6E675E' : INK;
   let s = faces.map(([pts, k]) => `<path d="${ptsD(pts)}Z" fill="${tone(k)}"/>`).join('');
+  if (o.render) s += `<rect x="${n(x1)}" y="${n(y1)}" width="${n(w)}" height="${n(h)}" fill="url(#ld-shingle2)"/>`;
   s += `<path d="M${n(R1[0])},${n(R1[1])}L${n(R2[0])},${n(R2[1])}M${n(x1)},${n(y1)}L${n(R1[0])},${n(R1[1])}M${n(x2)},${n(y1)}L${n(R2[0])},${n(R2[1])}M${n(x1)},${n(y2)}L${n(w >= h ? R1[0] : R2[0])},${n(w >= h ? R1[1] : R2[1])}M${n(x2)},${n(y2)}L${n(R2[0])},${n(R2[1])}" stroke="${line}" stroke-width="0.14" fill="none"/>`;
   return s;
 }
 function cleanHouse(o) {
   const ink = '#222', paper = o.render ? '#EDEAE3' : '#fff', lab = (x, y, t, fs, w) => `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-weight="${w || 600}" font-size="${fs}" letter-spacing="0.05em" fill="${INK}" paint-order="stroke" stroke="${o.render ? '#E6E1D8' : '#fff'}" stroke-width="${n(fs * 0.3)}" stroke-linejoin="round">${t}</text>`;
   let s = '';
-  if (o.render) s += `<path d="${ptsD(HOUSE)}Z${ptsD(GARAGE)}Z" transform="translate(-1.8 1)" fill="#0E1408" fill-opacity="0.32" filter="url(#ld-soft)"/>`;
+  if (o.render) s += castShadow(`${ptsD(HOUSE)}Z${ptsD(GARAGE)}Z`, 1.8, 1, 0.34);
   s += hipRoof(14, 53, 34, 80, o);                                   // garage
   s += hipRoof(34, 47, 75, 74, o);                                   // house, main block
   s += `<path d="M34,44H59V47H34Z" fill="${o.render ? shade('#CBC5BA', 0.1) : (o.color ? '#EFEEE9' : '#fff')}" stroke="${o.render ? '#6E675E' : INK}" stroke-width="0.14"/>`;  // rear bay
   s += `<rect x="75" y="57" width="1.6" height="6" fill="${paper}" stroke="${ink}" stroke-width="0.15"/>`;   // chimney
-  s += `<path d="${ptsD(GARAGE)}Z" fill="none" stroke="${ink}" stroke-width="0.34"/><path d="${ptsD(HOUSE)}Z" fill="none" stroke="${ink}" stroke-width="0.4" stroke-linejoin="miter"/>`;
+  s += `<path d="${ptsD(GARAGE)}Z" fill="none" stroke="${o.render ? '#2B2824' : ink}" stroke-width="${o.render ? 0.26 : 0.34}"/><path d="${ptsD(HOUSE)}Z" fill="none" stroke="${o.render ? '#2B2824' : ink}" stroke-width="${o.render ? 0.3 : 0.4}" stroke-linejoin="miter"/>`;
   // doors: openings in the wall with a stoop, so students can see where walks must go
   const gap = (x1, y1, x2, y2) => `<rect x="${x1}" y="${y1}" width="${x2 - x1}" height="${y2 - y1}" fill="${paper}"/>`;
   s += gap(50, 73.7, 53, 74.3) + `<rect x="49.5" y="74.3" width="4" height="2.2" rx="0.2" fill="${o.render ? '#D9D3C6' : paper}" stroke="${ink}" stroke-width="0.1"/>`;
@@ -656,7 +702,10 @@ function imageMarkup() {
 }
 function baseMarkup(o) {
   if (!isScott()) return customBase(o);
-  return `<g transform="${CORE_T}">${BASE_LOT}${view.floor ? BASE_FLOOR : ''}</g>` + (view.floor ? '' : cleanHouse(o));
+  const paved = o.render ? `<rect x="-5" y="112" width="92" height="9" fill="#8F908C"/><rect x="-5" y="112" width="92" height="9" fill="url(#ld-asphalt)"/><path d="M-5,112H87" stroke="#D9D6CE" stroke-width="0.5"/><path d="M-5,112.3H87" stroke="#3A3A38" stroke-opacity="0.35" stroke-width="0.12"/>` +
+    `<rect x="0" y="107" width="82" height="3.5" fill="url(#ld-concrete)" stroke="#77736A" stroke-width="0.1"/><path d="${ptsD(DRIVE_POLY)}Z" fill="url(#ld-concrete)" stroke="#77736A" stroke-width="0.12"/>` +
+    `<text x="41" y="117.3" text-anchor="middle" font-family="${FONT}" font-weight="600" font-size="2" letter-spacing="0.3em" fill="#F2F1EC">${esc((CORE.base.find((e) => /letter-spacing="0.3em"/.test(e)) || '').replace(/<[^>]+>/g, '') || 'STREET')}</text>` : '';
+  return `<g transform="${CORE_T}">${BASE_LOT}${view.floor ? BASE_FLOOR : ''}</g>` + paved + (view.floor ? '' : cleanHouse(o));
 }
 function siteMarkup() {
   if (!isScott()) return view.site ? customSite() : '';
@@ -672,6 +721,7 @@ function renderBase() {
   if (key === baseKey) return;
   baseKey = key;
   gBase.innerHTML = baseMarkup(o);
+  $('turfDefs').innerHTML = turfClipDefs();
   gSite.innerHTML = siteMarkup();
   gImg.innerHTML = imageMarkup();
   const F = fitRect(), r = $('sheetRect'), rs = $('sheetShade');
@@ -841,6 +891,7 @@ function renderOverlay() {
     for (let i = 0; i < N; i++) { const a = P[i], b = P[(i + 1) % N]; s += handle((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 'lm' + i, k, '#2C7BC0', 4); }
     P.forEach((q, i) => { s += handle(q[0], q[1], 'lv' + i, k, '#fff', 7); });
   }
+  for (const g of snapGuide) s += `<line x1="${n(g.a[0])}" y1="${n(g.a[1])}" x2="${n(g.b[0])}" y2="${n(g.b[1])}" stroke="#E08A00" stroke-width="${n((g.dash ? 1.1 : 2.4) / k)}"${g.dash ? ` stroke-dasharray="${n(5 / k)} ${n(4 / k)}"` : ' stroke-opacity="0.85"'} pointer-events="none"/>`;
   if (snapMark && snapPond) s += `<circle cx="${n(snapMark[0])}" cy="${n(snapMark[1])}" r="${n(7 / k)}" fill="#2E86B8" fill-opacity="0.25" stroke="#2E86B8" stroke-width="${n(2 / k)}" pointer-events="none"/>`;
   else if (snapMark) s += `<rect x="${n(snapMark[0] - 5 / k)}" y="${n(snapMark[1] - 5 / k)}" width="${n(10 / k)}" height="${n(10 / k)}" fill="none" stroke="#E08A00" stroke-width="${n(1.6 / k)}" transform="rotate(45 ${n(snapMark[0])} ${n(snapMark[1])})" pointer-events="none"/>`;
   if (marquee) {
@@ -1426,25 +1477,70 @@ function pondSnap(p) {
   }
   return best;
 }
+/* everything a point can snap to: corners, and the edges of the lot, the house, the driveway and other objects.
+ * Built once per edit (the plan doesn't change while a point is being placed) and reused for every mouse move. */
+let snapGeo = null;
+function snapGeometry(exceptId) {
+  if (snapGeo && snapGeo.except === exceptId && snapGeo.rev === stateRev) return snapGeo;
+  const pts = [], segs = [];
+  const ring = (poly) => { for (let i = 0; i < poly.length; i++) segs.push([poly[i], poly[(i + 1) % poly.length]]); };
+  const run = (line) => { for (let i = 1; i < line.length; i++) segs.push([line[i - 1], line[i]]); };
+  const L = lot();
+  ring(L.poly);
+  if (isScott()) {
+    pts.push(...SNAP_PTS); ring(HOUSE); ring(GARAGE);
+    run([[DRIVE.x1, DRIVE.y1], [DRIVE.x1, DRIVE.y2]]); run([[DRIVE.x2, DRIVE.y1], [DRIVE.x2, DRIVE.y2]]); run([[0, 107], [82, 107]]);
+  } else pts.push(...L.poly);
+  for (const it of state.items) {
+    if (it.id === exceptId || it.hidden || !(layerOf(it) === 'design' ? view.design : view.diagram)) continue;
+    const k = T[it.type].kind;
+    if (k === 'shape') { pts.push(...it.pts); ring(shapePoly(it.pts, it.smooth)); }
+    else if (k === 'line') {
+      pts.push(...it.pts);
+      const line = it.smooth ? wallLine(it) : it.pts;
+      if (it.width > 1) { run(offsetLine(line, it.width / 2)); run(offsetLine(line, -it.width / 2)); } else run(line);
+    } else if (k === 'box') {
+      const poly = itemPoly(it);
+      pts.push(...poly, [it.x, it.y]);
+      if (isBedType(it.type) && bedForm(it) === 'oval') { const o = []; for (let i = 0; i < 32; i++) { const a = Math.PI * i / 16; o.push(toWorldPt(it, [it.w / 2 * Math.cos(a), it.h / 2 * Math.sin(a)])); } ring(o); } else if (!T[it.type].furn || /^pool|hottub|sandbox|pergola/.test(it.type)) ring(poly);
+    } else if (k === 'circle') pts.push([it.x, it.y]);
+  }
+  snapGeo = { except: exceptId, rev: stateRev, pts, segs };
+  return snapGeo;
+}
 function snapPt(p, exceptId, type) {
-  snapMark = null; snapPond = false;
+  snapMark = null; snapPond = false; snapGuide = [];
   if (type === 'stream') { const q = pondSnap(p); if (q) { snapMark = q; snapPond = true; return [q[0], q[1]]; } }
   if (!view.snap) return p;
-  const tol = 10 / view.k;
+  const tol = 10 / view.k, G = snapGeometry(exceptId || null);
+  const cand = draft ? G.pts.concat(draft.pts) : G.pts;
+  // 1. a corner
   let best = null, bd = tol;
-  const L = lot();
-  const cand = isScott() ? SNAP_PTS.slice() : L.poly.slice();
-  for (const it of state.items) {
-    if (it.id === exceptId || it.hidden) continue;
-    const k = T[it.type].kind;
-    if (k === 'line' || k === 'shape') cand.push(...it.pts);
-    else if (k === 'box') cand.push(...itemPoly(it), [it.x, it.y]);
-    else if (k === 'circle') cand.push([it.x, it.y]);
-  }
-  if (draft) cand.push(...draft.pts);
   for (const c of cand) { const d = dist(c, p); if (d < bd) { bd = d; best = c; } }
   if (best) { snapMark = best; return [best[0], best[1]]; }
-  return [Math.round(p[0]), Math.round(p[1])];
+  // 2. an edge: land on it, and show which one
+  let seg = null, q = null; bd = tol * 0.8;
+  for (const s of G.segs) {
+    const a = s[0], b = s[1], dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy;
+    if (!L2) continue;
+    const t = clamp(((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2, 0, 1), x = a[0] + dx * t, y = a[1] + dy * t, d = Math.hypot(p[0] - x, p[1] - y);
+    if (d < bd) { bd = d; seg = s; q = [x, y]; }
+  }
+  if (seg) { snapMark = q; snapGuide = [{ a: seg[0], b: seg[1] }]; return q; }
+  // 3. in line with a nearby corner, across or up and down; otherwise the 1 ft grid
+  const out = [Math.round(p[0]), Math.round(p[1])], at = tol * 0.6;
+  let bx = null, by = null, dxb = at, dyb = at;
+  for (const c of cand) {
+    if (dist(c, p) > 80) continue;
+    const ex = Math.abs(c[0] - p[0]), ey = Math.abs(c[1] - p[1]);
+    if (ex < dxb || (ex < at && bx && Math.abs(ex - dxb) < 1e-6 && ey < Math.abs(bx[1] - p[1]))) { dxb = ex; bx = c; }
+    if (ey < dyb || (ey < at && by && Math.abs(ey - dyb) < 1e-6 && ex < Math.abs(by[0] - p[0]))) { dyb = ey; by = c; }
+  }
+  if (bx) out[0] = bx[0];
+  if (by) out[1] = by[1];
+  if (bx) snapGuide.push({ a: bx, b: out, dash: true });
+  if (by) snapGuide.push({ a: by, b: out, dash: true });
+  return out;
 }
 function placeAt(p) {
   const t = T[tool];
@@ -1475,7 +1571,7 @@ function polyClick(p, sx, sy) {
 }
 function finishDraft() {
   const d = draft;
-  draft = null; snapMark = null;
+  draft = null; snapMark = null; snapGuide = [];
   if (!d) return;
   const t = T[d.type], min = t.kind === 'shape' ? 3 : 2;
   if (d.pts.length < min) { renderOverlay(); $('hint').textContent = hintFor(tool); toast(`Needs at least ${min} points`); return; }
@@ -1486,11 +1582,21 @@ function finishDraft() {
   setTool('select');
   renderProps(); renderPlan(); commit('Draw ' + t.name.replace(' (draw)', '').toLowerCase());
 }
-function cancelDraft() { draft = null; snapMark = null; $('hint').textContent = hintFor(tool); renderOverlay(); }
+function cancelDraft() { draft = null; snapMark = null; snapGuide = []; $('hint').textContent = hintFor(tool); renderOverlay(); }
 
 /* ------------------------------------------------------------------ pointer input */
 const pointers = new Map();
 let drag = null, pinch = null, spaceDown = false;
+/* If a step ever throws, don't leave the plan stuck mid-drag: drop the gesture, redraw, and say so (a few times at most). */
+let crashes = 0;
+function recover(err) {
+  crashes++;
+  drag = null; pinch = null; marquee = null; pointers.clear(); snapMark = null; snapGuide = [];
+  try { svg.classList.remove('panning'); bakeView(); renderPlan(); } catch (e) { /* the next edit redraws */ }
+  if (crashes <= 3) { console.warn('Verdant Studio recovered from an error:', err); toast('That step hit a problem, so it was skipped. Your design is safe: try again, or use Undo.'); }
+}
+addEventListener('error', (e) => { if (e.error) recover(e.error); });
+addEventListener('unhandledrejection', (e) => recover(e.reason));
 svg.addEventListener('pointerdown', (e) => {
   closeMenus();
   if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
@@ -1634,7 +1740,7 @@ function endPointer(e, cancelled) {
   svg.classList.remove('panning');
   if (d && d.mode === 'pan') settleView();
   if (!d) return;
-  if ((d.mode === 'move' || d.mode === 'handle') && (d.moved || d.copied)) { snapMark = null; renderPlan(); commit(d.label); renderProps(); }
+  if ((d.mode === 'move' || d.mode === 'handle') && (d.moved || d.copied)) { snapMark = null; snapGuide = []; renderPlan(); commit(d.label); renderProps(); }
   if (d.mode === 'marquee') { marquee = null; setSel(sel); }
   if (d.mode === 'lot' && d.moved) { syncLotSize(); commit('Edit property line'); }
   if (d.mode === 'measure' && tool === 'imgscale' && !cancelled) askScale();
@@ -1685,7 +1791,7 @@ const MENUS = [
   ['Arrange', [mi('front', 'Bring to front', () => reorder(2), { k: 'Ctrl+Shift+]', en: hasSel }), mi('fwd', 'Bring forward', () => reorder(1), { k: 'Ctrl+]', en: hasSel }),
     mi('bwd', 'Send backward', () => reorder(-1), { k: 'Ctrl+[', en: hasSel }), mi('back', 'Send to back', () => reorder(-2), { k: 'Ctrl+Shift+[', en: hasSel }), '-',
     ...Object.keys(ALIGN_NAMES).map((k) => mi('al-' + k, ALIGN_NAMES[k], () => align(k), { en: () => editable().length > (k.startsWith('dist') ? 2 : 1) })), '-',
-    mi('fencelot', 'Fence the property line', () => fenceLot(), {}), '-',
+    mi('fencelot', 'Fence the property line', () => fenceLot(), {}), mi('filllawn', 'Fill the yard with lawn', () => fillLawn(), {}), '-',
     mi('rot90', 'Rotate 90°', rotate90, { en: hasSel }), mi('lock', 'Lock / unlock', toggleLock, { k: 'Ctrl+L', en: hasSel })]],
   ['Help', [mi('keys', 'Keyboard shortcuts', showKeys, { k: '?' }), mi('brief', 'Project brief', showBrief), mi('about', 'About this tool', showAbout)]],
 ];
@@ -1817,7 +1923,7 @@ function runCheck() {
     if (layerOf(it) !== 'design' || t.kind === 'text') continue;
     const fp = t.kind === 'line' ? it.pts : itemPoly(it);
     if (fp.some((q) => polyDist(q, L.poly) > 0.05)) issues.push({ id: it.id, msg: `${nameOf(it)} goes outside the property line.` });
-    if (t.kind !== 'line' && it.type !== 'building') {
+    if (t.kind !== 'line' && it.type !== 'building' && it.type !== 'lawn' && it.type !== 'lawnShape') {
       const [cx, cy] = itemCenter(it);
       if (scott && cx > DRIVE.x1 && cx < DRIVE.x2 && cy > DRIVE.y1 && cy < DRIVE.y2) issues.push({ id: it.id, msg: `${nameOf(it)} sits on the driveway.` });
       else if (!t.tree) { const b = bldg.find((q) => q.id !== it.id && inPoly([cx, cy], q.poly)); if (b) issues.push({ id: it.id, msg: `${nameOf(it)} sits on top of the ${b.name}.` }); }
@@ -1852,12 +1958,53 @@ function runCheck() {
 $('bCheck').addEventListener('click', () => { flush(); runCheck(); });
 
 /* ------------------------------------------------------------------ schedule and takeoff */
+/* the grass of a lawn that actually shows: its outline less the house, driveway and sidewalk, and less whatever
+ * sits on top of it (beds, paving, decks, pools, ponds, buildings, other lawns). Counted on a fine grid. */
+const COVERS = (it) => { const t = T[it.type]; return t.kind !== 'text' && t.kind !== 'circle' && it.type !== 'fence' && it.type !== 'lights' && !(t.furn && !/^pool|hottub|sandbox/.test(it.type)) && layerOf(it) === 'design'; };
+function lawnNet(it) {
+  const poly = itemPoly(it), xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
+  const x1 = Math.min(...xs), x2 = Math.max(...xs), y1 = Math.min(...ys), y2 = Math.max(...ys);
+  const gross = areaOf(it), step = clamp(Math.sqrt(Math.max(1, (x2 - x1) * (y2 - y1))) / 90, 0.2, 1);
+  const holes = keepOut().slice();
+  const idx = state.items.indexOf(it);
+  const lines = [];
+  for (const o of state.items.slice(idx + 1)) {
+    if (o.hidden || !COVERS(o)) continue;
+    if (T[o.type].kind === 'line') { if (o.width) lines.push({ pts: o.smooth ? wallLine(o) : o.pts, w: o.width / 2 }); } else holes.push(itemPoly(o));
+  }
+  const boxes = holes.map((h) => { const hx = h.map((p) => p[0]), hy = h.map((p) => p[1]); return [Math.min(...hx), Math.min(...hy), Math.max(...hx), Math.max(...hy)]; });
+  let inside = 0, open = 0;
+  for (let y = y1 + step / 2; y < y2; y += step) for (let x = x1 + step / 2; x < x2; x += step) {
+    const p = [x, y];
+    if (!inPoly(p, poly)) continue;
+    inside++;
+    let covered = false;
+    for (let i = 0; i < holes.length && !covered; i++) { const b = boxes[i]; if (x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3] && inPoly(p, holes[i])) covered = true; }
+    for (let i = 0; i < lines.length && !covered; i++) { const L = lines[i]; for (let k = 1; k < L.pts.length; k++) if (segDist(p, L.pts[k - 1], L.pts[k]) < L.w) { covered = true; break; } }
+    if (!covered) open++;
+  }
+  return inside ? gross * open / inside : gross;
+}
+/* one lawn over the whole yard, at the bottom of the stack: beds, patios and walks sit on it, and the house,
+ * driveway and sidewalk stay clear, so nobody has to trace the grass around everything */
+function fillLawn() {
+  const scott = isScott(), L = lot();
+  const pts = (scott ? [[0, 0], [82, 0], [82, 107], [0, 107]] : L.poly).map((p) => [r1(p[0]), r1(p[1])]);
+  const same = state.items.find((i) => i.type === 'lawnShape' && !i.smooth && JSON.stringify(i.pts) === JSON.stringify(pts));
+  if (same) { setTool('select'); select(same.id); toast('The yard already has a lawn over all of it'); return; }
+  const it = { id: uid(), type: 'lawnShape', pts, smooth: false, sp: PLANT_BY_ID[curSp.lawnShape] ? curSp.lawnShape : T.lawnShape.d.sp };
+  if (!view.design) { view.design = true; $('tDesign').checked = true; }
+  state.items.unshift(it);
+  sel = [it.id];
+  setTool('select'); renderPlan(); renderProps(); showTab('pProps'); commit('Fill the yard with lawn');
+  toast(scott ? 'Lawn added under everything. It stays off the house, driveway and sidewalk; beds and patios sit on top.' : 'Lawn added under everything. Beds, patios and buildings sit on top of it.');
+}
 function takeoff() {
   const plants = {}, mats = {};
   const addM = (key, name, type, qty, unit, extra) => { mats[key] = mats[key] || { name, type, qty: 0, unit, extra: 0 }; mats[key].qty += qty; mats[key].extra += extra || 0; };
   for (const it of state.items) {
     if (layerOf(it) !== 'design' || it.hidden) continue;
-    const t = T[it.type], sp = spOf(it), a = areaOf(it);
+    const t = T[it.type], sp = spOf(it), a = it.type === 'lawn' || it.type === 'lawnShape' ? lawnNet(it) : areaOf(it);
     if (isBedType(it.type)) {
       for (const m of bedMix(it)) {
         const row = plants[m.sp.id] = plants[m.sp.id] || { sp: m.sp, qty: 0, area: 0, approx: true };
@@ -2242,7 +2389,7 @@ function sheetSVG() {
   const SW = 1056, SH = 1632;
   const fontCss = ($('fontFaces') || {}).textContent || '';
   let s = `<svg xmlns="${NS}" width="${SW}" height="${SH}" viewBox="0 0 ${SW} ${SH}"><style>${fontCss}</style>${DEFS}<rect width="${SW}" height="${SH}" fill="#fff"/>`;
-  s += `<defs><clipPath id="planClip"><rect x="40" y="78" width="976" height="1222"/></clipPath><filter id="gray"><feColorMatrix type="saturate" values="0"/></filter></defs>`;
+  s += `<defs><clipPath id="planClip"><rect x="40" y="78" width="976" height="1222"/></clipPath><filter id="gray"><feColorMatrix type="saturate" values="0"/></filter>${turfClipDefs()}</defs>`;
   const ti = titleInfo(), client = ti.client, pname = ti.project || 'Landscape design';
   s += `<text x="48" y="66" font-family="${FONT}" font-weight="700" font-size="26" fill="${GREEN}"${pname.length > 34 ? ' textLength="620" lengthAdjust="spacingAndGlyphs"' : ''}>${esc(pname.toUpperCase())} — DESIGN PLAN${client ? `<tspan dx="14" font-weight="500" font-size="14" fill="#4A4A4A" letter-spacing="0.08em">· CLIENT: ${esc(client.toUpperCase())}</tspan>` : ''}</text>`;
   s += `<g clip-path="url(#planClip)"><g transform="translate(${n(fr.ox)} ${n(fr.oy)}) scale(${n(fr.s * 1000) / 1000})">`;
@@ -2455,6 +2602,7 @@ $('bExport').addEventListener('click', () => exportDialog());
 
 /* ------------------------------------------------------------------ boot */
 function renderAll() {
+  stateRev++;
   renderClient(); renderProps(); renderPlan(); renderSide();
   $('hint').textContent = hintFor(tool);
 }
@@ -2463,12 +2611,12 @@ function renderAll() {
 
 /* ------------------------------------------------------------------ projects: new design, my designs, own-yard settings */
 function switchTo(st, msg) {
-  flush(); autosave(snapshot());
+  flush(); autosave(snapshot(), true);
   state = st; sel = []; draft = null; measure = null; checkRun = false; baseKey = '';
   registerCustom(state.customPlants); renderLib();
   $('issues').innerHTML = ''; $('checkBadge').textContent = '';
   hist = [{ s: snapshot(), label: 'Open' }]; hIdx = 0;
-  syncMeta(); setTool('select'); renderAll(); fit(); autosave(snapshot());
+  syncMeta(); setTool('select'); renderAll(); fit(); autosave(snapshot(), true);
   if (msg) toast(msg);
 }
 function siteFields(st) {
@@ -2537,6 +2685,7 @@ function showSiteSettings() {
   });
 }
 function showMine() {
+  flushProj();
   const idx = readIndex(), rows = Object.entries(idx).sort((a, b) => b[1].t - a[1].t);
   const when = (t) => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   openDialog(`<h3>My designs</h3><p class="muted">Designs are kept in this browser on this computer. Use Save to keep a file you can move to another computer.</p>
@@ -2828,7 +2977,10 @@ function renderOptCtx() {
   } else if (['perennial', 'annual', 'groundcover'].includes(tool)) {
     h = `<span class="optlabel">Bed shape</span><div class="seg shapeseg">${['oval', 'rect', 'round'].map((k) => segBtn(k, { oval: 'Oval', rect: 'Rectangle', round: 'Rounded' }[k], bedFormPref[tool] === k, 'data-prefform')).join('')}${segBtn('draw', 'Draw any shape', false, 'data-drawbed')}</div>`;
   } else if (drawSmooth[tool] !== undefined) {
-    h = `<span class="optlabel">Edges</span><div class="seg shapeseg">${segBtn('curved', 'Curved', drawSmooth[tool], 'data-drawsmooth')}${segBtn('straight', 'Straight', !drawSmooth[tool], 'data-drawsmooth')}</div>`;
+    h = `<span class="optlabel">Edges</span><div class="seg shapeseg">${segBtn('curved', 'Curved', drawSmooth[tool], 'data-drawsmooth')}${segBtn('straight', 'Straight', !drawSmooth[tool], 'data-drawsmooth')}</div>` +
+      (tool === 'lawnShape' ? '<div class="seg shapeseg"><button type="button" data-fillyard title="One lawn under everything: no tracing around beds, walks or the house"><span>Fill the whole yard</span></button></div>' : '');
+  } else if (tool === 'lawn') {
+    h = '<span class="optlabel">Lawn</span><div class="seg shapeseg"><button type="button" data-fillyard title="One lawn under everything: no tracing around beds, walks or the house"><span>Fill the whole yard</span></button></div>';
   }
   box.innerHTML = h;
   box.hidden = !h;
@@ -2857,6 +3009,7 @@ $('optCtx').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
   const one = single();
+  if (b.dataset.fillyard !== undefined) { fillLawn(); return; }
   if (b.dataset.prefform) { bedFormPref[tool] = b.dataset.prefform; renderOptCtx(); renderOverlay(); toast(`New beds will be ${{ oval: 'ovals', rect: 'rectangles', round: 'rounded rectangles' }[b.dataset.prefform]}. Click the plan to place one.`); return; }
   if (b.dataset.drawbed !== undefined) { const sp = curSp[tool]; curSp.bedShape = sp; setTool('bedShape'); toast('Click around the plan to draw the bed. Double-click or click the first dot to finish.'); return; }
   if (b.dataset.drawsmooth) { drawSmooth[tool] = b.dataset.drawsmooth === 'curved'; renderOptCtx(); renderOverlay(); return; }
@@ -2919,6 +3072,7 @@ const CATALOG = {
     ['Patios, rectangle', Object.keys(FINISHES).map((k) => ({ id: 'patio-' + k, name: `${FINISHES[k]} patio`, tool: 'patio', preset: { finish: k }, icon: 'patio', iconPreset: { finish: k } }))],
     ['Patios, any shape', Object.keys(FINISHES).map((k) => ({ id: 'pave-' + k, name: `${FINISHES[k]}, draw any shape`, tool: 'paveShape', preset: { finish: k }, icon: 'paveShape', iconPreset: { finish: k }, note: 'Click each corner, then the first dot to close' }))],
     ['Walks and paths', Object.keys(PATH_FINISHES).map((k) => ({ id: 'path-' + k, name: `${PATH_FINISHES[k]} walk`, tool: 'path', preset: { finish: k }, icon: 'path', iconPreset: { finish: k }, note: 'Click each corner, double-click to finish' }))],
+    ['Lawn', [{ id: 'lawnfill', name: 'Lawn over the whole yard', action: () => fillLawn(), icon: 'lawnShape', note: 'One click. Beds, patios and walks sit on top of it' }, { id: 'lawndraw', name: 'Lawn, draw any shape', tool: 'lawnShape', icon: 'lawnShape', note: 'Click around the edge; points snap to the house, walks and beds' }, { id: 'lawnrect', name: 'Lawn, rectangle', tool: 'lawn', icon: 'lawn' }]],
     ['Decks and buildings', [{ id: 'deck', name: 'Wood deck', tool: 'deck', icon: 'deck' }, { id: 'building', name: 'House, garage or shed (draw)', tool: 'building', icon: 'building', note: 'Click each corner' }]],
     ['Garden', [{ id: 'veg', name: 'Raised vegetable garden', tool: 'veg', icon: 'veg' }, { id: 'wood', name: 'Firewood stockpile', tool: 'wood', icon: 'wood' }, { id: 'birdbath', name: 'Bird bath / feeder', tool: 'birdbath', icon: 'birdbath' }]],
   ],
@@ -3015,10 +3169,13 @@ function markLibButtons() { document.querySelectorAll('[data-openlib]').forEach(
   for (const [id, key] of Object.entries(TOGGLES)) $(id).checked = view[key];
   $('optSnap').checked = view.snap;
   $('styleSeg').querySelectorAll('[data-style]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.style === view.style));
-  let restored = false;
+  let restored = false, unreadable = false;
   try {
     const s = localStorage.getItem(STORE_KEY);
-    if (s) { state = cleanState(JSON.parse(s)); restored = state.items.length > 0 || !!state.site; }
+    if (s) {
+      try { state = cleanState(JSON.parse(s)); restored = state.items.length > 0 || !!state.site; }
+      catch (e) { state = blankState(); unreadable = true; try { if (s.length < 3e6) localStorage.setItem('scottDesign.recovery', s); } catch (e2) { /* no room: nothing more to do */ } }
+    }
   } catch (e) { state = blankState(); }
   if (!state.meta.date) { const d = new Date(); state.meta.date = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`; }
   renderMenubar(); renderRail(); renderLibControls(); renderLib();
@@ -3030,5 +3187,6 @@ function markLibButtons() { document.querySelectorAll('[data-openlib]').forEach(
   renderAll();
   requestAnimationFrame(fit);
   if (restored) toast(`Your last design was restored: ${projName()}`);
-  autosave(snapshot());
+  if (unreadable) toast('The design saved in this browser could not be read, so a new plan was opened. Use Open if you saved a design file.');
+  autosave(snapshot(), true);
 })();

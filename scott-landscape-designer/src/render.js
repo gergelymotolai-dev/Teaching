@@ -376,6 +376,147 @@ for (const [k, v] of Object.entries(FURN_T)) T[k] = Object.assign({ id: k, kind:
 T.poolShape = Object.assign({ id: 'poolShape', kind: 'shape', furn: true, d: { smooth: true } }, poolT);
 
 
+/* ------------------------------------------------------------------ generated textures
+ * Realistic surfaces (turf, mulch, gravel, concrete, foliage, stone grain) are small bitmap tiles painted once at
+ * start-up and used by the SVG patterns below. They are seeded, so every run and every export looks the same, each
+ * tile wraps seamlessly, and nothing is downloaded. If a canvas is not available the vector fallbacks are used. */
+function mixHex(a, b, t) {
+  const A = parseInt(a.slice(1), 16), B = parseInt(b.slice(1), 16);
+  const ch = (s) => Math.round(((A >> s) & 255) * (1 - t) + ((B >> s) & 255) * t);
+  return '#' + ((1 << 24) + (ch(16) << 16) + (ch(8) << 8) + ch(0)).toString(16).slice(1);
+}
+const rgbOf = (hex) => { const v = parseInt(hex.slice(1), 16); return [v >> 16, (v >> 8) & 255, v & 255]; };
+/* smooth noise in 0..1 that repeats every `size` pixels (so a tile made from it has no seams) */
+function tileNoise(size, cells, rng) {
+  const g = new Float32Array(cells * cells);
+  for (let i = 0; i < g.length; i++) g[i] = rng();
+  const out = new Float32Array(size * size), k = cells / size;
+  const xi = new Int32Array(size), xj = new Int32Array(size), xt = new Float32Array(size);
+  for (let x = 0; x < size; x++) { const f = x * k, i = Math.floor(f), t = f - i; xi[x] = i % cells; xj[x] = (i + 1) % cells; xt[x] = t * t * (3 - 2 * t); }
+  for (let y = 0; y < size; y++) {
+    const r0 = xi[y] * cells, r1 = xj[y] * cells, ty = xt[y], row = y * size;
+    for (let x = 0; x < size; x++) {
+      const a = g[r0 + xi[x]], b = g[r0 + xj[x]], c = g[r1 + xi[x]], d = g[r1 + xj[x]], tx = xt[x];
+      out[row + x] = (a + (b - a) * tx) * (1 - ty) + (c + (d - c) * tx) * ty;
+    }
+  }
+  return out;
+}
+/* run draw(x, y) for the point and for its wrapped copies, so shapes that cross an edge continue on the other side */
+function wrapped(S, x, y, pad, draw) {
+  for (const ox of x < pad ? [0, S] : x > S - pad ? [0, -S] : [0]) for (const oy of y < pad ? [0, S] : y > S - pad ? [0, -S] : [0]) draw(x + ox, y + oy);
+}
+/* a grass's library color, pulled toward the deeper, less yellow green real turf has from above */
+const turfColor = (c) => mixHex(c, '#47742F', 0.5);
+function makeTextures() {
+  if (typeof document === 'undefined') return null;
+  try {
+    const R = rngFor('textures'), out = {};
+    const canvas = (S) => { const c = document.createElement('canvas'); c.width = c.height = S; return [c, c.getContext('2d')]; };
+    /* a light/dark overlay: v > 0 paints `hi` and v < 0 paints `lo`, each as strong as |v| */
+    const overlay = (S, fn, hi, lo, aHi, aLo) => {
+      const [c, g] = canvas(S), im = g.createImageData(S, S), px = im.data;
+      for (let i = 0; i < S * S; i++) {
+        const v = fn(i), col = v > 0 ? hi : lo, a = Math.min(1, Math.abs(v)) * (v > 0 ? aHi : aLo);
+        px[i * 4] = col[0]; px[i * 4 + 1] = col[1]; px[i * 4 + 2] = col[2]; px[i * 4 + 3] = Math.round(a * 255);
+      }
+      g.putImageData(im, 0, 0);
+      return [c, g];
+    };
+    /* an opaque tile: base color pushed lighter or darker by v */
+    const solid = (S, base, fn, amt) => {
+      const [c, g] = canvas(S), im = g.createImageData(S, S), px = im.data, b = rgbOf(base);
+      for (let i = 0; i < S * S; i++) { const v = 1 + fn(i) * amt; px[i * 4] = Math.min(255, b[0] * v); px[i * 4 + 1] = Math.min(255, b[1] * v); px[i * 4 + 2] = Math.min(255, b[2] * v); px[i * 4 + 3] = 255; }
+      g.putImageData(im, 0, 0);
+      return [c, g];
+    };
+
+    /* turf: mottled tone, fine grain and thousands of short blades; laid over each grass's own color */
+    {
+      const S = 384, a = tileNoise(S, 5, R), b = tileNoise(S, 16, R), c2 = tileNoise(S, 56, R);
+      const [c, g] = overlay(S, (i) => (a[i] - 0.5) * 0.85 + (b[i] - 0.5) * 0.9 + (c2[i] - 0.5) * 0.9 + (R() - 0.5) * 0.7, [226, 232, 150], [10, 44, 20], 0.32, 0.4);
+      g.lineCap = 'round';
+      for (let i = 0; i < 9000; i++) {
+        const x = R() * S, y = R() * S, ang = -Math.PI / 2 + (R() - 0.5) * 1.5, L = 2 + R() * 4.5, lit = R() < 0.5;
+        g.strokeStyle = lit ? `rgba(238,244,178,${0.1 + R() * 0.16})` : `rgba(6,34,12,${0.12 + R() * 0.2})`;
+        g.lineWidth = 0.8 + R() * 0.6;
+        wrapped(S, x, y, 8, (px, py) => { g.beginPath(); g.moveTo(px, py); g.lineTo(px + Math.cos(ang) * L, py + Math.sin(ang) * L); g.stroke(); });
+      }
+      out.turf = c.toDataURL('image/png');
+    }
+    /* foliage: sunlit and shaded leaf clusters; laid over each canopy's own color */
+    {
+      const S = 256, a = tileNoise(S, 6, R), b = tileNoise(S, 24, R);
+      const [c, g] = overlay(S, (i) => (a[i] - 0.5) * 0.9 + (b[i] - 0.5) * 0.7 + (R() - 0.5) * 0.5, [240, 246, 190], [6, 30, 10], 0.22, 0.32);
+      for (let i = 0; i < 1300; i++) {
+        const x = R() * S, y = R() * S, r = 2.5 + R() * 6.5;
+        wrapped(S, x, y, 12, (px, py) => {
+          let gr = g.createRadialGradient(px - r * 0.25, py + r * 0.25, 0, px - r * 0.25, py + r * 0.25, r);   // shaded side, away from the sun
+          gr.addColorStop(0, 'rgba(4,26,8,0.34)'); gr.addColorStop(1, 'rgba(4,26,8,0)');
+          g.fillStyle = gr; g.beginPath(); g.arc(px - r * 0.25, py + r * 0.25, r, 0, 6.3); g.fill();
+          gr = g.createRadialGradient(px + r * 0.3, py - r * 0.3, 0, px + r * 0.3, py - r * 0.3, r * 0.75);      // sunlit side
+          gr.addColorStop(0, 'rgba(246,250,200,0.3)'); gr.addColorStop(1, 'rgba(246,250,200,0)');
+          g.fillStyle = gr; g.beginPath(); g.arc(px + r * 0.3, py - r * 0.3, r * 0.75, 0, 6.3); g.fill();
+        });
+      }
+      out.leaf = c.toDataURL('image/png');
+    }
+    /* grain: fine light/dark speckle that takes the flatness out of stone, brick, wood and concrete */
+    {
+      const S = 256, b = tileNoise(S, 20, R), a = tileNoise(S, 5, R);
+      const [c] = overlay(S, (i) => (a[i] - 0.5) * 0.12 + (b[i] - 0.5) * 0.45 + (R() - 0.5) * 1.3, [255, 255, 255], [0, 0, 0], 0.2, 0.22);
+      out.grain = c.toDataURL('image/png');
+    }
+    /* mulch: shredded bark chips with their own small shadows */
+    {
+      const S = 256, a = tileNoise(S, 6, R);
+      const [c, g] = solid(S, '#553827', (i) => (a[i] - 0.5) * 1.2 + (R() - 0.5), 0.22);
+      const chips = ['#6E4C33', '#4A3020', '#7F5A3C', '#3B271A', '#8C6746', '#5E3F2A', '#9A7552', '#452D1E'];
+      for (let i = 0; i < 2600; i++) {
+        const x = R() * S, y = R() * S, ang = R() * Math.PI, L = 4 + R() * 8, w = 1.4 + R() * 2.2, col = chips[Math.floor(R() * chips.length)];
+        wrapped(S, x, y, 12, (px, py) => {
+          g.save(); g.translate(px, py); g.rotate(ang);
+          g.fillStyle = 'rgba(20,10,4,0.45)'; g.fillRect(-L / 2 - 0.6, -w / 2 + 0.9, L, w);
+          g.fillStyle = col; g.fillRect(-L / 2, -w / 2, L, w);
+          g.fillStyle = 'rgba(255,230,190,0.13)'; g.fillRect(-L / 2, -w / 2, L, w * 0.35);
+          g.restore();
+        });
+      }
+      out.mulch = c.toDataURL('image/jpeg', 0.86);
+    }
+    /* soil, concrete, sand: mottled, speckled flats */
+    {
+      const S = 128, a = tileNoise(S, 5, R), b = tileNoise(S, 20, R);
+      out.soil = solid(S, '#4B3828', (i) => (a[i] - 0.5) * 1.1 + (b[i] - 0.5) * 0.8 + (R() - 0.5) * 1.2, 0.26)[0].toDataURL('image/jpeg', 0.86);
+      out.sand = solid(S, '#E2D2A4', (i) => (a[i] - 0.5) * 0.7 + (R() - 0.5) * 0.9, 0.09)[0].toDataURL('image/jpeg', 0.88);
+    }
+    {
+      const S = 256, a = tileNoise(S, 4, R), b = tileNoise(S, 14, R);
+      const [c, g] = solid(S, '#CFCCC4', (i) => (a[i] - 0.5) * 0.9 + (b[i] - 0.5) * 0.5 + (R() - 0.5) * 0.7, 0.085);
+      for (let i = 0; i < 500; i++) { g.fillStyle = R() < 0.5 ? 'rgba(90,86,78,0.28)' : 'rgba(255,255,255,0.3)'; g.fillRect(R() * S, R() * S, 1 + R(), 1 + R()); }
+      out.concrete = c.toDataURL('image/jpeg', 0.88);
+    }
+    /* gravel: packed pebbles, each with a shadow and a highlight */
+    {
+      const S = 256;
+      const [c, g] = solid(S, '#8E867A', () => R() - 0.5, 0.2);
+      const peb = ['#CFC8BA', '#B5AC9C', '#E2DCD0', '#9C9383', '#C4B9A5', '#8C8476', '#D8CFC0', '#A89F8F', '#BDB5A8'];
+      for (let i = 0; i < 2300; i++) {
+        const x = R() * S, y = R() * S, rx = 1.8 + R() * 3.4, ry = rx * (0.6 + R() * 0.35), ang = R() * Math.PI, col = peb[Math.floor(R() * peb.length)];
+        wrapped(S, x, y, 8, (px, py) => {
+          g.fillStyle = 'rgba(30,26,20,0.5)'; g.beginPath(); g.ellipse(px - 0.7, py + 0.8, rx, ry, ang, 0, 6.3); g.fill();
+          g.fillStyle = col; g.beginPath(); g.ellipse(px, py, rx, ry, ang, 0, 6.3); g.fill();
+          g.fillStyle = 'rgba(255,255,255,0.22)'; g.beginPath(); g.ellipse(px + rx * 0.25, py - ry * 0.25, rx * 0.45, ry * 0.4, ang, 0, 6.3); g.fill();
+        });
+      }
+      out.gravel = c.toDataURL('image/jpeg', 0.86);
+    }
+    for (const k of Object.keys(out)) if (!/^data:image\//.test(out[k]) || out[k].length < 200) return null;
+    return out;
+  } catch (e) { return null; }
+}
+const TX = makeTextures();
+
 /* ------------------------------------------------------------------ shared defs (patterns, filters) */
 function makeDefs() {
   const R = rngFor('defs');
@@ -386,24 +527,42 @@ function makeDefs() {
     return s;
   };
   let d = '';
-  // lawns: mowing stripes per turf species
-  for (const p of PLANTS.filter((x) => x.t === 'turf')) {
-    const a = p.c, b = shade(p.c, 0.1);
-    d += pat('ld-lawn-' + p.id, 10, 10, `<rect width="5" height="10" fill="${a}"/><rect x="5" width="5" height="10" fill="${b}"/>` +
-      specks(10, 10, 140, [shade(a, -0.18), shade(a, 0.2), shade(a, -0.08)], 0.04, 0.09));
+  const img = (id, key, size) => `<image id="${id}" width="${size}" height="${size}" preserveAspectRatio="none" href="${TX[key]}"/>`;
+  /* fine grain laid straight over a tile (4 ft image, repeated to cover larger tiles); a nested pattern here leaves gaps on stroked paths */
+  const grain = (w, h) => { if (!TX) return ''; let g = ''; for (let x = 0; x < w; x += 4) for (let y = 0; y < h; y += 4) g += `<use href="#tx-grain" x="${x}" y="${y}"/>`; return g; };
+  if (TX) {
+    d += img('tx-turf', 'turf', 10) + img('tx-leaf', 'leaf', 7) + img('tx-grain', 'grain', 4) + img('tx-mulch', 'mulch', 4) + img('tx-soil', 'soil', 2) + img('tx-gravel', 'gravel', 3) + img('tx-concrete', 'concrete', 6) + img('tx-sand', 'sand', 2);
+    // lawns: each grass keeps its own (muted, natural) color under the shared turf texture; mowing stripes are only a hint
+    for (const p of PLANTS.filter((x) => x.t === 'turf')) d += pat('ld-lawn-' + p.id, 10, 10, `<rect width="10" height="10" fill="${turfColor(p.c)}"/><use href="#tx-turf"/><rect width="5" height="10" fill="#0A2A0A" fill-opacity="0.055"/><rect x="5" width="5" height="10" fill="#F4FFD0" fill-opacity="0.11"/>`);
+    d += pat('ld-mulch', 4, 4, '<use href="#tx-mulch"/>') + pat('ld-soil', 2, 2, '<use href="#tx-soil"/>') + pat('ld-gravel', 3, 3, '<use href="#tx-gravel"/>');
+    d += pat('ld-grain', 4, 4, '<use href="#tx-grain"/>') + pat('ld-leafA', 7, 7, '<use href="#tx-leaf"/>') + pat('ld-leafB', 3, 3, '<use href="#tx-leaf" transform="scale(0.42857)"/>');
+    d += pat('ld-leafy', 3, 3, '<use href="#tx-leaf" transform="scale(0.42857)"/>');
+  } else {
+    for (const p of PLANTS.filter((x) => x.t === 'turf')) {
+      const a = turfColor(p.c), b = shade(a, 0.06);
+      d += pat('ld-lawn-' + p.id, 10, 10, `<rect width="5" height="10" fill="${a}"/><rect x="5" width="5" height="10" fill="${b}"/>` + specks(10, 10, 140, [shade(a, -0.18), shade(a, 0.2), shade(a, -0.08)], 0.04, 0.09));
+    }
+    d += pat('ld-mulch', 3, 3, `<rect width="3" height="3" fill="#6B4A32"/>` + specks(3, 3, 70, ['#4E3322', '#87603F', '#5C3D28', '#9A7150'], 0.05, 0.12));
+    d += pat('ld-soil', 2, 2, `<rect width="2" height="2" fill="#5D4330"/>` + specks(2, 2, 30, ['#4A3424', '#715239'], 0.04, 0.09));
+    d += pat('ld-gravel', 2, 2, `<rect width="2" height="2" fill="#D8D1C2"/>` + specks(2, 2, 60, ['#B9AF9C', '#EDE7DA', '#A39985', '#CFC6B4'], 0.05, 0.13));
+    d += pat('ld-leafy', 1.2, 1.2, specks(1.2, 1.2, 26, ['rgba(0,0,0,.22)', 'rgba(255,255,255,.18)', 'rgba(0,0,0,.12)'], 0.06, 0.16));
+    d += pat('ld-grain', 4, 4, '') + pat('ld-leafA', 7, 7, '') + pat('ld-leafB', 3, 3, '');
   }
-  d += pat('ld-mulch', 3, 3, `<rect width="3" height="3" fill="#6B4A32"/>` + specks(3, 3, 70, ['#4E3322', '#87603F', '#5C3D28', '#9A7150'], 0.05, 0.12));
-  d += pat('ld-soil', 2, 2, `<rect width="2" height="2" fill="#5D4330"/>` + specks(2, 2, 30, ['#4A3424', '#715239'], 0.04, 0.09));
-  d += pat('ld-gravel', 2, 2, `<rect width="2" height="2" fill="#D8D1C2"/>` + specks(2, 2, 60, ['#B9AF9C', '#EDE7DA', '#A39985', '#CFC6B4'], 0.05, 0.13));
-  d += pat('ld-leafy', 1.2, 1.2, specks(1.2, 1.2, 26, ['rgba(0,0,0,.22)', 'rgba(255,255,255,.18)', 'rgba(0,0,0,.12)'], 0.06, 0.16));
-  d += pat('ld-concrete', 5, 5, `<rect width="5" height="5" fill="#D9D6CE"/>` + specks(5, 5, 50, ['#CBC7BD', '#E4E1DA'], 0.04, 0.1) +
-    `<path d="M0,0H5M0,0V5" stroke="#A9A498" stroke-width="0.07"/>`);
-  d += pat('ld-brick', 1.333, 0.667, `<rect width="1.333" height="0.667" fill="#8A3F2B"/>` +
-    `<rect x="0.02" y="0.02" width="0.627" height="0.293" fill="#A64B32"/><rect x="0.687" y="0.02" width="0.627" height="0.293" fill="#9B4530"/>` +
-    `<rect x="-0.313" y="0.353" width="0.627" height="0.293" fill="#B0573B"/><rect x="0.353" y="0.353" width="0.627" height="0.293" fill="#A1492F"/><rect x="1.02" y="0.353" width="0.627" height="0.293" fill="#B0573B"/>`);
+  d += pat('ld-concrete', 5, 5, (TX ? '<use href="#tx-concrete"/>' : `<rect width="5" height="5" fill="#D9D6CE"/>` + specks(5, 5, 50, ['#CBC7BD', '#E4E1DA'], 0.04, 0.1)) +
+    `<path d="M0,0H5M0,0V5" stroke="#8F8A7E" stroke-width="0.09"/><path d="M0.07,0.07H5M0.07,0.07V5" stroke="#fff" stroke-opacity="0.35" stroke-width="0.05"/>`);
+  {
+    const tones = ['#A64B32', '#9B4530', '#B0573B', '#A1492F', '#8E3F2B', '#B5603F', '#964431'];
+    let body = '<rect width="4" height="4" fill="#7A3625"/>';
+    for (let r = 0; r < 12; r++) for (let c = -1; c < 6; c++) {
+      const x = c * 0.6667 + (r % 2 ? 0.3333 : 0) + 0.02, y = r * 0.3333 + 0.02, key = ((c + 6) % 6) * 7 + r * 13;
+      body += `<rect x="${n(x)}" y="${n(y)}" width="0.627" height="0.293" fill="${tones[(key * 31 + (key >> 2)) % tones.length]}"/>`;
+    }
+    d += pat('ld-brick', 4, 4, body + grain(4, 4));
+  }
   let pv = '<rect width="2" height="2" fill="#8F877A"/>';
-  ['#C9C1B2', '#BDB4A3', '#D3CCBE', '#C3BAA8'].forEach((c, i) => { pv += `<rect x="${(i % 2) + 0.04}" y="${Math.floor(i / 2) + 0.04}" width="0.92" height="0.92" rx="0.06" fill="${c}"/>`; });
-  d += pat('ld-pavers', 2, 2, pv);
+  pv = '<rect width="4" height="4" fill="#8F877A"/>';
+  ['#C9C1B2', '#BDB4A3', '#D3CCBE', '#C3BAA8', '#CEC6B6', '#B8AF9E', '#D6CFC2', '#C0B7A6'].forEach((c, i, all) => { for (let k = 0; k < 2; k++) { const j = i + k * 8, x = j % 4, y = Math.floor(j / 4); pv += `<rect x="${x + 0.04}" y="${y + 0.04}" width="0.92" height="0.92" rx="0.06" fill="${all[(i * 3 + k * 5 + y) % all.length]}"/>`; } });
+  d += pat('ld-pavers', 4, 4, pv + grain(4, 4));
   // flagstone: jittered grid, edges kept straight so the tile repeats
   {
     const S = 6, G = 3, c = S / G, pts = [];
@@ -416,7 +575,7 @@ function makeDefs() {
       const sh = q.map((p) => [cx + (p[0] - cx) * 0.93, cy + (p[1] - cy) * 0.93]);
       body += `<path d="${ptsD(sh)}Z" fill="${tones[(i * 3 + j * 5) % tones.length]}"/>`;
     }
-    d += pat('ld-flagstone', S, S, body);
+    d += pat('ld-flagstone', S, S, body + grain(S, S));
   }
   // cut stone (ashlar)
   {
@@ -430,7 +589,7 @@ function makeDefs() {
       if (8 - cuts[cuts.length - 2] < 1) cuts.splice(cuts.length - 2, 1);
       for (let i = 0; i < cuts.length - 1; i++) body += `<rect x="${n(cuts[i] + 0.05)}" y="${y + 0.05}" width="${n(cuts[i + 1] - cuts[i] - 0.1)}" height="1.9" fill="${tones[k++ % tones.length]}"/>`;
     }
-    d += pat('ld-stone', 8, 6, body);
+    d += pat('ld-stone', 8, 6, body + grain(8, 6));
   }
   // deck boards with staggered end joints
   {
@@ -441,12 +600,14 @@ function makeDefs() {
       body += `<rect x="0" y="${y + 0.03}" width="${j - 0.03}" height="0.44" fill="${tones[r]}"/><rect x="${j + 0.03}" y="${y + 0.03}" width="${12 - j - 0.03}" height="0.44" fill="${tones[(r + 1) % 3]}"/>`;
     });
     body += specks(12, 1.5, 40, ['rgba(70,40,15,.25)'], 0.02, 0.05);
-    d += pat('ld-deck', 12, 1.5, body);
+    d += pat('ld-deck', 12, 1.5, body + grain(12, 1.5));
   }
-  d += pat('ld-roof', 1.5, 0.75, '<rect width="1.5" height="0.75" fill="#CDC7BD"/><path d="M0,0.72H1.5M0.4,0V0.36M1.15,0.36V0.75" stroke="#B2AB9F" stroke-width="0.05"/>');
+  d += pat('ld-asphalt', 4, 4, grain(4, 4) + (TX ? '<use href="#tx-grain" transform="translate(4 0) scale(-1 1)"/>' : ''));
+  d += pat('ld-shingle2', 4, 4, grain(4, 4) + '<path d="M0,0.4H4M0,1.2H4M0,2H4M0,2.8H4M0,3.6H4" stroke="#000" stroke-opacity="0.09" stroke-width="0.05"/>');
+  d += pat('ld-roof', 3, 3, '<rect width="3" height="3" fill="#C9C3B8"/>' + grain(3, 3) + '<path d="M0,0.72H3M0,1.47H3M0,2.22H3M0,2.97H3M0.4,0V0.72M1.9,0V0.72M1.15,0.72V1.47M2.65,0.72V1.47M0.4,1.47V2.22M1.9,1.47V2.22M1.15,2.22V2.97M2.65,2.22V2.97" stroke="#A8A195" stroke-width="0.045"/>');
   d += '<linearGradient id="ld-pool" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8FD3EE"/><stop offset="0.55" stop-color="#4FB0DA"/><stop offset="1" stop-color="#2E86B8"/></linearGradient>';
   d += '<radialGradient id="ld-fire"><stop offset="0" stop-color="#FFE08A"/><stop offset="0.35" stop-color="#F59A2A"/><stop offset="0.7" stop-color="#C2411B"/><stop offset="1" stop-color="#2B201A"/></radialGradient>';
-  d += pat('ld-sand', 1.5, 1.5, '<rect width="1.5" height="1.5" fill="#E8D7A8"/>' + specks(1.5, 1.5, 24, ['#D6C28E', '#F2E6C4', '#CBB57D'], 0.03, 0.07));
+  d += TX ? pat('ld-sand', 2, 2, '<use href="#tx-sand"/>') : pat('ld-sand', 1.5, 1.5, '<rect width="1.5" height="1.5" fill="#E8D7A8"/>' + specks(1.5, 1.5, 24, ['#D6C28E', '#F2E6C4', '#CBB57D'], 0.03, 0.07));
   d += pat('dd-water', 3, 1.5, `<path d="M0,0.75q0.75,-0.35 1.5,0t1.5,0" stroke="${INK}" stroke-width="0.05" fill="none"/>`);
   // drafting hatches (black ink)
   d += pat('dd-dots', 1.2, 1.2, `<circle cx="0.3" cy="0.4" r="0.06" fill="${INK}"/><circle cx="0.9" cy="1" r="0.05" fill="${INK}"/>`);
@@ -487,13 +648,22 @@ function lobed(r, k, rng, jit) {
   }
   return d + 'Z';
 }
-const shadowOf = (d, r, o, op) => (o.icon ? '' : `<path d="${d}" transform="translate(${n(-0.2 * r - 0.25)} ${n(0.12 * r + 0.15)})" fill="#0E1A08" fill-opacity="${op || 0.32}" filter="url(#ld-soft)"/>`);
+/* the shadow a building throws */
+const castShadow = (d, dx, dy, op) => `<path d="${d}" transform="translate(${n(-dx)} ${n(dy)})" fill="#0E1408" fill-opacity="${op}" filter="url(#ld-soft)"/>`;
+/* plant shadows: the few big crowns get a true blur; the many small plants get stacked copies, which fade the edge
+ * almost as well at that size and cost a fraction of a filter to draw */
+const shadowOf = (d, r, o, op) => {
+  if (o.icon) return '';
+  const tr = `translate(${n(-0.2 * r - 0.25)} ${n(0.12 * r + 0.15)})`;
+  if (r >= 4) return `<path d="${d}" transform="${tr}" fill="#0E1A08" fill-opacity="${op || 0.32}" filter="url(#ld-soft)"/>`;
+  return `<g transform="${tr}" fill="#0E1A08" fill-opacity="${n((op || 0.32) * 0.34)}"><path d="${d}" transform="scale(1.1)"/><path d="${d}" transform="scale(1.03)"/><path d="${d}" transform="scale(0.95)"/><path d="${d}" transform="scale(0.86)"/></g>`;
+};
 function foliage(r, c, rng, count, size) {
   let s = '';
   for (let i = 0; i < count; i++) {
     const a = rng() * 2 * Math.PI, dd = Math.sqrt(rng()) * r * 0.68, cr = r * (size + rng() * size * 0.8);
     const light = Math.cos(a) * 0.5 - Math.sin(a) * 0.3 + (rng() - 0.5) > 0;
-    s += `<path d="${lobed(cr, 6, rng, 0.25)}" transform="translate(${n(dd * Math.cos(a))} ${n(dd * Math.sin(a))})" fill="${shade(c, light ? 0.16 : -0.2)}" fill-opacity="0.6"/>`;
+    s += `<path d="${lobed(cr, 6, rng, 0.25)}" transform="translate(${n(dd * Math.cos(a))} ${n(dd * Math.sin(a))})" fill="${shade(c, light ? 0.2 : -0.28)}" fill-opacity="0.45"/>`;
   }
   return s;
 }
@@ -528,14 +698,20 @@ const LEAF = {
   palm: 'M0,-1L0.2,-0.45L0.75,-0.6L0.45,-0.1L0.95,0.2L0.35,0.25L0.3,0.8L0,0.4L-0.3,0.8L-0.35,0.25L-0.95,0.2L-0.45,-0.1L-0.75,-0.6L-0.2,-0.45Z',
 };
 /* scatter leaf shapes inside radius R; facing outward like real foliage */
+/* Leaf masses. At plan scale a canopy reads as clusters of sunlit and shaded foliage, not single leaves, so each
+ * call paints soft clumps (lit toward the sun, upper right) whose outline hints at the leaf: sharp for maples and
+ * hollies, rounded for the rest. The fine leaf detail comes from the foliage texture laid over the crown. */
 function leaves(shape, R, count, size, rng, c, spread, op) {
-  let s = '';
-  for (let i = 0; i < count; i++) {
-    const a = rng() * 2 * Math.PI, d = Math.sqrt(rng()) * R * (spread || 0.85);
-    const light = Math.cos(a) * 0.6 - Math.sin(a) * 0.3 + (rng() - 0.5) * 0.8;
-    s += `<path d="${LEAF[shape]}" transform="${at(d * Math.cos(a), d * Math.sin(a), a * 180 / Math.PI + 90 + (rng() - 0.5) * 50, size * (0.75 + rng() * 0.5))}" fill="${shade(c, light > 0 ? 0.12 + light * 0.12 : -0.15 + light * 0.1)}"/>`;
+  const k = clamp(Math.round(count * 0.42), 6, 30), cr0 = Math.max(size * 1.5, R * 0.11), sharp = shape === 'palm' || shape === 'star';
+  let lit = '', dark = '';
+  for (let i = 0; i < k; i++) {
+    const cr = cr0 * (0.7 + rng() * 0.8), a = rng() * 2 * Math.PI, d = Math.sqrt(rng()) * Math.max(0, R * (spread || 0.85) - cr * 0.7);
+    const light = Math.cos(a) * 0.6 - Math.sin(a) * 0.3 + (rng() - 0.5) * 0.9;
+    const p = `<path d="${sharp ? pointy(cr, 7, rng, 0.22) : lobed(cr, 6, rng, 0.3)}" transform="translate(${n(d * Math.cos(a))} ${n(d * Math.sin(a))})"/>`;
+    if (light > 0) lit += p; else dark += p;
   }
-  return `<g fill-opacity="${op || 0.85}">${s}</g>`;
+  const f = Math.min(1, (op || 0.85) + 0.1);
+  return `<g fill="${shade(c, -0.32)}" fill-opacity="${n(0.42 * f)}">${dark}</g><g fill="${shade(c, 0.22)}" fill-opacity="${n(0.5 * f)}">${lit}</g>`;
 }
 function limbs(r, k, rng, c, len, w) {
   let d = '';
@@ -551,8 +727,10 @@ const trunks = (r, k, c) => {
   for (let i = 0; i < k; i++) { const a = 2 * Math.PI * i / k + 0.4; s += `<circle cx="${n(k > 1 ? r * 0.12 * Math.cos(a) : 0)}" cy="${n(k > 1 ? r * 0.12 * Math.sin(a) : 0)}" r="${n(Math.max(0.18, r * 0.03))}" fill="${c || '#4A3526'}"/>`; }
   return s;
 };
-const outlineFill = (D, c, o, extra) => `<path d="${D}" fill="${c}" stroke="${shade(c, -0.5)}" stroke-width="${n(o.u * 0.9)}"${extra || ''}/>`;
-const dome = (D) => `<path d="${D}" fill="url(#ld-dome)"/>`;
+/* a crown: its own color with a thin, soft edge (a heavy dark outline is what makes a symbol look like a cartoon) */
+const outlineFill = (D, c, o, extra) => `<path d="${D}" fill="${c}" stroke="${shade(c, -0.42)}" stroke-opacity="0.75" stroke-width="${n(o.u * 0.5)}"${extra || ''}/>`;
+let leafTex = 'ld-leafA';   // foliage texture for the plant being drawn: coarser for trees, finer for shrubs
+const dome = (D) => `<path d="${D}" fill="url(#${leafTex})"/><path d="${D}" fill="url(#ld-dome)"/>`;
 function flowers4(r, fl, rng, count, size) {   // dogwood-style four-bract flowers
   let s = '';
   for (let i = 0; i < count; i++) {
@@ -567,7 +745,7 @@ const FORMS = {
     const c = sp.c, D = pointy(r, clamp(Math.round(10 + r * 0.6), 10, 26), rng, 0.13);
     let s = shadowOf(D, r, o) + outlineFill(D, c, o);
     s += leaves('palm', r, clamp(Math.round(18 + r * 2.2), 18, 70), Math.max(0.5, r * 0.11), rng, c, 0.85, 0.75);
-    if (sp.ac) s += leaves('palm', r, Math.round(4 + r * 0.4), Math.max(0.5, r * 0.1), rng, sp.ac, 0.9, 0.8);
+    if (sp.ac) for (let i = 0, k = Math.round(5 + r * 0.7); i < k; i++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r * 0.8; s += `<path d="${pointy(Math.max(0.35, r * 0.055) * (0.7 + rng() * 0.7), 6, rng, 0.3)}" transform="translate(${n(d * Math.cos(a))} ${n(d * Math.sin(a))})" fill="${shade(sp.ac, (rng() - 0.5) * 0.2)}" fill-opacity="0.85"/>`; }
     s += limbs(r, 5, rng, shade(c, -0.55), 0.55, Math.max(0.1, r * 0.018)).replace('fill="none"', 'fill="none" stroke-opacity="0.35"');
     return s + dome(D) + trunks(r, 1);
   },
@@ -596,15 +774,15 @@ const FORMS = {
       for (let j = 1; j <= 3; j++) {
         const t = j / 3.2, x = L * t * Math.cos(a), y = L * t * Math.sin(a), cr = r * (0.12 + 0.04 * j);
         let fan = '';
-        fan += `<circle cx="${n(x)}" cy="${n(y)}" r="${n(cr * 0.75)}" fill="${shade(c, -0.25)}" fill-opacity="0.55"/>`;
-        for (let m = 0, cnt = 9 + j * 3; m < cnt; m++) {
+        fan += `<path d="${lobed(cr * 1.05, 7, rng, 0.25)}" transform="translate(${n(x)} ${n(y)})" fill="${shade(c, -0.2)}" fill-opacity="0.7"/><path d="${lobed(cr * 0.8, 6, rng, 0.3)}" transform="translate(${n(x + cr * 0.15)} ${n(y - cr * 0.15)})" fill="${shade(c, 0.12)}" fill-opacity="0.8"/>`;
+        for (let m = 0, cnt = 3 + j; m < cnt; m++) {
           const b = rng() * 6.283, dd = Math.sqrt(rng()) * cr;
-          fan += `<path d="${LEAF.fan}" transform="${at(x + dd * Math.cos(b), y + dd * Math.sin(b), b * 180 / Math.PI + 90, Math.max(0.5, r * 0.1))}" fill="${shade(c, (rng() - 0.35) * 0.4)}" stroke="${shade(c, -0.45)}" stroke-width="0.03"/>`;
+          fan += `<path d="${LEAF.fan}" transform="${at(x + dd * Math.cos(b), y + dd * Math.sin(b), b * 180 / Math.PI + 90, Math.max(0.35, r * 0.06))}" fill="${shade(c, (rng() - 0.3) * 0.36)}"/>`;
         }
         cl += fan;
       }
     }
-    return s + `<path d="${lim}" stroke="#5A4632" stroke-width="${n(Math.max(0.12, r * 0.022))}" stroke-linecap="round" fill="none"/><g fill-opacity="0.92">${cl}</g>` + trunks(r, 1);
+    return s + `<path d="${lim}" stroke="#5A4632" stroke-width="${n(Math.max(0.12, r * 0.022))}" stroke-linecap="round" fill="none"/><g fill-opacity="0.92">${cl}</g><path d="${D}" fill="url(#${leafTex})" fill-opacity="0.7"/>` + trunks(r, 1);
   },
   /* river birch: airy, light and fine-textured; clump of 3 trunks */
   birch(r, sp, o, rng) {
@@ -625,7 +803,7 @@ const FORMS = {
   dogwood(r, sp, o, rng) {
     const c = sp.c, D = lobed(r, 11, rng, 0.1);
     let s = shadowOf(D, r, o, 0.28) + outlineFill(D, c, o);
-    [0.72, 0.45].forEach((f, i) => { s += `<path d="${lobed(r * f, 9, rng, 0.12)}" fill="${shade(c, 0.1 + i * 0.08)}" stroke="${shade(c, -0.35)}" stroke-width="${n(o.u * 0.6)}"/>`; });
+    [0.72, 0.45].forEach((f, i) => { s += `<path d="${lobed(r * f, 9, rng, 0.12)}" fill="${shade(c, 0.1 + i * 0.08)}" fill-opacity="0.8"/>`; });
     s += leaves('oval', r, Math.round(14 + r * 1.2), Math.max(0.45, r * 0.07), rng, c, 0.9, 0.5);
     return s + dome(D) + flowers4(r, sp.fl || '#F4F1E6', rng, Math.round(10 + r * 1.4), Math.max(0.35, r * 0.06)) + trunks(r, 1);
   },
@@ -689,7 +867,7 @@ const FORMS = {
     for (let i = 0; i < k * 2; i++) { const a = Math.PI * i / k, rr = (i % 2 ? 0.9 : 1) * r * (1 - 0.04 * rng()); D += `${i ? 'L' : 'M'}${n(rr * Math.cos(a))},${n(rr * Math.sin(a))}`; }
     D += 'Z';
     let s = shadowOf(D, r, o, 0.42) + outlineFill(D, c, o);
-    [0.78, 0.56, 0.34].forEach((f, i) => { s += `<path d="${lobed(r * f, clamp(Math.round(r * 3 * f), 8, 30), rng, 0.15)}" fill="${shade(c, 0.07 * (i + 1))}" stroke="${shade(c, -0.4)}" stroke-width="${n(o.u * 0.5)}"/>`; });
+    [0.78, 0.56, 0.34].forEach((f, i) => { s += `<path d="${lobed(r * f, clamp(Math.round(r * 3 * f), 8, 30), rng, 0.15)}" fill="${shade(c, 0.07 * (i + 1))}" stroke="${shade(c, -0.35)}" stroke-opacity="0.45" stroke-width="${n(o.u * 0.4)}"/>`; });
     s += leaves('oval', r, Math.round(20 + r * 3), Math.max(0.2, r * 0.07), rng, shade(c, 0.1), 0.9, 0.55);
     return s + dome(D) + `<circle r="${n(Math.max(0.15, r * 0.06))}" fill="#2A1E14"/>`;
   },
@@ -714,7 +892,7 @@ const FORMS = {
       const R = r * (0.82 - ring * 0.27), k = Math.round(10 - ring * 2);
       for (let i = 0; i < k; i++) {
         const a = 2 * Math.PI * (i + ring * 0.5) / k + rng() * 0.2;
-        s += `<g transform="${at(R * Math.cos(a), R * Math.sin(a), a * 180 / Math.PI + 90, r * 0.2)}"><path d="${LEAF.oval}" fill="${shade(c, 0.05 + ring * 0.07)}" stroke="${shade(c, -0.4)}" stroke-width="0.04"/><path d="M0,-0.9V0.9" stroke="${shade(c, 0.45)}" stroke-width="0.05"/></g>`;
+        s += `<g transform="${at(R * Math.cos(a), R * Math.sin(a), a * 180 / Math.PI + 90, r * 0.2)}"><path d="${LEAF.oval}" fill="${shade(c, 0.05 + ring * 0.07)}" stroke="${shade(c, -0.35)}" stroke-opacity="0.6" stroke-width="0.03"/><path d="M0,-0.9V0.9" stroke="${shade(c, 0.4)}" stroke-opacity="0.7" stroke-width="0.04"/></g>`;
       }
     }
     s += dome(D);
@@ -731,9 +909,8 @@ const FORMS = {
   },
   fine(r, sp, o, rng) {   // boxwood, yaupon: tight, small-leaved, clipped look
     const c = sp.c, D = lobed(r, clamp(Math.round(12 + r * 2), 12, 30), rng, 0.05);
-    let s = shadowOf(D, r, o, 0.35) + outlineFill(D, c, o), dots = '';
-    for (let i = 0, k = Math.round(30 + r * r * 6); i < Math.min(k, 260); i++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r * 0.92; dots += `<circle cx="${n(d * Math.cos(a))}" cy="${n(d * Math.sin(a))}" r="${n(Math.max(0.05, r * 0.035))}" fill="${shade(c, Math.cos(a) * 0.15 + (rng() - 0.5) * 0.25)}"/>`; }
-    return s + dots + dome(D) + blooms(r, sp.fl, rng, Math.round(3 + r * 2), Math.max(0.1, r * 0.05));
+    const s = shadowOf(D, r, o, 0.35) + outlineFill(D, c, o) + foliage(r, c, rng, clamp(Math.round(5 + r * 1.5), 5, 12), 0.16);
+    return s + dome(D) + blooms(r, sp.fl, rng, Math.round(3 + r * 2), Math.max(0.1, r * 0.05));
   },
   spiky(r, sp, o, rng) {  // hollies: spiny, glossy, red berries
     const c = sp.c, D = pointy(r, clamp(Math.round(10 + r * 1.5), 10, 30), rng, 0.16);
@@ -773,6 +950,7 @@ const FORMS = {
 };
 function plantForm(it, o, rng, def, defForm) {
   const sp = spOf(it) || PLANT_BY_ID[def];
+  leafTex = it.r < 5 ? 'ld-leafB' : 'ld-leafA';
   return (FORMS[sp.f] || FORMS[defForm])(it.r, sp, o, rng);
 }
 const RDRAW = {
@@ -830,7 +1008,7 @@ const RDRAW = {
   },
   lawn(it, o) {
     const w = it.w, h = it.h, rr = Math.min(3, w / 4, h / 4), sp = spOf(it) || PLANT_BY_ID.cyda;
-    return `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" rx="${n(rr)}" fill="url(#ld-lawn-${sp.id})" stroke="${shade(sp.c, -0.35)}" stroke-width="${n(o.u * 0.9)}"/>`;
+    return `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" rx="${n(rr)}" fill="url(#ld-lawn-${sp.id})" stroke="#2C4A1E" stroke-opacity="0.5" stroke-width="${n(o.u * 0.6)}"/>`;
   },
   path(it, o) {
     const d = ptsD(it.pts), w = it.width || 4, f = it.finish || 'concrete';
@@ -864,7 +1042,7 @@ function fencePosts(pts, gap) {
 /* one plant clump (rendered) */
 function clump(sp, px, py, rng, o, spc) {
   const kind = sp.t, rr = spc * (kind === 'annual' ? 0.5 : kind === 'groundcover' ? 0.55 : 0.46), c = sp.c;
-  let s = `<g transform="translate(${n(px)} ${n(py)})"><path d="${lobed(rr, kind === 'groundcover' ? 9 : 6, rng, 0.2)}" fill="${shade(c, (rng() - 0.5) * 0.18)}" stroke="${shade(c, -0.5)}" stroke-width="${n(o.u * 0.5)}"/>`;
+  let s = `<g transform="translate(${n(px)} ${n(py)})"><path d="${lobed(rr, kind === 'groundcover' ? 9 : 6, rng, 0.2)}" fill="${shade(c, (rng() - 0.5) * 0.18)}" stroke="${shade(c, -0.4)}" stroke-opacity="0.6" stroke-width="${n(o.u * 0.4)}"/><path d="${lobed(rr * 0.55, 5, rng, 0.3)}" transform="translate(${n(rr * 0.16)} ${n(-rr * 0.16)})" fill="${shade(c, 0.24)}" fill-opacity="0.45"/>`;
   if (sp.fl) {
     const cnt = kind === 'annual' ? 6 : kind === 'groundcover' ? 3 : 4;
     for (let i = 0; i < cnt; i++) { const a = rng() * 6.283, d = rng() * rr * 0.75; s += `<circle cx="${n(d * Math.cos(a))}" cy="${n(d * Math.sin(a))}" r="${n(rr * (kind === 'annual' ? 0.24 : 0.18))}" fill="${shade(sp.fl, (rng() - 0.5) * 0.15)}"/>`; }
@@ -924,11 +1102,11 @@ function plantedBedInner(d, insideF, bb, mix, o, rng, type) {
   }
   if (carpet) {
     const sp = mix[0].sp;
-    let s = `<path d="${d}" fill="${sp.c}" stroke="${shade(sp.c, -0.5)}" stroke-width="${n(o.u)}"/><path d="${d}" fill="url(#ld-leafy)"/>`;
+    let s = `<path d="${d}" fill="${sp.c}" stroke="${shade(sp.c, -0.45)}" stroke-opacity="0.7" stroke-width="${n(o.u * 0.6)}"/><path d="${d}" fill="url(#ld-leafy)"/>`;
     if (sp.fl) { const ins = insideF(0.3); for (let i = 0, cnt = Math.round((bb[2] - bb[0]) * (bb[3] - bb[1]) / 3); i < cnt; i++) { const x = bb[0] + rng() * (bb[2] - bb[0]), y = bb[1] + rng() * (bb[3] - bb[1]); if (ins(x, y)) s += `<circle cx="${n(x)}" cy="${n(y)}" r="0.14" fill="${sp.fl}"/>`; } }
     return s;
   }
-  let s = `<path d="${d}" fill="url(#ld-mulch)" stroke="#2E2016" stroke-width="${n(o.u * 1.3)}"/>`;
+  let s = `<path d="${d}" fill="none" stroke="#1A120A" stroke-opacity="0.22" stroke-width="0.4" stroke-linejoin="round"/><path d="${d}" fill="url(#ld-mulch)" stroke="#2A1C12" stroke-opacity="0.8" stroke-width="${n(o.u * 0.7)}"/>`;
   if (!mix.length) return s;
   const { spc, pts } = bedSpots(mix, insideF, bb, rng);
   return s + pts.map(([x, y, sp]) => clump(sp, x, y, rng, o, sp.spc || spc)).join('');
@@ -969,13 +1147,13 @@ function shapeRender(it, o, rng) {
   }
   if (it.type === 'building') {
     if (!o.render) return `<path d="${d}" fill="${o.color ? '#EFEEE9' : '#fff'}" stroke="${INK}" stroke-width="${n(Math.max(0.3, o.u * 2.6))}" stroke-linejoin="miter"/>`;
-    return (o.icon ? '' : `<path d="${d}" transform="translate(-1.6 0.9)" fill="#0E1408" fill-opacity="0.3" filter="url(#ld-soft)"/>`) +
-      `<path d="${d}" fill="url(#ld-roof)" stroke="#262626" stroke-width="${n(Math.max(0.28, o.u * 2.4))}" stroke-linejoin="miter"/>`;
+    return (o.icon ? '' : castShadow(d, 1.6, 0.9, 0.3)) +
+      `<path d="${d}" fill="url(#ld-roof)" stroke="#2B2824" stroke-width="${n(Math.max(0.22, o.u * 1.8))}" stroke-linejoin="miter"/>`;
   }
   if (it.type === 'lawnShape') {
     const sp = spOf(it) || PLANT_BY_ID.cyda;
     if (!o.render) return `<path d="${d}" fill="${o.color ? T.lawnShape.tint : '#fff'}" stroke="${INK}" stroke-width="${n(o.u * 1.1)}"/><path d="${d}" fill="url(#dd-sparse)"/>`;
-    return `<path d="${d}" fill="url(#ld-lawn-${sp.id})" stroke="${shade(sp.c, -0.35)}" stroke-width="${n(o.u * 0.9)}"/>`;
+    return `<path d="${d}" fill="url(#ld-lawn-${sp.id})" stroke="#2C4A1E" stroke-opacity="0.5" stroke-width="${n(o.u * 0.6)}"/>`;
   }
   if (it.type === 'paveShape') {
     const f = it.finish || 'flagstone';
@@ -1731,6 +1909,16 @@ function drawItem(it, o) {
   else {
     g = inner;
     if (o.hit && t.kind === 'line') g += `<path d="${ptsD(it.smooth ? wallLine(it) : it.pts)}" fill="none" stroke="transparent" stroke-width="${n(Math.max(2, (it.width || 0) + 1))}" stroke-linejoin="round"/>`;
+  }
+  if (o.turfClip && !o.icon && (it.type === 'lawn' || it.type === 'lawnShape')) {
+    /* the house's shadow falls on the grass: drawn with the lawn, inside the lawn's own outline */
+    let sh = '';
+    if (o.turfShadow && o.render) {
+      const cid = 'lc-' + String(it.id).replace(/[^\w-]/g, '');
+      const own = it.type === 'lawn' ? `<rect x="${n(-it.w / 2)}" y="${n(-it.h / 2)}" width="${n(it.w)}" height="${n(it.h)}" transform="translate(${n(it.x)} ${n(it.y)}) rotate(${n(it.rot || 0)})"/>` : `<path d="${shapeD(it.pts, it.smooth)}"/>`;
+      sh = `<defs><clipPath id="${cid}">${own}</clipPath></defs><g clip-path="url(#${cid})">${castShadow(o.turfShadow, 1.8, 1, 0.36)}</g>`;
+    }
+    g = `<g clip-path="url(#turfClip)">${g}${sh}</g>`;
   }
   if (!o.icon) g += itemLabel(it, o);
   const op = it.op !== undefined ? it.op : (o.seeTrees && t.tree && !o.icon ? 0.5 : null);
