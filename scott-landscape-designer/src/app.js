@@ -79,6 +79,7 @@ const TIPS = {
   patio: 'Rectangle patio. Choose stone, pavers, brick or concrete.', paveShape: 'Draw any paved shape point by point.',
   deck: 'Wood deck.', path: 'Click each corner of the walk, double-click to finish.', fence: 'Click each corner of the fence, double-click to finish. Pick the style (privacy, picket, split rail, chain link, metal) under Properties, or use Arrange → Fence the property line.',
   pondShape: 'Draw a natural pond: click around the edge, then the first dot to close.', stream: 'Click along the course of the stream, double-click to finish. Click near a pond and the point snaps onto its edge, so the stream runs into it. Set its width under Properties.',
+  shed: 'Click to place the shed, then turn it with the yellow dot so the doors (the ramp end) face where you want them. Drag the corner dot to resize.',
   stairs: 'Click to place steps, then turn them with the yellow dot so the top points uphill. Drag the corner dot for width and length; longer steps climb higher.',
   gate: 'Click on or near a fence: the gate sets into the fence line, takes its style, and the fence opens for it.',
   wall: 'Click each corner of the wall, double-click to finish. Pick retaining block, fieldstone, seat wall, brick or timber at the top; Curved makes a smooth arc.',
@@ -326,6 +327,7 @@ function cleanState(raw) {
     if (r.type === 'path') it.finish = PATH_FINISHES[r.finish] ? r.finish : 'concrete';
     if (r.type === 'fence') { it.style = FENCE_STYLES[r.style] ? r.style : 'privacy'; it.height = numOr(r.height, 2, 12, FENCE_HEIGHT[it.style]); }
     if (r.type === 'stairs') it.style = STAIR_STYLES[r.style] ? r.style : 'stone';
+    if (r.type === 'shed') { it.style = SHED_STYLES[r.style] ? r.style : 'gable'; it.roof = SHED_ROOFS[r.roof] ? r.roof : 'shingle'; }
     if (r.type === 'gate') { it.style = FENCE_STYLES[r.style] ? r.style : 'privacy'; it.leaves = r.leaves === 2 ? 2 : 1; it.h = 2; it.w = clamp(it.w, 2, 24); if (r.flip) it.flip = true; if (r.hinge === 'r') it.hinge = 'r'; if (r.ownStyle) it.ownStyle = true; }
     if (r.type === 'wall') { it.style = WALL_STYLES[r.style] ? r.style : 'seat'; it.height = numOr(r.height, 0.5, 12, WALL_HEIGHT[it.style]); it.width = WALL_W[it.style]; it.smooth = !!r.smooth; }
     if (r.type === 'lights') { it.style = LIGHT_STYLES[r.style] ? r.style : 'bistro'; it.smooth = !!r.smooth; }
@@ -955,7 +957,7 @@ function renderRail() {
     b.addEventListener('click', () => setTool(b.dataset.tool));
     bindTip(b, () => `<b>${esc(toolName(b.dataset.tool))}</b> &nbsp;<kbd>${KEYS[b.dataset.tool]}</kbd><small>${esc(TIPS[b.dataset.tool] || '')}</small>`);
   });
-  const LIBTIP = { plants: ['Plant library', 'Trees, shrubs, perennials, grasses and your own plants.'], build: ['Build', 'Fences and gates, steps, walls (retaining, stone, seat, brick, timber), patios by surface, walks, decks, sheds, vegetable garden, firewood, bird bath.'], living: ['Outdoor living', 'Furniture, umbrellas, pergola, grill, kitchen, fire pits, pools, hot tub, ponds and streams, play set, swings, trampoline, string lights.'] };
+  const LIBTIP = { plants: ['Plant library', 'Trees, shrubs, perennials, grasses and your own plants.'], build: ['Build', 'Fences and gates, sheds, steps, walls (retaining, stone, seat, brick, timber), patios by surface, walks, decks, sheds, vegetable garden, firewood, bird bath.'], living: ['Outdoor living', 'Furniture, umbrellas, pergola, grill, kitchen, fire pits, pools, hot tub, ponds and streams, play set, swings, trampoline, string lights.'] };
   $('rail').querySelectorAll('[data-openlib]').forEach((b) => {
     b.addEventListener('click', () => { const tab = b.dataset.openlib; if (view.lib && libTab === tab) toggleLib(false); else { if (!view.lib) toggleLib(true); setLibTab(tab); } markLibButtons(); });
     bindTip(b, () => `<b>${LIBTIP[b.dataset.openlib][0]}</b><small>${LIBTIP[b.dataset.openlib][1]}</small>`);
@@ -1262,6 +1264,10 @@ function renderProps() {
     h += `<div class="row2">${fld('Fence style', `<select data-f="fstyle" aria-label="Fence style"${dis}>${Object.entries(FENCE_STYLES).map(([k, z]) => `<option value="${k}" ${(it.style || 'privacy') === k ? 'selected' : ''}>${z.replace(' fence', '')}</option>`).join('')}</select>`)}${fld('Height', `<select data-f="fheight" aria-label="Fence height"${dis}>${[3, 4, 5, 6, 8].map((v) => `<option value="${v}" ${(it.height || 6) === v ? 'selected' : ''}>${v} ft</option>`).join('')}</select>`)}</div>`;
     h += `<p class="muted" style="margin-bottom:8px">${{ privacy: 'Solid boards: blocks views and noise. Good for the busy street side and around the patio.', picket: 'Low and open: marks the edge of a front yard.', split: 'Rustic and open: marks a line without blocking views.', chain: 'See-through and low cost: keeps pets and kids in.', iron: 'Open and formal: lets light and views through.' }[it.style || 'privacy']}</p>`;
   }
+  if (it.type === 'shed') {
+    h += `<div class="row2">${fld('Building', `<select data-f="shstyle" aria-label="Shed kind"${dis}>${Object.entries(SHED_STYLES).map(([s2, z]) => `<option value="${s2}" ${(it.style || 'gable') === s2 ? 'selected' : ''}>${z}</option>`).join('')}</select>`)}${it.style === 'green' ? '' : fld('Roof', `<select data-f="shroof" aria-label="Roof"${dis}>${Object.entries(SHED_ROOFS).map(([s2, z]) => `<option value="${s2}" ${(it.roof || 'shingle') === s2 ? 'selected' : ''}>${z}</option>`).join('')}</select>`)}</div>`;
+    h += `<p class="muted" style="margin-bottom:8px">${n(it.w)} × ${n(it.h)} ft, ${Math.round(it.w * it.h)} sq ft. The doors are at the end with the ramp; turn the ${it.style === 'green' ? 'greenhouse' : 'shed'} with the yellow dot. Check local rules for how close a shed may sit to the property line (often 5 ft).</p>`;
+  }
   if (it.type === 'stairs') {
     const k = stairSteps(it);
     h += fld('Material', `<select data-f="sstyle" aria-label="Step material"${dis}>${Object.entries(STAIR_STYLES).map(([s2, z]) => `<option value="${s2}" ${(it.style || 'stone') === s2 ? 'selected' : ''}>${z}</option>`).join('')}</select>`);
@@ -1342,6 +1348,8 @@ $('props').addEventListener('change', (e) => {
   if (f === 'form') { it.form = v; renderItems([it.id]); commit('Change bed shape'); return; }
   if (f === 'edge') { if (EDGES[v]) it.edge = v; else delete it.edge; renderItems([it.id]); renderOptCtx(); commit(v ? 'Raise bed' : 'Remove bed edge'); return; }
   if (f === 'fstyle') { it.style = FENCE_STYLES[v] ? v : 'privacy'; it.height = FENCE_HEIGHT[it.style]; Object.assign(lastFence, { style: it.style, height: it.height }); syncGates(); renderPlan(); renderProps(); commit('Change fence style'); return; }
+  if (f === 'shstyle') { it.style = SHED_STYLES[v] ? v : 'gable'; renderItems([it.id]); renderProps(); renderOptCtx(); commit('Change shed'); return; }
+  if (f === 'shroof') { it.roof = SHED_ROOFS[v] ? v : 'shingle'; renderItems([it.id]); renderOptCtx(); commit('Change shed roof'); return; }
   if (f === 'sstyle') { it.style = STAIR_STYLES[v] ? v : 'stone'; toolPreset.stairs = Object.assign(toolPreset.stairs || {}, { style: it.style }); renderItems([it.id]); renderProps(); renderOptCtx(); commit('Change step material'); return; }
   if (f === 'gleaves') { it.leaves = +v === 2 ? 2 : 1; if (it.leaves === 2 && it.w < 6) it.w = 10; if (it.leaves === 1 && it.w > 8) it.w = 4; renderItems([it.id]); renderProps(); renderOptCtx(); commit('Change gate'); return; }
   if (f === 'gstyle') { if (FENCE_STYLES[v]) { it.style = v; it.ownStyle = true; } else { delete it.ownStyle; gateSnap(it); } renderItems([it.id]); renderProps(); commit('Change gate style'); return; }
@@ -2060,6 +2068,7 @@ function takeoff() {
     if (it.type === 'deck') addM('deck', 'Wood deck', 'deck', a, 'sq ft');
     if (it.type === 'path') addM('path-' + it.finish, `${PATH_FINISHES[it.finish] || 'Concrete'} walk`, 'path', polyLen(it.pts), 'lin ft', a);
     if (it.type === 'fence') { const fs = it.style || 'privacy'; addM('fence-' + fs + (it.height || 6), `${it.height || FENCE_HEIGHT[fs]} ft ${FENCE_STYLES[fs].toLowerCase()}`, 'fence', fenceRuns(it, { gates: state.items.filter((g) => g.type === 'gate' && !g.hidden) }).reduce((s2, r) => s2 + polyLen(r), 0), 'lin ft'); }
+    if (it.type === 'shed') addM('shed-' + it.style + it.w + 'x' + it.h, `${SHED_STYLES[it.style] || 'Shed'}, ${n(it.w)} × ${n(it.h)} ft`, 'shed', 1, 'ea');
     if (it.type === 'stairs') addM('stairs-' + it.style + it.w, `${STAIR_STYLES[it.style] || 'Steps'}, ${n(it.w)} ft wide`, 'stairs', stairSteps(it), 'steps');
     if (it.type === 'gate') addM('gate-' + (it.leaves || 1) + it.style + it.w, `${n(it.w)} ft ${(it.leaves || 1) === 2 ? 'double' : 'single'} gate, ${(FENCE_STYLES[it.style] || 'wood').replace(' fence', '').toLowerCase()}`, 'gate', 1, 'ea');
     if (it.type === 'wall') addM('wall-' + it.style + it.height, `${WALL_STYLES[it.style] || 'Garden wall'}, ${ftIn(it.height || 1.5)} tall`, 'wall', polyLen(wallLine(it)), 'lin ft');
@@ -3003,6 +3012,9 @@ function renderOptCtx() {
   } else if (SURF_TYPES[tool]) {
     h = surfaceChips((toolPreset[tool] && toolPreset[tool].finish) || T[tool].d.finish, { type: tool, attr: 'data-preffinish' }) +
       (drawSmooth[tool] !== undefined ? `<span class="optlabel">Edges</span><div class="seg shapeseg">${segBtn('curved', 'Curved', drawSmooth[tool], 'data-drawsmooth')}${segBtn('straight', 'Straight', !drawSmooth[tool], 'data-drawsmooth')}</div>` : '');
+  } else if (one && !one.locked && one.type === 'shed' && tool === 'select') {
+    h = `<span class="optlabel">Shed</span><div class="seg shapeseg">${Object.entries(SHED_STYLES).map(([k, l]) => `<button type="button" data-setshed="${k}" aria-pressed="${(one.style || 'gable') === k}" title="${l}"><span>${{ gable: 'Gable', barn: 'Barn', lean: 'Lean-to', green: 'Greenhouse' }[k]}</span></button>`).join('')}</div>` +
+      (one.style === 'green' ? '' : `<select class="edgesel" data-shedroof aria-label="Roof">${Object.entries(SHED_ROOFS).map(([k, l]) => `<option value="${k}" ${(one.roof || 'shingle') === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`);
   } else if (one && !one.locked && one.type === 'stairs' && tool === 'select') {
     h = `<span class="optlabel">Steps</span><div class="seg shapeseg">${Object.entries(STAIR_STYLES).map(([k, l]) => `<button type="button" data-setstairs="${k}" aria-pressed="${(one.style || 'stone') === k}" title="${l}"><span>${{ stone: 'Stone', concrete: 'Concrete', brick: 'Brick', wood: 'Wood', timber: 'Timber' }[k]}</span></button>`).join('')}</div><span class="optnote">${stairSteps(one)} steps · climbs about ${ftIn(stairSteps(one) * 0.5)}</span>`;
   } else if (one && !one.locked && one.type === 'gate' && tool === 'select') {
@@ -3040,6 +3052,7 @@ $('optCtx').addEventListener('change', (e) => {
     if (one && one.type === 'fence' && tool === 'select') { one.height = v; renderItems([one.id]); renderProps(); commit('Change fence height'); } else lastFence.height = v;
     return;
   }
+  if (e.target.dataset.shedroof !== undefined) { if (one && one.type === 'shed' && !one.locked) { one.roof = SHED_ROOFS[e.target.value] ? e.target.value : 'shingle'; renderItems([one.id]); renderProps(); commit('Change shed roof'); } return; }
   if (e.target.dataset.wheight !== undefined) {
     const v = +e.target.value;
     toolPreset.wall.height = v;
@@ -3066,6 +3079,7 @@ $('optCtx').addEventListener('click', (e) => {
   if (b.dataset.preffence) { lastFence.style = b.dataset.preffence; lastFence.height = FENCE_HEIGHT[lastFence.style]; renderOptCtx(); return; }
   if (!one || one.locked) return;
   if (b.dataset.setfinish) { one.finish = b.dataset.setfinish; renderItems([one.id]); renderProps(); commit('Change surface'); return; }
+  if (b.dataset.setshed) { one.style = b.dataset.setshed; renderItems([one.id]); renderProps(); renderOptCtx(); commit('Change shed'); return; }
   if (b.dataset.setstairs) { one.style = b.dataset.setstairs; toolPreset.stairs = { style: one.style }; renderItems([one.id]); renderProps(); renderOptCtx(); commit('Change step material'); return; }
   if (b.dataset.setgate) { one.leaves = +b.dataset.setgate === 2 ? 2 : 1; if (one.leaves === 2 && one.w < 6) one.w = 10; if (one.leaves === 1 && one.w > 8) one.w = 4; renderItems([one.id]); renderProps(); renderOptCtx(); commit('Change gate'); return; }
   if (b.dataset.gateflip !== undefined) { if (one.flip) delete one.flip; else one.flip = true; renderItems([one.id]); renderProps(); commit('Flip gate swing'); return; }
@@ -3123,6 +3137,7 @@ const CATALOG = {
     ['Patios, any shape', Object.keys(FINISHES).map((k) => ({ id: 'pave-' + k, name: `${FINISHES[k]}, draw any shape`, tool: 'paveShape', preset: { finish: k }, icon: 'paveShape', iconPreset: { finish: k }, note: 'Click each corner, then the first dot to close' }))],
     ['Walks and paths', Object.keys(PATH_FINISHES).map((k) => ({ id: 'path-' + k, name: `${PATH_FINISHES[k]} walk`, tool: 'path', preset: { finish: k }, icon: 'path', iconPreset: { finish: k }, note: 'Click each corner, double-click to finish' }))],
     ['Lawn', [{ id: 'lawnfill', name: 'Lawn over the whole yard', action: () => fillLawn(), icon: 'lawnShape', note: 'One click. Beds, patios and walks sit on top of it' }, { id: 'lawndraw', name: 'Lawn, draw any shape', tool: 'lawnShape', icon: 'lawnShape', note: 'Click around the edge; points snap to the house, walks and beds' }, { id: 'lawnrect', name: 'Lawn, rectangle', tool: 'lawn', icon: 'lawn' }]],
+    ['Sheds and greenhouses', [{ id: 'shed-8', name: 'Garden shed, 8 × 10 ft', tool: 'shed', preset: { w: 8, h: 10, style: 'gable', roof: 'shingle' }, icon: 'shed', note: 'Gable roof · doors at the ramp end' }, { id: 'shed-10', name: 'Garden shed, 10 × 12 ft', tool: 'shed', preset: { w: 10, h: 12, style: 'gable', roof: 'green' }, icon: 'shed', iconPreset: { roof: 'green' }, note: 'Green metal roof' }, { id: 'shed-barn', name: 'Barn-style shed, 12 × 16 ft', tool: 'shed', preset: { w: 12, h: 16, style: 'barn', roof: 'red' }, icon: 'shed', iconPreset: { style: 'barn', roof: 'red' }, note: 'Gambrel roof, for a mower and tools' }, { id: 'shed-lean', name: 'Lean-to shed, 4 × 8 ft', tool: 'shed', preset: { w: 4, h: 8, style: 'lean', roof: 'cedar' }, icon: 'shed', iconPreset: { style: 'lean', roof: 'cedar', w: 5 }, note: 'Fits against a fence or wall' }, { id: 'shed-green', name: 'Greenhouse, 8 × 12 ft', tool: 'shed', preset: { w: 8, h: 12, style: 'green' }, icon: 'shed', iconPreset: { style: 'green' }, note: 'Glass house for starting plants' }]],
     ['Decks and buildings', [{ id: 'deck', name: 'Wood deck', tool: 'deck', icon: 'deck' }, { id: 'building', name: 'House, garage or shed (draw)', tool: 'building', icon: 'building', note: 'Click each corner' }]],
     ['Garden', [{ id: 'veg', name: 'Raised vegetable garden', tool: 'veg', icon: 'veg' }, { id: 'wood', name: 'Firewood stockpile', tool: 'wood', icon: 'wood' }, { id: 'birdbath', name: 'Bird bath / feeder', tool: 'birdbath', icon: 'birdbath' }]],
   ],

@@ -159,6 +159,7 @@ const T = {
   deck:      { name: 'Deck', kind: 'box', d: { w: 12, h: 12 }, band: 2, tint: '#DDBF93', op: 1 },
   path:      { name: 'Walk / path', kind: 'line', d: { width: 4, finish: 'concrete' }, band: 3, tint: '#E6DECE', op: 1 },
   fence:     { name: 'Fence / screen', kind: 'line', d: { style: 'privacy', height: 6 }, band: 6 },
+  shed:      { name: 'Shed', kind: 'box', d: { w: 10, h: 12, style: 'gable', roof: 'shingle' }, band: 3.6, tint: '#B9B3A8' },
   stairs:    { name: 'Steps', kind: 'box', d: { w: 4, h: 7, style: 'stone' }, band: 3.1 },
   gate:      { name: 'Gate', kind: 'box', d: { w: 4, h: 2, style: 'privacy', leaves: 1 }, band: 6.2 },
   pondShape: { name: 'Pond (draw any shape)', short: 'POND', kind: 'shape', d: { smooth: true }, band: 1.5 },
@@ -1867,6 +1868,53 @@ function stairsDraw(it, o, rng) {
   return s + `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" fill="none" stroke="${edge}" stroke-width="${n(o.u * 0.9)}"/>`;
 }
 RDRAW.stairs = DDRAW.stairs = stairsDraw;
+/* ------------------------------------------------------------------ sheds and greenhouses
+ * A box item: w x h is the roof seen from above. The ridge runs along the item's length (local y) and the doors
+ * are at the +y end, marked by a ramp. Turn the item to face the doors where they are wanted. */
+const SHED_STYLES = { gable: 'Garden shed, gable roof', barn: 'Barn-style shed', lean: 'Lean-to shed', green: 'Greenhouse' };
+const SHED_ROOFS = { shingle: 'Asphalt shingles', cedar: 'Cedar shakes', green: 'Green metal', red: 'Red metal', gray: 'Gray metal' };
+const SHED_ROOF_COL = { shingle: '#8C8072', cedar: '#9A6C42', green: '#3F7355', red: '#93402F', gray: '#9BA1A4' };
+function shedDraw(it, o) {
+  const w = it.w, h = it.h, st = SHED_STYLES[it.style] ? it.style : 'gable', x0 = -w / 2, y0 = -h / 2, dw = Math.min(w * 0.6, st === 'green' ? 3 : 5);
+  const R = (x, y, ww, hh, fill, extra) => `<rect x="${n(x)}" y="${n(y)}" width="${n(ww)}" height="${n(hh)}" fill="${fill}"${extra || ''}/>`;
+  if (!o.render) {
+    const col = o.color ? (st === 'green' ? '#DCEDEA' : '#EFEEE9') : '#fff', fs = Math.min(1.3, w * 0.16, h * 0.16);
+    let s = R(x0, y0, w, h, col, ` stroke="${INK}" stroke-width="${n(Math.max(0.22, o.u * 2))}"`);
+    if (st === 'green') { let g = ''; for (let y = y0 + 2; y < -y0 - 0.5; y += 2) g += `M${n(x0)},${n(y)}H${n(-x0)}`; s += `<path d="${g}" stroke="${INK}" stroke-width="${n(o.u * 0.5)}"/>`; }
+    if (st !== 'lean') s += `<path d="M0,${n(y0)}V${n(-y0)}" stroke="${INK}" stroke-width="${n(o.u * 0.8)}" stroke-dasharray="${n(o.u * 6)} ${n(o.u * 3)}"/>`;
+    if (st === 'barn') s += `<path d="M${n(-w * 0.27)},${n(y0)}V${n(-y0)}M${n(w * 0.27)},${n(y0)}V${n(-y0)}" stroke="${INK}" stroke-width="${n(o.u * 0.5)}"/>`;
+    s += `<path d="M${n(-dw / 2)},${n(-y0)}v1.2h${n(dw)}v-1.2" fill="${col}" stroke="${INK}" stroke-width="${n(o.u * 0.8)}"/><path d="M${n(-dw / 2)},${n(-y0)}H${n(dw / 2)}" stroke="${col}" stroke-width="${n(Math.max(0.3, o.u * 2.6))}"/>`;
+    if (!o.icon && fs > 0.5) s += `<text y="0" text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-weight="600" font-size="${n(fs)}" letter-spacing="0.05em" fill="${INK}" paint-order="stroke" stroke="${col}" stroke-width="${n(fs * 0.3)}">${st === 'green' ? 'GREENHOUSE' : 'SHED'}</text>`;
+    return s;
+  }
+  let s = o.icon ? '' : castShadow(`M${n(x0)},${n(y0)}H${n(-x0)}V${n(-y0)}H${n(x0)}Z`, 1.3, 0.75, 0.36);
+  // the ramp at the doors
+  s += R(-dw / 2, -y0 - 0.2, dw, 1.5, st === 'green' ? 'url(#ld-concrete)' : 'url(#ld-teak)', ' stroke="#4E3622" stroke-opacity="0.7" stroke-width="0.05"');
+  if (st === 'green') {   // glass over a dim interior, white glazing bars
+    s += R(x0, y0, w, h, '#33503F') + R(x0, y0, w / 2, h, '#A9D6D2', ' fill-opacity="0.72"') + R(0, y0, w / 2, h, '#CDEDEA', ' fill-opacity="0.8"');
+    let bars = `M0,${n(y0)}V${n(-y0)}`;
+    for (let y = y0; y <= -y0 + 0.01; y += Math.max(1.5, h / Math.round(h / 2))) bars += `M${n(x0)},${n(y)}H${n(-x0)}`;
+    for (const f of [-0.5, 0.5]) bars += `M${n(w * f * 0.5)},${n(y0)}V${n(-y0)}`;
+    s += `<path d="${bars}" stroke="#F4F7F6" stroke-width="0.12"/><path d="M${n(w * 0.1)},${n(y0 + 0.4)}L${n(w * 0.38)},${n(-y0 - 0.4)}" stroke="#fff" stroke-opacity="0.35" stroke-width="${n(w * 0.06)}"/>`;
+    return s + R(x0, y0, w, h, 'none', ' stroke="#E9EDEC" stroke-width="0.22"');
+  }
+  const roof = SHED_ROOFS[it.roof] ? it.roof : 'shingle', c = SHED_ROOF_COL[roof], metal = roof === 'green' || roof === 'red' || roof === 'gray';
+  // faces from left to right, each with how much sun it gets (sun from the upper right)
+  const faces = st === 'lean' ? [[x0, -x0, 0.06]] : st === 'barn' ? [[x0, -w * 0.27, -0.3], [-w * 0.27, 0, -0.1], [0, w * 0.27, 0.16], [w * 0.27, -x0, 0.02]] : [[x0, 0, -0.24], [0, -x0, 0.14]];
+  for (const [a, b, k] of faces) {
+    s += R(a, y0, b - a, h, shade(c, k));
+    let ln = '';
+    if (metal) for (let y = y0 + 1.3; y < -y0 - 0.2; y += 1.3) ln += `M${n(a)},${n(y)}H${n(b)}`;            // standing seams run down the slope
+    else for (let x = a + 0.7; x < b - 0.2; x += 0.7) ln += `M${n(x)},${n(y0)}V${n(-y0)}`;                    // shingle courses run along the eaves
+    s += `<path d="${ln}" stroke="${metal ? '#fff' : '#000'}" stroke-opacity="${metal ? 0.28 : 0.16}" stroke-width="${metal ? 0.07 : 0.05}"/>`;
+  }
+  s += R(x0, y0, w, h, 'url(#ld-grain)');
+  if (st === 'lean') s += `<path d="M${n(-x0 - 0.12)},${n(y0)}V${n(-y0)}" stroke="${shade(c, 0.35)}" stroke-width="0.24"/>`;   // the high edge
+  else s += `<path d="M0,${n(y0)}V${n(-y0)}" stroke="${shade(c, -0.45)}" stroke-width="0.2"/><path d="M0.07,${n(y0)}V${n(-y0)}" stroke="${shade(c, 0.4)}" stroke-width="0.06"/>` +
+    (st === 'barn' ? `<path d="M${n(-w * 0.27)},${n(y0)}V${n(-y0)}M${n(w * 0.27)},${n(y0)}V${n(-y0)}" stroke="${shade(c, -0.35)}" stroke-width="0.1"/>` : '');
+  return s + R(x0, y0, w, h, 'none', ` stroke="${shade(c, -0.55)}" stroke-width="${n(Math.max(0.12, o.u))}"`);
+}
+RDRAW.shed = DDRAW.shed = shedDraw;
 RDRAW.wall = DDRAW.wall = wallDraw;
 /* string lights: a wire between anchor points with bulbs along it (bistro = big bulbs every 2 ft, fairy = tiny bulbs every 6 in) */
 const LIGHT_STYLES = { bistro: 'Bistro string lights', fairy: 'Fairy lights' };
@@ -2128,6 +2176,7 @@ const ICON = {
   veg: { w: 6, h: 5, vb: [-3.4, -2.9, 6.8, 5.8] },
   gate: { w: 4, h: 2, vb: [-2.9, -1.3, 5.8, 5.8] },
   stairs: { w: 4, h: 6, vb: [-3.6, -3.6, 7.2, 7.2] },
+  shed: { w: 8, h: 9, vb: [-5.6, -5.4, 11.2, 11.6] },
   wood: { w: 5, h: 3.6, vb: [-2.8, -2.4, 5.6, 4.8] },
   lawn: { w: 12, h: 9, vb: [-6.6, -5.6, 13.2, 11.2] },
   bubble: { w: 11, h: 7.4, zone: 'private', vb: [-6, -5, 12, 10] },

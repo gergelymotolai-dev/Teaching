@@ -124,6 +124,22 @@ const FILE = 'file://' + path.resolve(__dirname, '../dist/verdant-studio.html');
   ok(/Brick steps, 4 ft wide/.test(await p.textContent('#sched')), 'the takeoff lists the steps');
   await p.keyboard.press('Escape');
 
+  // 6c. sheds and a greenhouse
+  await p.click('[data-libtab="build"]');
+  for (const k of ['shed-8', 'shed-10', 'shed-barn', 'shed-lean', 'shed-green']) ok(await p.locator(`[data-el="${k}"]`).count() === 1, `Build tab lists ${k}`);
+  await p.click('[data-el="shed-barn"]'); await click(10, 60); await p.keyboard.press('Escape');
+  let shed = (await items()).find((i) => i.type === 'shed');
+  ok(shed && shed.style === 'barn' && shed.roof === 'red' && shed.w === 12 && shed.h === 16, 'a 12 × 16 barn-style shed with a red metal roof is placed');
+  await p.click('[data-pane="pObjects"]'); await p.click(`[data-obj="${shed.id}"]`); await p.waitForTimeout(200);
+  await p.click('#optCtx [data-setshed="gable"]'); await p.selectOption('#optCtx [data-shedroof]', 'cedar'); await p.waitForTimeout(200);
+  shed = (await items()).find((i) => i.type === 'shed');
+  ok(shed.style === 'gable' && shed.roof === 'cedar', 'the bar changes it to a gable shed with cedar shakes');
+  await p.click('#optCtx [data-setshed="green"]'); await p.waitForTimeout(200);
+  ok((await items()).find((i) => i.type === 'shed').style === 'green' && !(await p.$('#optCtx [data-shedroof]')), 'or to a greenhouse (no roof choice)');
+  await p.click('[data-pane="pSched"]'); await p.waitForTimeout(200);
+  ok(/Greenhouse, 12 × 16 ft/.test(await p.textContent('#sched')), 'the takeoff lists it');
+  await p.keyboard.press('Escape');
+
   // 7. export still works with the textures
   await p.fill('#fName', 'Pat Student');
   await p.click('#bExport'); await p.waitForTimeout(300);
