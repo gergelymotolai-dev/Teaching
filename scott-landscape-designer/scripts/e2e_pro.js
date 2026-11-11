@@ -90,6 +90,40 @@ const FILE = 'file://' + path.resolve(__dirname, '../dist/verdant-studio.html');
   ok(walk && walk.pts[2][0] === 34, `the next point lined up with the house corner at x = 34 (${walk && walk.pts[2]})`);
   await p.keyboard.press('Escape');
 
+  // 6b. gates set into a fence, and steps
+  await p.click('[data-libtab="build"]');
+  ok(await p.isVisible('[data-el="gate-walk"]') && await p.isVisible('[data-el="gate-double"]') && await p.isVisible('[data-el="stairs-stone"]') && await p.isVisible('[data-el="stairs-timber"]'), 'Build tab lists gates and steps');
+  await p.click('[data-el="fence-picket"]');
+  for (const [x, y] of [[4, 20], [30, 20]]) await click(x, y);
+  await p.keyboard.press('Enter'); await p.waitForTimeout(250); await p.keyboard.press('Escape');
+  const fenceId = (await items()).find((i) => i.type === 'fence').id;
+  await p.click('[data-el="gate-walk"]'); await click(15.4, 21.6); await p.keyboard.press('Escape');
+  let gate = (await items()).find((i) => i.type === 'gate');
+  ok(gate && gate.y === 20 && Math.abs(gate.x - 15.4) < 0.3 && (gate.rot || 0) === 0 && gate.style === 'picket' && gate.w === 4, `a gate dropped near the fence sets into its line and takes its style (${gate && [gate.x, gate.y, gate.style]})`);
+  ok(await p.evaluate((id) => document.querySelectorAll(`#gDesign [data-id="${id}"] rect[fill="#FFFFFF"][stroke="#8F8B82"]`).length >= 4, fenceId), 'the fence opens for the gate, with a post on each side');
+  await p.click('[data-pane="pSched"]'); await p.waitForTimeout(200);
+  let sch = await p.textContent('#sched');
+  ok(/22 lin ft/.test(sch.replace(/\s+/g, ' ')) && /4 ft single gate, white picket/.test(sch), 'the takeoff counts the gate and 22 ft of fence (26 ft less the 4 ft opening)');
+  await p.click(`#gDesign [data-id="${gate.id}"]`, { force: true }).catch(() => {});
+  await p.evaluate((id) => { const r = document.querySelector(`[data-obj="${id}"]`); if (r) r.click(); }, gate.id);
+  await p.click('[data-pane="pObjects"]'); await p.click(`[data-obj="${gate.id}"]`); await p.waitForTimeout(200);
+  await p.click('#optCtx [data-setgate="2"]'); await p.waitForTimeout(200);
+  gate = (await items()).find((i) => i.type === 'gate');
+  ok(gate.leaves === 2 && gate.w === 10, 'the bar above the plan turns it into a 10 ft double gate');
+  await p.click(`[data-obj="${fenceId}"]`); await p.waitForTimeout(200);
+  await p.click('#optCtx [data-setfence="iron"]'); await p.waitForTimeout(250);
+  ok((await items()).find((i) => i.type === 'gate').style === 'iron', 'changing the fence style changes its gate to match');
+  await p.keyboard.press('Escape');
+  await p.click('[data-el="stairs-stone"]'); await click(40, 22); await p.keyboard.press('Escape');
+  let steps = (await items()).find((i) => i.type === 'stairs');
+  ok(steps && steps.style === 'stone' && steps.w === 4 && steps.h === 7, 'stone steps placed from the Build tab');
+  await p.click(`[data-obj="${steps.id}"]`); await p.waitForTimeout(200);
+  await p.click('#optCtx [data-setstairs="brick"]'); await p.waitForTimeout(200);
+  ok((await items()).find((i) => i.type === 'stairs').style === 'brick' && /6 steps/.test(await p.textContent('#optCtx')), 'the bar changes them to brick and shows 6 steps');
+  await p.click('[data-pane="pSched"]'); await p.waitForTimeout(200);
+  ok(/Brick steps, 4 ft wide/.test(await p.textContent('#sched')), 'the takeoff lists the steps');
+  await p.keyboard.press('Escape');
+
   // 7. export still works with the textures
   await p.fill('#fName', 'Pat Student');
   await p.click('#bExport'); await p.waitForTimeout(300);
