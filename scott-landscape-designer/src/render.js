@@ -28,6 +28,27 @@ function shade(hex, amt) {
   r = Math.round((t - r) * p + r); g = Math.round((t - g) * p + g); b = Math.round((t - b) * p + b);
   return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
+function toHsl(hex) {
+  const v = parseInt(hex.slice(1), 16), r = (v >> 16) / 255, g = ((v >> 8) & 255) / 255, b = (v & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (!d) return [0, 0, l];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h * 60, s, l];
+}
+function hslHex(h, s, l) {
+  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2;
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  const q = (t) => Math.round(clamp(t + m, 0, 1) * 255);
+  return '#' + ((1 << 24) + (q(r) << 16) + (q(g) << 8) + q(b)).toString(16).slice(1);
+}
+/* a richer / deeper / brighter version of a color: saturation times (1 + ds), lightness plus dl, hue plus dh degrees.
+ * Sunlit foliage is lighter AND a little yellower; shade is darker and a little bluer, and both stay saturated. */
+function tone(hex, ds, dl, dh) {
+  const [h, s, l] = toHsl(hex);
+  return hslHex((h + (dh || 0) + 360) % 360, clamp(s * (1 + ds), 0, 1), clamp(l + dl, 0.02, 0.97));
+}
+const isGreen = (hex) => { const [h, s] = toHsl(hex); return s > 0.12 && h > 55 && h < 175; };
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 function segDist(p, a, b) {
   const dx = b[0] - a[0], dy = b[1] - a[1];
@@ -407,7 +428,7 @@ function wrapped(S, x, y, pad, draw) {
   for (const ox of x < pad ? [0, S] : x > S - pad ? [0, -S] : [0]) for (const oy of y < pad ? [0, S] : y > S - pad ? [0, -S] : [0]) draw(x + ox, y + oy);
 }
 /* a grass's library color, pulled toward the deeper, less yellow green real turf has from above */
-const turfColor = (c) => mixHex(c, '#8CC05A', 0.3);
+const turfColor = (c) => tone(c, 0.24, -0.055, 4);
 function makeTextures() {
   if (typeof document === 'undefined') return null;
   try {
@@ -434,11 +455,11 @@ function makeTextures() {
     /* turf: mottled tone, fine grain and thousands of short blades; laid over each grass's own color */
     {
       const S = 384, a = tileNoise(S, 5, R), b = tileNoise(S, 16, R), c2 = tileNoise(S, 56, R);
-      const [c, g] = overlay(S, (i) => (a[i] - 0.5) * 0.2 + (b[i] - 0.5) * 0.85 + (c2[i] - 0.5) * 0.95 + (R() - 0.5) * 0.7, [236, 242, 168], [22, 72, 30], 0.3, 0.24);
+      const [c, g] = overlay(S, (i) => (a[i] - 0.5) * 0.2 + (b[i] - 0.5) * 0.85 + (c2[i] - 0.5) * 0.95 + (R() - 0.5) * 0.7, [204, 232, 104], [0, 70, 20], 0.26, 0.36);
       g.lineCap = 'round';
       for (let i = 0; i < 9000; i++) {
         const x = R() * S, y = R() * S, ang = -Math.PI / 2 + (R() - 0.5) * 1.5, L = 2 + R() * 4.5, lit = R() < 0.5;
-        g.strokeStyle = lit ? `rgba(240,246,184,${0.1 + R() * 0.16})` : `rgba(18,66,26,${0.08 + R() * 0.14})`;
+        g.strokeStyle = lit ? `rgba(214,244,104,${0.12 + R() * 0.2})` : `rgba(0,62,14,${0.12 + R() * 0.2})`;
         g.lineWidth = 0.8 + R() * 0.6;
         wrapped(S, x, y, 8, (px, py) => { g.beginPath(); g.moveTo(px, py); g.lineTo(px + Math.cos(ang) * L, py + Math.sin(ang) * L); g.stroke(); });
       }
@@ -447,41 +468,44 @@ function makeTextures() {
     /* large, soft tone changes for big lawns: a 37 ft tile, so it never lines up with the 10 ft turf tile */
     {
       const S = 128, a = tileNoise(S, 4, R), b = tileNoise(S, 9, R);
-      out.mottle = overlay(S, (i) => (a[i] - 0.5) * 1.5 + (b[i] - 0.5) * 0.9, [240, 244, 170], [20, 70, 28], 0.16, 0.13)[0].toDataURL('image/png');
+      out.mottle = overlay(S, (i) => (a[i] - 0.5) * 1.5 + (b[i] - 0.5) * 0.9, [222, 244, 110], [0, 66, 20], 0.15, 0.17)[0].toDataURL('image/png');
     }
-    /* foliage: sunlit and shaded leaf clusters; laid over each canopy's own color */
-    {
+    /* foliage: leaf clusters, each lit on its sunny side with a dark gap behind it; laid over each canopy's own color */
+    const foliageTile = (hi, lo) => {
       const S = 256, a = tileNoise(S, 6, R), b = tileNoise(S, 24, R);
-      const [c, g] = overlay(S, (i) => (a[i] - 0.5) * 0.9 + (b[i] - 0.5) * 0.7 + (R() - 0.5) * 0.5, [244, 250, 200], [8, 44, 14], 0.2, 0.17);
-      for (let i = 0; i < 1300; i++) {
-        const x = R() * S, y = R() * S, r = 2.5 + R() * 6.5;
+      const [c, g] = overlay(S, (i) => (a[i] - 0.5) * 0.9 + (b[i] - 0.5) * 0.8 + (R() - 0.5) * 0.5, hi, lo, 0.2, 0.3);
+      const rgba = (col, al) => `rgba(${col[0]},${col[1]},${col[2]},${al})`;
+      for (let i = 0; i < 1500; i++) {
+        const x = R() * S, y = R() * S, r = 2.2 + R() * 6;
         wrapped(S, x, y, 12, (px, py) => {
-          let gr = g.createRadialGradient(px - r * 0.25, py + r * 0.25, 0, px - r * 0.25, py + r * 0.25, r);   // shaded side, away from the sun
-          gr.addColorStop(0, 'rgba(6,40,12,0.2)'); gr.addColorStop(1, 'rgba(6,40,12,0)');
-          g.fillStyle = gr; g.beginPath(); g.arc(px - r * 0.25, py + r * 0.25, r, 0, 6.3); g.fill();
-          gr = g.createRadialGradient(px + r * 0.3, py - r * 0.3, 0, px + r * 0.3, py - r * 0.3, r * 0.75);      // sunlit side
-          gr.addColorStop(0, 'rgba(248,252,206,0.28)'); gr.addColorStop(1, 'rgba(248,252,206,0)');
-          g.fillStyle = gr; g.beginPath(); g.arc(px + r * 0.3, py - r * 0.3, r * 0.75, 0, 6.3); g.fill();
+          let gr = g.createRadialGradient(px - r * 0.3, py + r * 0.3, 0, px - r * 0.3, py + r * 0.3, r);   // the dark gap on the side away from the sun
+          gr.addColorStop(0, rgba(lo, 0.42)); gr.addColorStop(0.6, rgba(lo, 0.16)); gr.addColorStop(1, rgba(lo, 0));
+          g.fillStyle = gr; g.beginPath(); g.arc(px - r * 0.3, py + r * 0.3, r, 0, 6.3); g.fill();
+          gr = g.createRadialGradient(px + r * 0.3, py - r * 0.3, 0, px + r * 0.3, py - r * 0.3, r * 0.7);      // the sunlit leaf faces
+          gr.addColorStop(0, rgba(hi, 0.42)); gr.addColorStop(1, rgba(hi, 0));
+          g.fillStyle = gr; g.beginPath(); g.arc(px + r * 0.3, py - r * 0.3, r * 0.7, 0, 6.3); g.fill();
         });
       }
-      out.leaf = c.toDataURL('image/png');
-    }
+      return c.toDataURL('image/png');
+    };
+    out.leaf = foliageTile([206, 240, 96], [0, 46, 14]);
+    out.leafN = foliageTile([255, 244, 206], [26, 12, 10]);
     /* grain: fine light/dark speckle that takes the flatness out of stone, brick, wood and concrete */
     {
       const S = 256, b = tileNoise(S, 20, R), a = tileNoise(S, 5, R);
-      const [c] = overlay(S, (i) => (a[i] - 0.5) * 0.12 + (b[i] - 0.5) * 0.45 + (R() - 0.5) * 1.3, [255, 255, 255], [0, 0, 0], 0.2, 0.22);
+      const [c] = overlay(S, (i) => (a[i] - 0.5) * 0.12 + (b[i] - 0.5) * 0.45 + (R() - 0.5) * 1.3, [255, 248, 230], [20, 12, 4], 0.13, 0.26);
       out.grain = c.toDataURL('image/png');
     }
     /* mulch: shredded bark chips with their own small shadows */
     {
       const S = 256, a = tileNoise(S, 6, R);
-      const [c, g] = solid(S, '#6B4A31', (i) => (a[i] - 0.5) * 1.2 + (R() - 0.5), 0.2);
-      const chips = ['#7E583B', '#5A3C28', '#8F6845', '#4C3322', '#9C7650', '#6E4B32', '#AA845C', '#573A27'];
+      const [c, g] = solid(S, '#5E3A22', (i) => (a[i] - 0.5) * 1.2 + (R() - 0.5), 0.22);
+      const chips = ['#7C4A2A', '#5A331C', '#8E5730', '#4A2A17', '#9C6538', '#6C3F24', '#A9703E', '#55301B'];
       for (let i = 0; i < 2600; i++) {
         const x = R() * S, y = R() * S, ang = R() * Math.PI, L = 4 + R() * 8, w = 1.4 + R() * 2.2, col = chips[Math.floor(R() * chips.length)];
         wrapped(S, x, y, 12, (px, py) => {
           g.save(); g.translate(px, py); g.rotate(ang);
-          g.fillStyle = 'rgba(20,10,4,0.32)'; g.fillRect(-L / 2 - 0.6, -w / 2 + 0.9, L, w);
+          g.fillStyle = 'rgba(16,6,2,0.45)'; g.fillRect(-L / 2 - 0.6, -w / 2 + 0.9, L, w);
           g.fillStyle = col; g.fillRect(-L / 2, -w / 2, L, w);
           g.fillStyle = 'rgba(255,230,190,0.13)'; g.fillRect(-L / 2, -w / 2, L, w * 0.35);
           g.restore();
@@ -536,13 +560,14 @@ function makeDefs() {
   /* fine grain laid straight over a tile (4 ft image, repeated to cover larger tiles); a nested pattern here leaves gaps on stroked paths */
   const grain = (w, h) => { if (!TX) return ''; let g = ''; for (let x = 0; x < w; x += 4) for (let y = 0; y < h; y += 4) g += `<use href="#tx-grain" x="${x}" y="${y}"/>`; return g; };
   if (TX) {
-    d += img('tx-turf', 'turf', 10) + img('tx-mottle', 'mottle', 37) + img('tx-leaf', 'leaf', 7) + img('tx-grain', 'grain', 4) + img('tx-mulch', 'mulch', 4) + img('tx-soil', 'soil', 2) + img('tx-gravel', 'gravel', 3) + img('tx-concrete', 'concrete', 6) + img('tx-sand', 'sand', 2);
+    d += img('tx-turf', 'turf', 10) + img('tx-mottle', 'mottle', 37) + img('tx-leaf', 'leaf', 7) + img('tx-leafN', 'leafN', 7) + img('tx-grain', 'grain', 4) + img('tx-mulch', 'mulch', 4) + img('tx-soil', 'soil', 2) + img('tx-gravel', 'gravel', 3) + img('tx-concrete', 'concrete', 6) + img('tx-sand', 'sand', 2);
     // lawns: each grass keeps its own (muted, natural) color under the shared turf texture; mowing stripes are only a hint
     for (const p of PLANTS.filter((x) => x.t === 'turf')) d += pat('ld-lawn-' + p.id, 10, 10, `<rect width="10" height="10" fill="${turfColor(p.c)}"/><use href="#tx-turf"/><rect width="5" height="10" fill="#0A2A0A" fill-opacity="0.055"/><rect x="5" width="5" height="10" fill="#F4FFD0" fill-opacity="0.11"/>`);
     d += pat('ld-mottle', 37, 37, '<use href="#tx-mottle"/>');
     d += pat('ld-mulch', 4, 4, '<use href="#tx-mulch"/>') + pat('ld-soil', 2, 2, '<use href="#tx-soil"/>') + pat('ld-gravel', 3, 3, '<use href="#tx-gravel"/>');
     d += pat('ld-grain', 4, 4, '<use href="#tx-grain"/>') + pat('ld-leafA', 7, 7, '<use href="#tx-leaf"/>') + pat('ld-leafB', 3, 3, '<use href="#tx-leaf" transform="scale(0.42857)"/>');
     d += pat('ld-leafy', 3, 3, '<use href="#tx-leaf" transform="scale(0.42857)"/>');
+    d += pat('ld-leafNA', 7, 7, '<use href="#tx-leafN"/>') + pat('ld-leafNB', 3, 3, '<use href="#tx-leafN" transform="scale(0.42857)"/>');
   } else {
     for (const p of PLANTS.filter((x) => x.t === 'turf')) {
       const a = turfColor(p.c), b = shade(a, 0.06);
@@ -552,7 +577,7 @@ function makeDefs() {
     d += pat('ld-soil', 2, 2, `<rect width="2" height="2" fill="#5D4330"/>` + specks(2, 2, 30, ['#4A3424', '#715239'], 0.04, 0.09));
     d += pat('ld-gravel', 2, 2, `<rect width="2" height="2" fill="#D8D1C2"/>` + specks(2, 2, 60, ['#B9AF9C', '#EDE7DA', '#A39985', '#CFC6B4'], 0.05, 0.13));
     d += pat('ld-leafy', 1.2, 1.2, specks(1.2, 1.2, 26, ['rgba(0,0,0,.22)', 'rgba(255,255,255,.18)', 'rgba(0,0,0,.12)'], 0.06, 0.16));
-    d += pat('ld-grain', 4, 4, '') + pat('ld-leafA', 7, 7, '') + pat('ld-leafB', 3, 3, '') + pat('ld-mottle', 37, 37, '');
+    d += pat('ld-grain', 4, 4, '') + pat('ld-leafA', 7, 7, '') + pat('ld-leafB', 3, 3, '') + pat('ld-leafNA', 7, 7, '') + pat('ld-leafNB', 3, 3, '') + pat('ld-mottle', 37, 37, '');
   }
   d += pat('ld-concrete', 5, 5, (TX ? '<use href="#tx-concrete"/>' : `<rect width="5" height="5" fill="#D9D6CE"/>` + specks(5, 5, 50, ['#CBC7BD', '#E4E1DA'], 0.04, 0.1)) +
     `<path d="M0,0H5M0,0V5" stroke="#8F8A7E" stroke-width="0.09"/><path d="M0.07,0.07H5M0.07,0.07V5" stroke="#fff" stroke-opacity="0.35" stroke-width="0.05"/>`);
@@ -628,7 +653,7 @@ function makeDefs() {
   // filters and gradients
   d += '<filter id="ld-soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="0.45"/></filter>';
   d += '<filter id="ld-softw" x="-120%" y="-120%" width="340%" height="340%"><feGaussianBlur stdDeviation="0.35"/></filter>';
-  d += '<radialGradient id="ld-dome" cx="0.62" cy="0.4" r="0.7"><stop offset="0" stop-color="#fff" stop-opacity="0.32"/><stop offset="0.45" stop-color="#fff" stop-opacity="0"/><stop offset="0.75" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.28"/></radialGradient>';
+  d += '<radialGradient id="ld-dome" cx="0.66" cy="0.32" r="0.86"><stop offset="0" stop-color="#FFF3A8" stop-opacity="0.26"/><stop offset="0.38" stop-color="#FFF3A8" stop-opacity="0.04"/><stop offset="0.62" stop-color="#021208" stop-opacity="0.1"/><stop offset="1" stop-color="#021208" stop-opacity="0.52"/></radialGradient>';
   d += '<radialGradient id="ld-water" cx="0.45" cy="0.4" r="0.7"><stop offset="0" stop-color="#BFE3F5"/><stop offset="0.6" stop-color="#6FB3D8"/><stop offset="1" stop-color="#3C82AE"/></radialGradient>';
   d += furnDefs(pat, specks, R);
   return `<defs>${d}</defs>`;
@@ -655,21 +680,21 @@ function lobed(r, k, rng, jit) {
   return d + 'Z';
 }
 /* the shadow a building throws */
-const castShadow = (d, dx, dy, op) => `<path d="${d}" transform="translate(${n(-dx)} ${n(dy)})" fill="#0E1408" fill-opacity="${op}" filter="url(#ld-soft)"/>`;
+const castShadow = (d, dx, dy, op) => `<path d="${d}" transform="translate(${n(-dx)} ${n(dy)})" fill="#06100A" fill-opacity="${n(Math.min(0.6, op * 1.35))}" filter="url(#ld-soft)"/>`;
 /* plant shadows: the few big crowns get a true blur; the many small plants get stacked copies, which fade the edge
  * almost as well at that size and cost a fraction of a filter to draw */
 const shadowOf = (d, r, o, op) => {
   if (o.icon) return '';
   const tr = `translate(${n(-0.2 * r - 0.25)} ${n(0.12 * r + 0.15)})`;
-  if (r >= 4) return `<path d="${d}" transform="${tr}" fill="#0E1A08" fill-opacity="${op || 0.32}" filter="url(#ld-soft)"/>`;
-  return `<g transform="${tr}" fill="#0E1A08" fill-opacity="${n((op || 0.32) * 0.34)}"><path d="${d}" transform="scale(1.1)"/><path d="${d}" transform="scale(1.03)"/><path d="${d}" transform="scale(0.95)"/><path d="${d}" transform="scale(0.86)"/></g>`;
+  if (r >= 4) return `<path d="${d}" transform="${tr}" fill="#06120A" fill-opacity="${n(Math.min(0.6, (op || 0.32) * 1.4))}" filter="url(#ld-soft)"/>`;
+  return `<g transform="${tr}" fill="#06120A" fill-opacity="${n((op || 0.32) * 0.46)}"><path d="${d}" transform="scale(1.1)"/><path d="${d}" transform="scale(1.03)"/><path d="${d}" transform="scale(0.95)"/><path d="${d}" transform="scale(0.86)"/></g>`;
 };
 function foliage(r, c, rng, count, size) {
   let s = '';
   for (let i = 0; i < count; i++) {
     const a = rng() * 2 * Math.PI, dd = Math.sqrt(rng()) * r * 0.68, cr = r * (size + rng() * size * 0.8);
     const light = Math.cos(a) * 0.5 - Math.sin(a) * 0.3 + (rng() - 0.5) > 0;
-    s += `<path d="${lobed(cr, 6, rng, 0.25)}" transform="translate(${n(dd * Math.cos(a))} ${n(dd * Math.sin(a))})" fill="${shade(c, light ? 0.22 : -0.22)}" fill-opacity="0.4"/>`;
+    s += `<path d="${lobed(cr, 6, rng, 0.25)}" transform="translate(${n(dd * Math.cos(a))} ${n(dd * Math.sin(a))})" fill="${light ? tone(c, 0.14, 0.1, -6) : tone(c, 0.1, -0.15, 8)}" fill-opacity="0.45"/>`;
   }
   return s;
 }
@@ -717,7 +742,7 @@ function leaves(shape, R, count, size, rng, c, spread, op) {
     if (light > 0) lit += p; else dark += p;
   }
   const f = Math.min(1, (op || 0.85) + 0.1);
-  return `<g fill="${shade(c, -0.26)}" fill-opacity="${n(0.3 * f)}">${dark}</g><g fill="${shade(c, 0.24)}" fill-opacity="${n(0.5 * f)}">${lit}</g>`;
+  return `<g fill="${tone(c, 0.1, -0.17, 8)}" fill-opacity="${n(0.5 * f)}">${dark}</g><g fill="${tone(c, 0.14, 0.1, -6)}" fill-opacity="${n(0.44 * f)}">${lit}</g>`;
 }
 function limbs(r, k, rng, c, len, w) {
   let d = '';
@@ -955,8 +980,9 @@ const FORMS = {
   },
 };
 function plantForm(it, o, rng, def, defForm) {
-  const sp = spOf(it) || PLANT_BY_ID[def];
-  leafTex = it.r < 5 ? 'ld-leafB' : 'ld-leafA';
+  const sp0 = spOf(it) || PLANT_BY_ID[def];
+  const sp = Object.assign({}, sp0, { c: tone(sp0.c, 0.32, -0.045) }, sp0.fl ? { fl: tone(sp0.fl, 0.2, 0) } : {}, sp0.ac ? { ac: tone(sp0.ac, 0.25, 0) } : {});
+  leafTex = (isGreen(sp0.c) ? 'ld-leaf' : 'ld-leafN') + (it.r < 5 ? 'B' : 'A');
   return (FORMS[sp.f] || FORMS[defForm])(it.r, sp, o, rng);
 }
 const RDRAW = {
@@ -1063,8 +1089,8 @@ function fencePosts(pts, gap) {
 /* plant clumps on a jittered hex grid inside a test function */
 /* one plant clump (rendered) */
 function clump(sp, px, py, rng, o, spc) {
-  const kind = sp.t, rr = spc * (kind === 'annual' ? 0.5 : kind === 'groundcover' ? 0.55 : 0.46), c = sp.c;
-  let s = `<g transform="translate(${n(px)} ${n(py)})"><path d="${lobed(rr, kind === 'groundcover' ? 9 : 6, rng, 0.2)}" fill="${shade(c, (rng() - 0.5) * 0.18)}" stroke="${shade(c, -0.4)}" stroke-opacity="0.6" stroke-width="${n(o.u * 0.4)}"/><path d="${lobed(rr * 0.55, 5, rng, 0.3)}" transform="translate(${n(rr * 0.16)} ${n(-rr * 0.16)})" fill="${shade(c, 0.24)}" fill-opacity="0.45"/>`;
+  const kind = sp.t, rr = spc * (kind === 'annual' ? 0.5 : kind === 'groundcover' ? 0.55 : 0.46), c = tone(sp.c, 0.3, -0.04);
+  let s = `<g transform="translate(${n(px)} ${n(py)})"><path d="${lobed(rr, kind === 'groundcover' ? 9 : 6, rng, 0.2)}" fill="${shade(c, (rng() - 0.5) * 0.18)}" stroke="${shade(c, -0.4)}" stroke-opacity="0.6" stroke-width="${n(o.u * 0.4)}"/><path d="${lobed(rr * 0.55, 5, rng, 0.3)}" transform="translate(${n(rr * 0.16)} ${n(-rr * 0.16)})" fill="${tone(c, 0.15, 0.13, -8)}" fill-opacity="0.55"/>`;
   if (sp.fl) {
     const cnt = kind === 'annual' ? 6 : kind === 'groundcover' ? 3 : 4;
     for (let i = 0; i < cnt; i++) { const a = rng() * 6.283, d = rng() * rr * 0.75; s += `<circle cx="${n(d * Math.cos(a))}" cy="${n(d * Math.sin(a))}" r="${n(rr * (kind === 'annual' ? 0.24 : 0.18))}" fill="${shade(sp.fl, (rng() - 0.5) * 0.15)}"/>`; }
@@ -1124,7 +1150,7 @@ function plantedBedInner(d, insideF, bb, mix, o, rng, type) {
   }
   if (carpet) {
     const sp = mix[0].sp;
-    let s = `<path d="${d}" fill="${sp.c}" stroke="${shade(sp.c, -0.45)}" stroke-opacity="0.7" stroke-width="${n(o.u * 0.6)}"/><path d="${d}" fill="url(#ld-leafy)"/>`;
+    let s = `<path d="${d}" fill="${tone(sp.c, 0.3, -0.05)}" stroke="${shade(sp.c, -0.5)}" stroke-opacity="0.8" stroke-width="${n(o.u * 0.6)}"/><path d="${d}" fill="url(#ld-leafy)"/>`;
     if (sp.fl) { const ins = insideF(0.3); for (let i = 0, cnt = Math.round((bb[2] - bb[0]) * (bb[3] - bb[1]) / 3); i < cnt; i++) { const x = bb[0] + rng() * (bb[2] - bb[0]), y = bb[1] + rng() * (bb[3] - bb[1]); if (ins(x, y)) s += `<circle cx="${n(x)}" cy="${n(y)}" r="0.14" fill="${sp.fl}"/>`; } }
     return s;
   }

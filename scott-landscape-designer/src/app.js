@@ -606,17 +606,17 @@ const SITE_UTIL = CORE.site.slice(UTIL_FROM, UTIL_TO).join('');
 const SITE_NOTES = CORE.site.slice(0, UTIL_FROM).concat(CORE.site.slice(UTIL_TO)).join('');
 /* hip roof on a rectangle: faces shaded as if lit from the south (page right) */
 function hipRoof(x1, y1, x2, y2, o) {
-  const w = x2 - x1, h = y2 - y1, base = o.render ? '#CBC5BA' : (o.color ? '#EFEEE9' : '#fff');
+  const w = x2 - x1, h = y2 - y1, base = o.render ? '#A89B8A' : (o.color ? '#EFEEE9' : '#fff');
   const tone = (k) => (o.render ? shade(base, k) : base);
   let R1, R2, faces;
   if (w >= h) {
     const r = h / 2; R1 = [x1 + r, y1 + r]; R2 = [x2 - r, y1 + r];
-    faces = [[[[x1, y1], [x2, y1], R2, R1], 0.1], [[[x1, y2], [x2, y2], R2, R1], -0.08], [[[x1, y1], R1, [x1, y2]], -0.2], [[[x2, y1], R2, [x2, y2]], 0.22]];
+    faces = [[[[x1, y1], [x2, y1], R2, R1], 0.16], [[[x1, y2], [x2, y2], R2, R1], -0.1], [[[x1, y1], R1, [x1, y2]], -0.3], [[[x2, y1], R2, [x2, y2]], 0.3]];
   } else {
     const r = w / 2; R1 = [x1 + r, y1 + r]; R2 = [x1 + r, y2 - r];
-    faces = [[[[x1, y1], [x1, y2], R2, R1], -0.2], [[[x2, y1], [x2, y2], R2, R1], 0.22], [[[x1, y1], [x2, y1], R1], 0.1], [[[x1, y2], [x2, y2], R2], -0.08]];
+    faces = [[[[x1, y1], [x1, y2], R2, R1], -0.3], [[[x2, y1], [x2, y2], R2, R1], 0.3], [[[x1, y1], [x2, y1], R1], 0.16], [[[x1, y2], [x2, y2], R2], -0.1]];
   }
-  const line = o.render ? '#6E675E' : INK;
+  const line = o.render ? '#4E463C' : INK;
   let s = faces.map(([pts, k]) => `<path d="${ptsD(pts)}Z" fill="${tone(k)}"/>`).join('');
   if (o.render) s += `<rect x="${n(x1)}" y="${n(y1)}" width="${n(w)}" height="${n(h)}" fill="url(#ld-shingle2)"/>`;
   s += `<path d="M${n(R1[0])},${n(R1[1])}L${n(R2[0])},${n(R2[1])}M${n(x1)},${n(y1)}L${n(R1[0])},${n(R1[1])}M${n(x2)},${n(y1)}L${n(R2[0])},${n(R2[1])}M${n(x1)},${n(y2)}L${n(w >= h ? R1[0] : R2[0])},${n(w >= h ? R1[1] : R2[1])}M${n(x2)},${n(y2)}L${n(R2[0])},${n(R2[1])}" stroke="${line}" stroke-width="0.14" fill="none"/>`;
@@ -628,7 +628,7 @@ function cleanHouse(o) {
   if (o.render) s += castShadow(`${ptsD(HOUSE)}Z${ptsD(GARAGE)}Z`, 1.8, 1, 0.34);
   s += hipRoof(14, 53, 34, 80, o);                                   // garage
   s += hipRoof(34, 47, 75, 74, o);                                   // house, main block
-  s += `<path d="M34,44H59V47H34Z" fill="${o.render ? shade('#CBC5BA', 0.1) : (o.color ? '#EFEEE9' : '#fff')}" stroke="${o.render ? '#6E675E' : INK}" stroke-width="0.14"/>`;  // rear bay
+  s += `<path d="M34,44H59V47H34Z" fill="${o.render ? shade('#A89B8A', 0.16) : (o.color ? '#EFEEE9' : '#fff')}" stroke="${o.render ? '#4E463C' : INK}" stroke-width="0.14"/>`;  // rear bay
   s += `<rect x="75" y="57" width="1.6" height="6" fill="${paper}" stroke="${ink}" stroke-width="0.15"/>`;   // chimney
   s += `<path d="${ptsD(GARAGE)}Z" fill="none" stroke="${o.render ? '#2B2824' : ink}" stroke-width="${o.render ? 0.26 : 0.34}"/><path d="${ptsD(HOUSE)}Z" fill="none" stroke="${o.render ? '#2B2824' : ink}" stroke-width="${o.render ? 0.3 : 0.4}" stroke-linejoin="miter"/>`;
   // doors: openings in the wall with a stoop, so students can see where walks must go
