@@ -116,7 +116,7 @@ aside.rail{background:var(--chrome-2);border-right:1px solid #000;padding:6px 0;
 .libtabs button{flex:1 1 0;min-width:0;padding:0 3px;overflow:hidden;text-overflow:ellipsis;height:30px;white-space:nowrap;border:0;background:transparent;color:var(--dim);font-family:var(--display);font-weight:500;font-size:12px;letter-spacing:.04em;text-transform:uppercase;border-right:1px solid #1A1B19}
 .libtabs button[aria-selected="true"]{background:var(--panel);color:var(--text);box-shadow:inset 0 -2px 0 var(--gold)}
 .libtabs button:hover{color:var(--text)}
-.libtools[hidden],.libinfo[hidden]{display:none}
+.libtools[hidden],.libinfo[hidden],.row2[hidden]{display:none}
 .libtools{padding:8px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px;flex:none}
 .search{position:relative}
 .search svg{position:absolute;left:8px;top:7px;width:14px;height:14px;stroke:var(--dim);fill:none;stroke-width:2;stroke-linecap:round}
@@ -336,11 +336,12 @@ dialog::backdrop{background:rgba(10,12,10,.55)}
 
 <section class="lib" id="lib" aria-label="Library">
   <div class="phead"><h2>Library</h2><button class="iconbtn" id="libClose" aria-label="Hide plant library" title="Hide plant library"><svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button></div>
-  <div class="libtabs" role="tablist" aria-label="Library"><button type="button" role="tab" data-libtab="plants" aria-selected="true">Plants</button><button type="button" role="tab" data-libtab="build" aria-selected="false">Build</button><button type="button" role="tab" data-libtab="living" aria-selected="false" title="Outdoor living: furniture, shade, cooking and fire, pools and spas, play">Outdoor</button></div>
+  <div class="libtabs" role="tablist" aria-label="Library"><button type="button" role="tab" data-libtab="plants" aria-selected="true">Plants</button><button type="button" role="tab" data-libtab="build" aria-selected="false">Build</button><button type="button" role="tab" data-libtab="living" aria-selected="false" title="Outdoor living: furniture, shade, cooking and fire, pools and spas, play">Outdoor</button><button type="button" role="tab" data-libtab="garden" aria-selected="false" title="Gardens: vegetable beds, giant pumpkins, trellises, pollinators, growing structures, teaching">Garden</button></div>
   <div class="libtools" id="libPlantTools">
     <div class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="libSearch" type="search" placeholder="Search plants" aria-label="Search plants"></div>
     <select id="libCat" aria-label="Plant category"></select>
     <div class="libfilters" id="libSun" role="group" aria-label="Sun"></div>
+    <div class="libfilters" id="libTags" role="group" aria-label="Plant uses"></div>
     <button type="button" class="btn" id="libAddPlant" style="justify-content:center"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add your own plant</button>
   </div>
   <div class="liblist" id="libList"></div>
@@ -830,6 +831,9 @@ const CORE = {"base": ["<rect x=\"72.0\" y=\"1203.2\" width=\"883.2\" height=\"8
  * cn/bn: common and botanical name; w/h: mature spread and height (ft); sun: F full, P part, S shade
  * z: USDA hardiness zones; c: foliage color for the rendered plan; fl: flower color (optional)
  * spc: on-center spacing (ft) for bed plants, used to estimate quantities; note: one line for students.
+ * v: a vegetable, herb or fruit crop (its own library group; planted in rows). row: row spacing (ft); yl: typical
+ *    yield per plant (lb) for a home garden; sea: 'cool' or 'warm' season; fl on a crop is its fruit or flower color.
+ * pol: valuable to pollinators; bl: when it blooms ('sp', 'su', 'fa', joined with /); host: the butterfly it feeds as a caterpillar.
  * g: an ornamental grass (its own library group and tufted symbol; pl: 'haze' draws a soft cloud of bloom instead of plumes).
  */
 const PLANTS = [
@@ -840,11 +844,11 @@ const PLANTS = [
   { id: 'qush', t: 'dtree', cn: 'Shumard oak', bn: 'Quercus shumardii', w: 40, h: 50, sun: 'F', z: '5–9', f: 'oak', c: '#3F6A2E', note: 'Native; red fall color; acorns feed wildlife.' },
   { id: 'beni', t: 'dtree', cn: 'River birch', bn: 'Betula nigra', w: 35, h: 45, sun: 'F/P', z: '4–9', f: 'birch', c: '#96BA5E', note: 'Peeling bark; handles wet spots.' },
   { id: 'gibi', t: 'dtree', cn: 'Ginkgo', bn: 'Ginkgo biloba', w: 30, h: 50, sun: 'F', z: '3–8', f: 'ginkgo', c: '#AFC24A', note: 'Gold fall color. Plant male trees only.' },
-  { id: 'ceca', t: 'dtree', cn: 'Eastern redbud', bn: 'Cercis canadensis', w: 25, h: 25, sun: 'F/P', z: '4–9', f: 'redbud', c: '#6E9A3E', fl: '#C75B9B', note: 'Small native tree; pink flowers in early spring.' },
+  { id: 'ceca', t: 'dtree', cn: 'Eastern redbud', bn: 'Cercis canadensis', w: 25, h: 25, sun: 'F/P', z: '4–9', f: 'redbud', c: '#6E9A3E', fl: '#C75B9B', pol: true, bl: 'sp', note: 'Small native tree; pink flowers in early spring.' },
   { id: 'cofl', t: 'dtree', cn: 'Flowering dogwood', bn: 'Cornus florida', w: 20, h: 20, sun: 'P', z: '5–9', f: 'dogwood', c: '#5A873C', fl: '#F4F1E6', note: 'Native understory tree; white spring flowers, red berries for birds.' },
   { id: 'lain', t: 'dtree', cn: 'Crape myrtle', bn: 'Lagerstroemia indica', w: 15, h: 20, sun: 'F', z: '7–9', f: 'crape', c: '#6D9947', fl: '#D45C8C', note: 'Summer flowers; small enough for tight spots.' },
   { id: 'acpa', t: 'dtree', cn: 'Japanese maple', bn: 'Acer palmatum', w: 15, h: 15, sun: 'P', z: '5–8', f: 'jmaple', c: '#9A3E35', note: 'Small accent tree; red leaves. Likes afternoon shade.' },
-  { id: 'amar', t: 'dtree', cn: 'Serviceberry', bn: 'Amelanchier arborea', w: 15, h: 20, sun: 'F/P', z: '4–9', f: 'multistem', c: '#7CA250', fl: '#FBFAF4', note: 'White spring flowers; berries for birds and people.' },
+  { id: 'amar', t: 'dtree', cn: 'Serviceberry', bn: 'Amelanchier arborea', w: 15, h: 20, sun: 'F/P', z: '4–9', f: 'multistem', c: '#7CA250', fl: '#FBFAF4', pol: true, bl: 'sp', note: 'White spring flowers; berries for birds and people.' },
   { id: 'mado', t: 'dtree', cn: 'Apple', bn: "Malus domestica 'Honeycrisp'", w: 15, h: 15, sun: 'F', z: '4–8', f: 'fruit', c: '#5E9440', fr: '#C8322B', fl: '#F3D6DF', note: 'Fruit tree. Plant two varieties for pollination.' },
   { id: 'prpe', t: 'dtree', cn: 'Peach', bn: "Prunus persica 'Redhaven'", w: 15, h: 15, sun: 'F', z: '5–8', f: 'fruit', c: '#7AA54A', fr: '#F0A04B', fl: '#EFA3BC', note: 'Self-fruitful fruit tree; needs full sun.' },
   // ---- evergreen trees
@@ -868,24 +872,24 @@ const PLANTS = [
   { id: 'hyqu', t: 'dshrub', cn: 'Oakleaf hydrangea', bn: 'Hydrangea quercifolia', w: 6, h: 6, sun: 'P/S', z: '5–9', f: 'mophead', c: '#5C8A3E', fl: '#F6F2E4', note: 'Native; white flowers, red fall leaves.' },
   { id: 'hyma', t: 'dshrub', cn: 'Bigleaf hydrangea', bn: 'Hydrangea macrophylla', w: 5, h: 5, sun: 'P', z: '6–9', f: 'mophead', c: '#5F9042', fl: '#7E8FD6', note: 'Blue flowers in acid soil. Morning sun.' },
   { id: 'roko', t: 'dshrub', cn: 'Knock Out rose', bn: "Rosa 'Knock Out'", w: 4, h: 4, sun: 'F', z: '5–9', f: 'rose', c: '#4F7E3A', fl: '#D62F4E', note: 'Easy rose; blooms spring to frost.' },
-  { id: 'itvi', t: 'dshrub', cn: 'Virginia sweetspire', bn: "Itea virginica 'Henry's Garnet'", w: 5, h: 4, sun: 'F/P/S', z: '5–9', f: 'shrub', c: '#5E8C40', fl: '#FAF7EC', note: 'Native; handles wet soil; red fall color.' },
-  { id: 'caam', t: 'dshrub', cn: 'American beautyberry', bn: 'Callicarpa americana', w: 5, h: 5, sun: 'F/P', z: '6–10', f: 'berry', c: '#6E9A48', fl: '#9B4FB0', note: 'Native; purple berries that birds love.' },
-  { id: 'budo', t: 'dshrub', cn: 'Butterfly bush', bn: 'Buddleja davidii', w: 6, h: 6, sun: 'F', z: '5–9', f: 'shrub', c: '#7D9A6A', fl: '#8E63B8', note: 'Draws butterflies and hummingbirds.' },
+  { id: 'itvi', t: 'dshrub', cn: 'Virginia sweetspire', bn: "Itea virginica 'Henry's Garnet'", w: 5, h: 4, sun: 'F/P/S', z: '5–9', f: 'shrub', c: '#5E8C40', fl: '#FAF7EC', pol: true, bl: 'sp', note: 'Native; handles wet soil; red fall color.' },
+  { id: 'caam', t: 'dshrub', cn: 'American beautyberry', bn: 'Callicarpa americana', w: 5, h: 5, sun: 'F/P', z: '6–10', f: 'berry', c: '#6E9A48', fl: '#9B4FB0', pol: true, bl: 'su', note: 'Native; purple berries that birds love.' },
+  { id: 'budo', t: 'dshrub', cn: 'Butterfly bush', bn: 'Buddleja davidii', w: 6, h: 6, sun: 'F', z: '5–9', f: 'shrub', c: '#7D9A6A', fl: '#8E63B8', pol: true, bl: 'su/fa', note: 'Draws butterflies and hummingbirds.' },
   { id: 'spja', t: 'dshrub', cn: "Spirea 'Goldflame'", bn: "Spiraea japonica 'Goldflame'", w: 3, h: 3, sun: 'F', z: '4–9', f: 'fine', c: '#B4B44B', fl: '#E58AAE', note: 'Small; gold leaves and pink flowers.' },
-  { id: 'vaas', t: 'dshrub', cn: 'Rabbiteye blueberry', bn: 'Vaccinium virgatum', w: 5, h: 6, sun: 'F', z: '7–9', f: 'berry', c: '#5B8A47', fl: '#3E5BA8', note: 'Edible berries. Plant two varieties.' },
+  { id: 'vaas', t: 'dshrub', cn: 'Rabbiteye blueberry', bn: 'Vaccinium virgatum', w: 5, h: 6, sun: 'F', z: '7–9', f: 'berry', c: '#5B8A47', fl: '#3E5BA8', pol: true, bl: 'sp', note: 'Edible berries. Plant two varieties.' },
   // ---- perennials (beds)
-  { id: 'ruhi', t: 'perennial', cn: 'Black-eyed Susan', bn: "Rudbeckia fulgida 'Goldsturm'", w: 2, h: 2, sun: 'F', z: '4–9', c: '#55803A', fl: '#F2B705', spc: 1.5, note: 'Native; summer gold flowers; seed for finches.' },
-  { id: 'ecpu', t: 'perennial', cn: 'Purple coneflower', bn: 'Echinacea purpurea', w: 2, h: 3, sun: 'F', z: '3–9', c: '#56803B', fl: '#C1569A', spc: 1.5, note: 'Native; butterflies and goldfinches.' },
+  { id: 'ruhi', t: 'perennial', cn: 'Black-eyed Susan', bn: "Rudbeckia fulgida 'Goldsturm'", w: 2, h: 2, sun: 'F', z: '4–9', c: '#55803A', fl: '#F2B705', spc: 1.5, pol: true, bl: 'su/fa', note: 'Native; summer gold flowers; seed for finches.' },
+  { id: 'ecpu', t: 'perennial', cn: 'Purple coneflower', bn: 'Echinacea purpurea', w: 2, h: 3, sun: 'F', z: '3–9', c: '#56803B', fl: '#C1569A', spc: 1.5, pol: true, bl: 'su', note: 'Native; butterflies and goldfinches.' },
   { id: 'hesd', t: 'perennial', cn: "Daylily 'Stella de Oro'", bn: "Hemerocallis 'Stella de Oro'", w: 2, h: 1.5, sun: 'F/P', z: '3–9', c: '#5E8F3E', fl: '#F3B11C', spc: 1.5, note: 'Reblooming; very tough edging plant.' },
   { id: 'hosp', t: 'perennial', cn: 'Hosta', bn: 'Hosta spp.', w: 3, h: 2, sun: 'S/P', z: '3–9', c: '#5E8A72', fl: '#C9B8E2', spc: 2, note: 'Shade beds on the north side.' },
-  { id: 'peat', t: 'perennial', cn: 'Russian sage', bn: 'Salvia yangii', w: 3, h: 4, sun: 'F', z: '4–9', c: '#8FA28C', fl: '#8C7EC9', spc: 2.5, note: 'Lavender spikes; heat and drought tolerant.' },
-  { id: 'phpa', t: 'perennial', cn: 'Garden phlox', bn: "Phlox paniculata 'David'", w: 2.5, h: 3.5, sun: 'F/P', z: '4–8', c: '#5A873C', fl: '#F7F4F8', spc: 2, note: 'Fragrant; hummingbirds and butterflies.' },
-  { id: 'cove', t: 'perennial', cn: 'Threadleaf coreopsis', bn: "Coreopsis verticillata 'Zagreb'", w: 1.5, h: 1.5, sun: 'F', z: '3–9', c: '#6C9447', fl: '#F5C518', spc: 1.5, note: 'Fine leaves, yellow flowers all summer.' },
+  { id: 'peat', t: 'perennial', cn: 'Russian sage', bn: 'Salvia yangii', w: 3, h: 4, sun: 'F', z: '4–9', c: '#8FA28C', fl: '#8C7EC9', spc: 2.5, pol: true, bl: 'su/fa', note: 'Lavender spikes; heat and drought tolerant.' },
+  { id: 'phpa', t: 'perennial', cn: 'Garden phlox', bn: "Phlox paniculata 'David'", w: 2.5, h: 3.5, sun: 'F/P', z: '4–8', c: '#5A873C', fl: '#F7F4F8', spc: 2, pol: true, bl: 'su', note: 'Fragrant; hummingbirds and butterflies.' },
+  { id: 'cove', t: 'perennial', cn: 'Threadleaf coreopsis', bn: "Coreopsis verticillata 'Zagreb'", w: 1.5, h: 1.5, sun: 'F', z: '3–9', c: '#6C9447', fl: '#F5C518', spc: 1.5, pol: true, bl: 'su', note: 'Fine leaves, yellow flowers all summer.' },
   // ---- annuals (beds)
-  { id: 'ziel', t: 'annual', cn: 'Zinnia', bn: 'Zinnia elegans', w: 1, h: 2.5, sun: 'F', z: 'annual', c: '#5C8B3D', fl: '#E8573B', spc: 1, note: 'Bright cut flowers; butterflies.' },
+  { id: 'ziel', t: 'annual', cn: 'Zinnia', bn: 'Zinnia elegans', w: 1, h: 2.5, sun: 'F', z: 'annual', c: '#5C8B3D', fl: '#E8573B', spc: 1, pol: true, bl: 'su/fa', note: 'Bright cut flowers; butterflies.' },
   { id: 'caro', t: 'annual', cn: 'Vinca', bn: 'Catharanthus roseus', w: 1, h: 1, sun: 'F', z: 'annual', c: '#3F7337', fl: '#E87BB0', spc: 1, note: 'Handles Arkansas heat.' },
   { id: 'bese', t: 'annual', cn: 'Wax begonia', bn: 'Begonia semperflorens', w: 1, h: 1, sun: 'P/S', z: 'annual', c: '#4A7A3A', fl: '#D8344A', spc: 0.75, note: 'Shade color.' },
-  { id: 'taer', t: 'annual', cn: 'Marigold', bn: 'Tagetes erecta', w: 1, h: 1.5, sun: 'F', z: 'annual', c: '#5A8A3C', fl: '#F39A1E', spc: 1, note: 'Easy; good in the vegetable garden too.' },
+  { id: 'taer', t: 'annual', cn: 'Marigold', bn: 'Tagetes erecta', w: 1, h: 1.5, sun: 'F', z: 'annual', c: '#5A8A3C', fl: '#F39A1E', spc: 1, pol: true, bl: 'su/fa', note: 'Easy; good in the vegetable garden too.' },
   { id: 'pehy', t: 'annual', cn: 'Petunia', bn: 'Petunia × hybrida', w: 1.5, h: 1, sun: 'F', z: 'annual', c: '#4F8139', fl: '#8B4FB8', spc: 1, note: 'Spreading summer color.' },
   { id: 'viwi', t: 'annual', cn: 'Pansy', bn: 'Viola × wittrockiana', w: 0.75, h: 0.75, sun: 'F/P', z: 'annual', c: '#4A7D3A', fl: '#6B5BC4', spc: 0.75, note: 'Cool-season color, fall to spring.' },
   // ---- ground covers
@@ -894,6 +898,71 @@ const PLANTS = [
   { id: 'trja', t: 'groundcover', cn: 'Asiatic jasmine', bn: 'Trachelospermum asiaticum', w: 3, h: 0.75, sun: 'F/P/S', z: '7–10', c: '#3C6534', spc: 1.5, note: 'Evergreen carpet; slopes and shade.' },
   { id: 'phsu', t: 'groundcover', cn: 'Creeping phlox', bn: 'Phlox subulata', w: 2, h: 0.5, sun: 'F', z: '3–9', c: '#5F8A42', fl: '#C995D8', spc: 1.5, note: 'Spring carpet of flowers.' },
   { id: 'ajre', t: 'groundcover', cn: 'Ajuga', bn: 'Ajuga reptans', w: 1.5, h: 0.5, sun: 'P/S', z: '3–9', c: '#5A4A5E', fl: '#5B5FC0', spc: 1, note: 'Bronze leaves; blue spring spikes.' },
+  // ---- pollinator plants: native perennials and long-blooming annuals (bl = bloom season)
+  { id: 'astu', t: 'perennial', cn: 'Butterfly weed', bn: 'Asclepias tuberosa', w: 1.5, h: 2, sun: 'F', z: '3–9', c: '#5E8A3C', fl: '#F28C1E', spc: 1.5, pol: true, bl: 'su', host: 'monarch', note: 'Native milkweed; monarch caterpillars eat nothing else. Dry soil, full sun.' },
+  { id: 'asin', t: 'perennial', cn: 'Swamp milkweed', bn: 'Asclepias incarnata', w: 2, h: 4, sun: 'F', z: '3–9', c: '#5A8840', fl: '#D8779E', spc: 2, pol: true, bl: 'su', host: 'monarch', note: 'Native milkweed for average to wet soil; monarch host plant.' },
+  { id: 'modi', t: 'perennial', cn: 'Bee balm', bn: 'Monarda didyma', w: 2.5, h: 3, sun: 'F/P', z: '4–9', c: '#5C8B45', fl: '#C7305A', spc: 2, pol: true, bl: 'su', note: 'Native mint; bees, butterflies and hummingbirds. Spreads.' },
+  { id: 'agfo', t: 'perennial', cn: 'Anise hyssop', bn: 'Agastache foeniculum', w: 1.5, h: 3, sun: 'F', z: '4–9', c: '#6B9455', fl: '#8A6BC4', spc: 1.5, pol: true, bl: 'su/fa', note: 'Blooms for months; one of the best bee plants.' },
+  { id: 'lisp', t: 'perennial', cn: 'Blazing star', bn: 'Liatris spicata', w: 1.5, h: 3, sun: 'F', z: '3–9', c: '#5E8C42', fl: '#A85CC0', spc: 1.25, pol: true, bl: 'su', note: 'Native purple spikes; a butterfly magnet.' },
+  { id: 'pedi', t: 'perennial', cn: 'Foxglove beardtongue', bn: 'Penstemon digitalis', w: 1.5, h: 3, sun: 'F/P', z: '3–8', c: '#5B8742', fl: '#F6F1F4', spc: 1.5, pol: true, bl: 'sp', note: 'Native; white spring bloom for bumble bees.' },
+  { id: 'baau', t: 'perennial', cn: 'Wild blue indigo', bn: 'Baptisia australis', w: 3, h: 3.5, sun: 'F', z: '3–9', c: '#6E9670', fl: '#5A63C2', spc: 3, pol: true, bl: 'sp', note: 'Native, shrub-like; early food for bumble bee queens.' },
+  { id: 'pymu', t: 'perennial', cn: 'Mountain mint', bn: 'Pycnanthemum muticum', w: 2.5, h: 3, sun: 'F/P', z: '4–8', c: '#8FAE8A', fl: '#EDEBE2', spc: 2, pol: true, bl: 'su', note: 'Native; draws more kinds of pollinators than almost anything. Spreads.' },
+  { id: 'eupu', t: 'perennial', cn: 'Joe-Pye weed', bn: 'Eutrochium purpureum', w: 3, h: 6, sun: 'F/P', z: '4–9', c: '#587F3E', fl: '#B87AA6', spc: 3, pol: true, bl: 'su/fa', note: 'Tall native for the back of the bed; butterflies crowd it.' },
+  { id: 'soru', t: 'perennial', cn: 'Goldenrod', bn: "Solidago rugosa 'Fireworks'", w: 2.5, h: 3, sun: 'F', z: '4–9', c: '#5E8B3A', fl: '#F2C21A', spc: 2, pol: true, bl: 'fa', note: 'Native; the fall fuel for bees and migrating monarchs. Does not cause hay fever.' },
+  { id: 'syno', t: 'perennial', cn: 'New England aster', bn: 'Symphyotrichum novae-angliae', w: 2.5, h: 4, sun: 'F', z: '4–8', c: '#567F3C', fl: '#8A5BC0', spc: 2, pol: true, bl: 'fa', note: 'Native; purple fall bloom when little else is flowering.' },
+  { id: 'sane', t: 'perennial', cn: "Salvia 'May Night'", bn: "Salvia nemorosa 'Mainacht'", w: 1.5, h: 1.5, sun: 'F', z: '4–9', c: '#5A8440', fl: '#4F3FA8', spc: 1.5, pol: true, bl: 'sp/su', note: 'Deep violet spikes from late spring; bees love it.' },
+  { id: 'ceoc', t: 'dshrub', cn: 'Buttonbush', bn: 'Cephalanthus occidentalis', w: 6, h: 6, sun: 'F/P', z: '5–9', f: 'shrub', c: '#5F8E46', fl: '#F3EFE2', pol: true, bl: 'su', note: 'Native shrub for wet spots; white pincushion flowers covered in bees and butterflies.' },
+  { id: 'hean', t: 'annual', cn: 'Sunflower', bn: 'Helianthus annuus', w: 1.5, h: 6, sun: 'F', z: 'annual', c: '#5F8B3A', fl: '#F5C211', spc: 1.5, pol: true, bl: 'su/fa', note: 'Pollen and nectar for bees, then seed for birds.' },
+  { id: 'cobi', t: 'annual', cn: 'Cosmos', bn: 'Cosmos bipinnatus', w: 1.5, h: 4, sun: 'F', z: 'annual', c: '#6F9A4E', fl: '#E77FB3', spc: 1, pol: true, bl: 'su/fa', note: 'Airy and easy from seed; blooms until frost.' },
+  { id: 'laca', t: 'annual', cn: 'Lantana', bn: 'Lantana camara', w: 3, h: 2, sun: 'F', z: 'annual', c: '#4F7F38', fl: '#F08A24', spc: 2, pol: true, bl: 'su/fa', note: 'Thrives in heat; butterflies all summer.' },
+  { id: 'tiro', t: 'annual', cn: 'Mexican sunflower', bn: 'Tithonia rotundifolia', w: 3, h: 5, sun: 'F', z: 'annual', c: '#5A873A', fl: '#F26A1B', spc: 2, pol: true, bl: 'su/fa', note: 'Orange daisies; a favorite of monarchs and swallowtails.' },
+  // ---- vegetables: warm season (v = crop; row = row spacing; yl = lb per plant; fl = fruit color)
+  { id: 'soly', t: 'annual', v: true, sea: 'warm', cn: 'Tomato', bn: 'Solanum lycopersicum', w: 2, h: 5, sun: 'F', z: 'annual', c: '#4F8A3A', fl: '#D8342A', spc: 2, row: 4, yl: 12, note: 'Stake or cage. Plant after the last frost (mid-April here).' },
+  { id: 'caan', t: 'annual', v: true, sea: 'warm', cn: 'Bell pepper', bn: 'Capsicum annuum', w: 1.5, h: 2.5, sun: 'F', z: 'annual', c: '#3F7A36', fl: '#E0452B', spc: 1.5, row: 3, yl: 4, note: 'Loves heat; pick green or let them color.' },
+  { id: 'some', t: 'annual', v: true, sea: 'warm', cn: 'Eggplant', bn: 'Solanum melongena', w: 2, h: 3, sun: 'F', z: 'annual', c: '#5A8A5A', fl: '#5B2E7A', spc: 2, row: 3, yl: 5, note: 'Sets fruit in the hottest part of summer.' },
+  { id: 'abes', t: 'annual', v: true, sea: 'warm', cn: 'Okra', bn: 'Abelmoschus esculentus', w: 1.5, h: 5, sun: 'F', z: 'annual', c: '#4E8438', fl: '#F3E9B5', spc: 1.5, row: 3, yl: 2, pol: true, bl: 'su', note: 'A Southern staple; pick pods small, every other day.' },
+  { id: 'zema', t: 'annual', v: true, sea: 'warm', cn: 'Sweet corn', bn: 'Zea mays', w: 1, h: 7, sun: 'F', z: 'annual', c: '#6FA03F', fl: '#F2D24A', spc: 1, row: 3, yl: 0.7, note: 'Plant in blocks of 4 or more rows so it pollinates; one or two ears a stalk.' },
+  { id: 'phvu', t: 'annual', v: true, sea: 'warm', cn: 'Bush bean', bn: 'Phaseolus vulgaris', w: 1, h: 1.5, sun: 'F', z: 'annual', c: '#4F8B3C', spc: 0.4, row: 2, yl: 0.4, note: 'Sow every two weeks for a steady harvest.' },
+  { id: 'phco', t: 'annual', v: true, sea: 'warm', cn: 'Pole bean', bn: 'Phaseolus coccineus', w: 1, h: 7, sun: 'F', z: 'annual', c: '#4B8638', fl: '#D8342A', spc: 0.5, row: 3, yl: 0.8, note: 'Needs a trellis; bears longer than bush beans.' },
+  { id: 'viun', t: 'annual', v: true, sea: 'warm', cn: 'Southern pea', bn: 'Vigna unguiculata', w: 1.5, h: 2, sun: 'F', z: 'annual', c: '#568C3E', spc: 0.4, row: 3, yl: 0.3, note: 'Purple hull and black-eyed peas; thrives in heat and poor soil.' },
+  { id: 'cusa', t: 'annual', v: true, sea: 'warm', cn: 'Cucumber', bn: 'Cucumis sativus', w: 3, h: 1, sun: 'F', z: 'annual', c: '#4E8A3A', fl: '#F0D23C', spc: 1.5, row: 5, yl: 5, note: 'Trellis it to save space and keep fruit clean.' },
+  { id: 'cupe', t: 'annual', v: true, sea: 'warm', cn: 'Zucchini / summer squash', bn: 'Cucurbita pepo', w: 3.5, h: 2, sun: 'F', z: 'annual', c: '#4C8436', fl: '#F2C81E', spc: 3, row: 4, yl: 8, pol: true, bl: 'su', note: 'Two plants feed a family. Needs bees to set fruit.' },
+  { id: 'cumo', t: 'annual', v: true, sea: 'warm', cn: 'Butternut squash', bn: 'Cucurbita moschata', w: 6, h: 1.5, sun: 'F', z: 'annual', c: '#4A8034', fl: '#E3B878', spc: 4, row: 6, yl: 10, note: 'Winter squash; vines run 10 ft. Stores for months.' },
+  { id: 'cupu', t: 'annual', v: true, sea: 'warm', cn: 'Pumpkin', bn: "Cucurbita pepo 'Howden'", w: 8, h: 2, sun: 'F', z: 'annual', c: '#4A8236', fl: '#F07F1A', spc: 5, row: 8, yl: 25, note: 'Carving pumpkin. Sow in late June for October.' },
+  { id: 'cuma', t: 'annual', v: true, sea: 'warm', cn: 'Giant pumpkin', bn: "Cucurbita maxima 'Atlantic Giant'", w: 25, h: 3, sun: 'F', z: 'annual', c: '#4B8438', fl: '#F29A3A', spc: 25, row: 30, yl: 400, note: 'One plant fills 600 to 1,000 sq ft. For a trained patch use Giant pumpkin patch in the Garden tab.' },
+  { id: 'cila', t: 'annual', v: true, sea: 'warm', cn: 'Watermelon', bn: 'Citrullus lanatus', w: 8, h: 1.5, sun: 'F', z: 'annual', c: '#4F863C', fl: '#2F6B3A', spc: 5, row: 8, yl: 30, note: 'Needs heat, room and a long season.' },
+  { id: 'cume', t: 'annual', v: true, sea: 'warm', cn: 'Cantaloupe', bn: 'Cucumis melo', w: 6, h: 1.5, sun: 'F', z: 'annual', c: '#528A3E', fl: '#D9B56A', spc: 3, row: 6, yl: 8, note: 'Sweetest when it ripens in hot, dry weather.' },
+  { id: 'ipba', t: 'annual', v: true, sea: 'warm', cn: 'Sweet potato', bn: 'Ipomoea batatas', w: 4, h: 1, sun: 'F', z: 'annual', c: '#3E7A40', spc: 1, row: 3.5, yl: 2, note: 'Set slips in May; the vines cover the ground. Dig before frost.' },
+  // ---- vegetables: cool season (spring and fall)
+  { id: 'lasa', t: 'annual', v: true, sea: 'cool', cn: 'Lettuce', bn: 'Lactuca sativa', w: 0.75, h: 0.75, sun: 'F/P', z: 'annual', c: '#8CC356', spc: 0.75, row: 1.5, yl: 0.6, note: 'Spring and fall; bolts in summer heat.' },
+  { id: 'spol', t: 'annual', v: true, sea: 'cool', cn: 'Spinach', bn: 'Spinacia oleracea', w: 0.5, h: 0.75, sun: 'F/P', z: 'annual', c: '#3F7A3A', spc: 0.5, row: 1, yl: 0.3, note: 'Sow in February and again in September.' },
+  { id: 'brok', t: 'annual', v: true, sea: 'cool', cn: 'Kale', bn: 'Brassica oleracea (Acephala)', w: 1.5, h: 2, sun: 'F/P', z: 'annual', c: '#4E7F62', spc: 1.5, row: 2.5, yl: 2, note: 'Sweeter after frost; pick the lower leaves.' },
+  { id: 'brca', t: 'annual', v: true, sea: 'cool', cn: 'Cabbage', bn: 'Brassica oleracea (Capitata)', w: 1.5, h: 1.5, sun: 'F', z: 'annual', c: '#7FAE86', spc: 1.5, row: 2.5, yl: 3.5, note: 'Set transplants in March or August.' },
+  { id: 'brit', t: 'annual', v: true, sea: 'cool', cn: 'Broccoli', bn: 'Brassica oleracea (Italica)', w: 1.5, h: 2, sun: 'F', z: 'annual', c: '#5A8A6E', spc: 1.5, row: 2.5, yl: 1.2, note: 'Cut the main head, then harvest side shoots.' },
+  { id: 'bevu', t: 'annual', v: true, sea: 'cool', cn: 'Swiss chard', bn: 'Beta vulgaris (Cicla)', w: 1, h: 1.5, sun: 'F/P', z: 'annual', c: '#4E8A3E', fl: '#D8344A', spc: 1, row: 1.5, yl: 1.5, note: 'Colorful stems; takes more heat than other greens.' },
+  { id: 'daca', t: 'annual', v: true, sea: 'cool', cn: 'Carrot', bn: 'Daucus carota', w: 0.25, h: 1, sun: 'F', z: 'annual', c: '#5E9A48', spc: 0.25, row: 1, yl: 0.15, note: 'Loose, stone-free soil; thin to 3 in.' },
+  { id: 'rasa', t: 'annual', v: true, sea: 'cool', cn: 'Radish', bn: 'Raphanus sativus', w: 0.2, h: 0.5, sun: 'F', z: 'annual', c: '#6BA84E', spc: 0.2, row: 1, yl: 0.05, note: 'Ready in four weeks: a good first crop for students.' },
+  { id: 'beet', t: 'annual', v: true, sea: 'cool', cn: 'Beet', bn: 'Beta vulgaris', w: 0.33, h: 1, sun: 'F/P', z: 'annual', c: '#5A8244', fl: '#8E2A4A', spc: 0.33, row: 1, yl: 0.3, note: 'Eat the roots and the greens.' },
+  { id: 'alce', t: 'annual', v: true, sea: 'cool', cn: 'Onion', bn: 'Allium cepa', w: 0.33, h: 1.5, sun: 'F', z: 'annual', c: '#6A9A6E', spc: 0.33, row: 1, yl: 0.4, note: 'Set plants in February; harvest when the tops fall in June.' },
+  { id: 'alsa', t: 'annual', v: true, sea: 'cool', cn: 'Garlic', bn: 'Allium sativum', w: 0.5, h: 2, sun: 'F', z: 'annual', c: '#74A078', spc: 0.5, row: 1, yl: 0.15, note: 'Plant cloves in October; harvest in June.' },
+  { id: 'sotu', t: 'annual', v: true, sea: 'cool', cn: 'Potato', bn: 'Solanum tuberosum', w: 2, h: 2, sun: 'F', z: 'annual', c: '#4E8440', spc: 1, row: 3, yl: 2, note: 'Plant seed pieces in March; hill soil up as they grow.' },
+  { id: 'pisa', t: 'annual', v: true, sea: 'cool', cn: 'English pea', bn: 'Pisum sativum', w: 0.5, h: 4, sun: 'F', z: 'annual', c: '#62A04C', fl: '#F4F1E6', spc: 0.2, row: 2, yl: 0.15, note: 'Sow in February on a trellis; done by June.' },
+  // ---- herbs
+  { id: 'ocba', t: 'annual', v: true, sea: 'warm', cn: 'Basil', bn: 'Ocimum basilicum', w: 1.5, h: 2, sun: 'F', z: 'annual', c: '#58A040', spc: 1, row: 1.5, yl: 0.5, pol: true, bl: 'su', note: 'Pinch the tips; let a few plants flower for the bees.' },
+  { id: 'cosa', t: 'annual', v: true, sea: 'cool', cn: 'Cilantro', bn: 'Coriandrum sativum', w: 1, h: 2, sun: 'F/P', z: 'annual', c: '#6AA64E', spc: 0.5, row: 1, yl: 0.2, pol: true, bl: 'sp', note: 'Cool-season; flowers feed tiny beneficial wasps.' },
+  { id: 'angr', t: 'annual', v: true, sea: 'cool', cn: 'Dill', bn: 'Anethum graveolens', w: 1.5, h: 3, sun: 'F', z: 'annual', c: '#7FB05E', fl: '#E6D94A', spc: 1, row: 1.5, yl: 0.2, pol: true, bl: 'su', host: 'black swallowtail', note: 'Black swallowtail caterpillars feed on it: plant extra.' },
+  { id: 'pecr', t: 'annual', v: true, sea: 'cool', cn: 'Parsley', bn: 'Petroselinum crispum', w: 1, h: 1, sun: 'F/P', z: 'annual', c: '#3F8A3A', spc: 0.75, row: 1.5, yl: 0.3, host: 'black swallowtail', note: 'Swallowtail host plant; cut the outer stems.' },
+  { id: 'saro', t: 'perennial', v: true, cn: 'Rosemary', bn: 'Salvia rosmarinus', w: 3, h: 3, sun: 'F', z: '7–10', c: '#5F8A72', fl: '#8FA6D8', spc: 3, yl: 1, pol: true, bl: 'sp', note: 'Evergreen; needs sharp drainage.' },
+  { id: 'thvu', t: 'perennial', v: true, cn: 'Thyme', bn: 'Thymus vulgaris', w: 1, h: 0.75, sun: 'F', z: '5–9', c: '#6F9A6A', fl: '#D9A8D8', spc: 1, yl: 0.2, pol: true, bl: 'sp/su', note: 'Low mat for the dry edge of a bed.' },
+  { id: 'orvu', t: 'perennial', v: true, cn: 'Oregano', bn: 'Origanum vulgare', w: 2, h: 1.5, sun: 'F', z: '4–9', c: '#5E9450', fl: '#D8A6CC', spc: 1.5, yl: 0.4, pol: true, bl: 'su', note: 'Spreads; in bloom it is covered in bees.' },
+  { id: 'saof', t: 'perennial', v: true, cn: 'Sage', bn: 'Salvia officinalis', w: 2, h: 2, sun: 'F', z: '4–8', c: '#9DB09A', fl: '#8E7CC8', spc: 2, yl: 0.4, pol: true, bl: 'sp', note: 'Gray leaves; hates wet feet.' },
+  { id: 'alsc', t: 'perennial', v: true, cn: 'Chives', bn: 'Allium schoenoprasum', w: 1, h: 1, sun: 'F/P', z: '3–9', c: '#5C9A52', fl: '#C78AD0', spc: 0.75, yl: 0.3, pol: true, bl: 'sp', note: 'Edible leaves and flowers; an easy edging.' },
+  { id: 'laan', t: 'perennial', v: true, cn: 'Lavender', bn: "Lavandula × intermedia 'Phenomenal'", w: 2.5, h: 2.5, sun: 'F', z: '5–9', c: '#93A89A', fl: '#8E6CC6', spc: 2.5, yl: 0.3, pol: true, bl: 'su', note: 'Needs raised, gravelly soil in Arkansas humidity.' },
+  // ---- fruit
+  { id: 'fran', t: 'perennial', v: true, cn: 'Strawberry', bn: 'Fragaria × ananassa', w: 1, h: 0.75, sun: 'F', z: '4–9', c: '#4E8A3C', fl: '#D8283A', spc: 1, row: 3, yl: 1, pol: true, bl: 'sp', note: 'Matted rows; berries in late April and May.' },
+  { id: 'asof', t: 'perennial', v: true, cn: 'Asparagus', bn: 'Asparagus officinalis', w: 2, h: 5, sun: 'F', z: '3–8', c: '#6FA05A', spc: 1.5, row: 4, yl: 0.5, note: 'A permanent bed: harvest from the third spring, for 15 years.' },
+  { id: 'rufr', t: 'dshrub', v: true, f: 'berry', cn: 'Thornless blackberry', bn: "Rubus 'Ouachita'", w: 4, h: 5, sun: 'F', z: '6–9', c: '#4F8438', fl: '#2E1F3E', yl: 10, pol: true, bl: 'sp', note: 'A University of Arkansas variety. Grow on a trellis; fruit in June.' },
+  { id: 'fica', t: 'dshrub', v: true, f: 'shrub', cn: 'Fig', bn: "Ficus carica 'Celeste'", w: 10, h: 10, sun: 'F', z: '7–10', c: '#4E8A44', fl: '#7A4A6A', yl: 25, note: 'Plant against a south wall; may die back in a hard winter.' },
   // ---- ornamental grasses: big clumps are placed one by one (as shrubs); small ones are planted in beds
   { id: 'cose', t: 'dshrub', g: true, f: 'grass', cn: 'Pampas grass', bn: 'Cortaderia selloana', w: 6, h: 8, sun: 'F', z: '7–10', c: '#8FA868', fl: '#F4EEDC', note: 'Huge clump with white plumes; give it room, sharp leaf edges.' },
   { id: 'misi', t: 'dshrub', g: true, f: 'grass', cn: 'Maiden grass', bn: "Miscanthus sinensis 'Gracillimus'", w: 4, h: 6, sun: 'F', z: '5–9', c: '#7C9E58', fl: '#DCC9AE', note: 'Fine arching leaves; coppery plumes in fall. A soft screen.' },
@@ -921,10 +990,10 @@ const PLANT_BY_ID = Object.fromEntries(PLANTS.map((p) => [p.id, p]));
 const SP_DEFAULT = { dtree: 'acru', etree: 'juvi', bshrub: 'ilvn', dshrub: 'hyqu', perennial: 'ruhi', annual: 'ziel', groundcover: 'limu', turf: 'cyda' };
 const SUN_NAMES = { F: 'Full sun', P: 'Part shade', S: 'Shade' };
 /* library and schedule groups: ornamental grasses get their own, whatever item type they are planted as */
-const catOf = (sp) => (sp.g ? 'grass' : sp.t);
+const catOf = (sp) => (sp.g ? 'grass' : sp.v ? 'veg' : sp.t);
 const LIB_CATS = [
   ['dtree', 'Deciduous trees'], ['etree', 'Evergreen trees'], ['bshrub', 'Broadleaf evergreen shrubs'], ['dshrub', 'Deciduous shrubs'],
-  ['perennial', 'Perennials'], ['annual', 'Annuals'], ['grass', 'Ornamental grasses'], ['groundcover', 'Ground covers'], ['turf', 'Lawn grasses'],
+  ['perennial', 'Perennials'], ['annual', 'Annuals'], ['veg', 'Vegetables, herbs and fruit'], ['grass', 'Ornamental grasses'], ['groundcover', 'Ground covers'], ['turf', 'Lawn grasses'],
 ];
 const CATS = [
   ['dtree', 'Deciduous trees'], ['etree', 'Evergreen trees'], ['bshrub', 'Broadleaf evergreen shrubs'], ['dshrub', 'Deciduous shrubs'],
@@ -2105,8 +2174,8 @@ function edgeOver(d, edge, o) {
   return P('#6B3F25', 0.24);
 }
 /* a planted bed of any outline d (local coords), with an optional raised edge */
-function plantedBed(d, insideF, bb, mix, o, rng, type, edge) {
-  return edgeUnder(d, edge, o) + plantedBedInner(d, insideF, bb, mix, o, rng, type) + edgeOver(d, edge, o);
+function plantedBed(d, insideF, bb, mix, o, rng, type, edge, rows) {
+  return edgeUnder(d, edge, o) + (rows && mix.length ? bedRowsDraw(d, insideF, bb, mix, o, rng) : plantedBedInner(d, insideF, bb, mix, o, rng, type)) + edgeOver(d, edge, o);
 }
 function plantedBedInner(d, insideF, bb, mix, o, rng, type) {
   const carpet = mix.length === 1 && mix[0].sp.t === 'groundcover';
@@ -2131,8 +2200,70 @@ function plantedBedInner(d, insideF, bb, mix, o, rng, type) {
   const { spc, pts } = bedSpots(mix, insideF, bb, rng);
   return s + pts.map(([x, y, sp]) => clump(sp, x, y, rng, o, sp.spc || spc)).join('');
 }
-/* box beds: oval, rectangle or rounded rectangle */
-const bedForm = (it) => it.form || (it.type === 'groundcover' ? 'round' : 'oval');
+/* ------------------------------------------------------------------ crops in rows
+ * A bed of vegetables is planted in rows, not drifts. Each crop in the mix takes a band of the bed in proportion to
+ * its share, with rows at its own row spacing running the long way of the bed. Closely sown crops (carrots, beans)
+ * are drawn as a solid row; spaced crops (tomatoes, squash) as single plants. */
+const bedRowsOn = (it) => (it.rows !== undefined ? !!it.rows : (() => { const m = bedMix(it); return m.length > 0 && m.every((x) => x.sp.v); })());
+function bedRowPlan(mix, insideF, bb) {
+  const W = bb[2] - bb[0], H = bb[3] - bb[1], alongX = W >= H, len = alongX ? W : H, across = alongX ? H : W, inside = insideF(0.12);
+  const at = (a, t) => (alongX ? [bb[0] + t, bb[1] + a] : [bb[0] + a, bb[1] + t]);
+  const rows = [];
+  let a0 = 0;
+  for (const m of mix) {
+    const band = across * m.w, rs = Math.max(0.5, m.sp.row || m.sp.spc || 1.5), k = Math.max(1, Math.round(band / rs)), step = band / k;
+    for (let i = 0; i < k; i++) {
+      const a = a0 + step * (i + 0.5), runs = [];
+      let start = null;
+      for (let t = 0; t <= len + 0.001; t += 0.25) {   // the stretches of this row that lie inside the bed outline
+        const p = at(a, Math.min(t, len)), ok = inside(p[0], p[1]);
+        if (ok && start === null) start = t;
+        if ((!ok || t + 0.25 > len) && start !== null) { if (t - start > 0.4) runs.push([start, ok ? Math.min(t, len) : t - 0.25]); start = null; }
+      }
+      rows.push({ a, sp: m.sp, step, runs });
+    }
+    a0 += band;
+  }
+  return { rows, at };
+}
+function bedRowsDraw(d, insideF, bb, mix, o, rng) {
+  const { rows, at } = bedRowPlan(mix, insideF, bb);
+  const seg = (r, t0, t1) => { const a = at(r.a, t0), b = at(r.a, t1); return `M${n(a[0])},${n(a[1])}L${n(b[0])},${n(b[1])}`; };
+  let planned = 0;
+  for (const r of rows) if ((r.sp.spc || 1) >= 0.7) for (const [t0, t1] of r.runs) planned += Math.floor((t1 - t0) / r.sp.spc) + 1;
+  const dense = planned > 420;   // a big plot: draw every crop as rows so the plan stays light
+  if (!o.render) {
+    let s = `<path d="${d}" fill="${o.color ? '#EAE0CC' : '#fff'}" stroke="${INK}" stroke-width="${n(o.u * 1.2)}"/>`, lines = '', marks = '';
+    for (const r of rows) for (const [t0, t1] of r.runs) {
+      lines += seg(r, t0, t1);
+      const spc = r.sp.spc || 1;
+      if (spc >= 0.7 && !dense) for (let t = t0 + Math.min(spc / 2, (t1 - t0) / 2); t <= t1 + 0.001; t += spc) { const p = at(r.a, t); marks += `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${n(Math.min(spc, r.step) * 0.3)}"/>`; }
+    }
+    return s + `<path d="${lines}" stroke="${INK}" stroke-width="${n(o.u * 0.6)}" stroke-dasharray="${n(o.u * 3)} ${n(o.u * 2)}"/><g fill="${o.color ? '#CFE3B4' : '#fff'}" stroke="${INK}" stroke-width="${n(o.u * 0.6)}">${marks}</g>`;
+  }
+  let s = `<path d="${d}" fill="none" stroke="#1A120A" stroke-opacity="0.22" stroke-width="0.4" stroke-linejoin="round"/><path d="${d}" fill="url(#ld-soil)" stroke="#2A1C12" stroke-opacity="0.8" stroke-width="${n(o.u * 0.7)}"/>`;
+  let furrow = '';
+  const bands = {};
+  for (const r of rows) for (const [t0, t1] of r.runs) {
+    furrow += seg(r, t0, t1);
+    const spc = r.sp.spc || 1;
+    if (spc < 0.7 || dense) (bands[r.sp.id] = bands[r.sp.id] || { sp: r.sp, d: '', w: Math.min(r.step * 0.62, Math.max(0.3, (r.sp.w || 0.5) * 0.8)) }).d += seg(r, t0, t1);
+  }
+  s += `<path d="${furrow}" stroke="#2A1A0E" stroke-opacity="0.28" stroke-width="0.12"/>`;
+  for (const b of Object.values(bands)) {
+    const c = tone(b.sp.c, 0.3, -0.04);
+    s += `<path d="${b.d}" stroke="${tone(c, 0.05, -0.12, 6)}" stroke-width="${n(b.w)}" stroke-linecap="round"/><path d="${b.d}" stroke="${c}" stroke-width="${n(b.w * 0.72)}" stroke-linecap="round" stroke-dasharray="${n(b.w * 0.5)} ${n(b.w * 0.22)}"/><path d="${b.d}" stroke="${tone(c, 0.12, 0.1, -8)}" stroke-opacity="0.7" stroke-width="${n(b.w * 0.3)}" stroke-linecap="round" stroke-dasharray="${n(b.w * 0.3)} ${n(b.w * 0.42)}"/>`;
+    if (b.sp.fl && dense) s += `<path d="${b.d}" stroke="${b.sp.fl}" stroke-width="${n(b.w * 0.34)}" stroke-linecap="round" stroke-dasharray="0.01 ${n(Math.max(1, b.sp.spc || 1))}"/>`;
+  }
+  if (!dense) for (const r of rows) {
+    const spc = r.sp.spc || 1;
+    if (spc < 0.7) continue;
+    for (const [t0, t1] of r.runs) for (let t = t0 + Math.min(spc / 2, (t1 - t0) / 2); t <= t1 + 0.001; t += spc) { const p = at(r.a, t); s += clump(r.sp, p[0] + (rng() - 0.5) * spc * 0.08, p[1] + (rng() - 0.5) * spc * 0.08, rng, o, Math.min(spc, r.step * 1.25)); }
+  }
+  return s;
+}
+/* box beds: oval, rectangle or rounded rectangle (rows of crops default to a rectangle) */
+const bedForm = (it) => it.form || (bedRowsOn(it) ? 'rect' : it.type === 'groundcover' ? 'round' : 'oval');
 function roundRectD(x, y, w, h, r) {
   if (r <= 0) return `M${n(x)},${n(y)}H${n(x + w)}V${n(y + h)}H${n(x)}Z`;
   return `M${n(x + r)},${n(y)}H${n(x + w - r)}A${n(r)},${n(r)} 0 0 1 ${n(x + w)},${n(y + r)}V${n(y + h - r)}A${n(r)},${n(r)} 0 0 1 ${n(x + w - r)},${n(y + h)}H${n(x + r)}A${n(r)},${n(r)} 0 0 1 ${n(x)},${n(y + h - r)}V${n(y + r)}A${n(r)},${n(r)} 0 0 1 ${n(x + r)},${n(y)}Z`;
@@ -2151,7 +2282,7 @@ function bedOutlinePts(it) {
 function bedRender(it, o, rng) {
   const rx = it.w / 2, ry = it.h / 2, oval = bedForm(it) === 'oval';
   const insideF = (pad) => (oval ? (x, y) => (x / Math.max(0.1, rx - pad)) ** 2 + (y / Math.max(0.1, ry - pad)) ** 2 < 1 : (x, y) => Math.abs(x) < rx - pad && Math.abs(y) < ry - pad);
-  return plantedBed(bedPathD(it), insideF, [-rx, -ry, rx, ry], bedMix(it), o, rng, it.type, it.edge);
+  return plantedBed(bedPathD(it), insideF, [-rx, -ry, rx, ry], bedMix(it), o, rng, it.type, it.edge, bedRowsOn(it));
 }
 function shapeRender(it, o, rng) {
   const d = shapeD(it.pts, it.smooth);
@@ -2184,7 +2315,7 @@ function shapeRender(it, o, rng) {
   const poly = shapePoly(it.pts, it.smooth);
   const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
   const bb = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
-  return plantedBed(d, (pad) => (x, y) => inPoly([x, y], poly) && segMin([x, y], poly) > pad, bb, bedMix(it), o, rng, it.type, it.edge);
+  return plantedBed(d, (pad) => (x, y) => inPoly([x, y], poly) && segMin([x, y], poly) > pad, bb, bedMix(it), o, rng, it.type, it.edge, bedRowsOn(it));
 }
 function segMin(p, poly) { let d = Infinity; for (let i = 0; i < poly.length; i++) d = Math.min(d, segDist(p, poly[i], poly[(i + 1) % poly.length])); return d; }
 
@@ -2592,6 +2723,9 @@ function furnDefs(pat, specks, R) {
   d += '<radialGradient id="ld-glow"><stop offset="0" stop-color="#FFB347" stop-opacity="0.45"/><stop offset="0.5" stop-color="#FF8C2A" stop-opacity="0.12"/><stop offset="1" stop-color="#FF8C2A" stop-opacity="0"/></radialGradient>';
   d += '<filter id="ld-mouth" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="0.45"/></filter>';
   d += '<radialGradient id="ld-pond" cx="0.5" cy="0.5" r="0.6"><stop offset="0" stop-color="#1B4549"/><stop offset="0.55" stop-color="#2C6563"/><stop offset="0.9" stop-color="#4F806A"/><stop offset="1" stop-color="#6B8A62"/></radialGradient>';
+  d += '<radialGradient id="ld-pumpkin" cx="0.62" cy="0.32" r="0.85"><stop offset="0" stop-color="#FFC062"/><stop offset="0.5" stop-color="#F08A24"/><stop offset="1" stop-color="#B9571A"/></radialGradient>';
+  d += '<linearGradient id="ld-poly" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#CBD6D4" stop-opacity="0.92"/><stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.7"/><stop offset="1" stop-color="#B9C6C4" stop-opacity="0.92"/></linearGradient>';
+  d += '<linearGradient id="ld-glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D6F0ED" stop-opacity="0.78"/><stop offset="1" stop-color="#8FC4C0" stop-opacity="0.7"/></linearGradient>';
   d += '<radialGradient id="ld-bulbglow"><stop offset="0" stop-color="#FFE7A3" stop-opacity="0.8"/><stop offset="0.3" stop-color="#FFD27A" stop-opacity="0.35"/><stop offset="1" stop-color="#FFC861" stop-opacity="0"/></radialGradient>';
   d += '<linearGradient id="ld-slide" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD54A"/><stop offset="0.5" stop-color="#F2B705"/><stop offset="1" stop-color="#C98F00"/></linearGradient>';
   let wk = '<rect width="0.4" height="0.4" fill="#6B4A2E"/>';
@@ -2726,6 +2860,300 @@ function fenceRun(it, o) {
 }
 
 for (const k of Object.keys(FURN)) { RDRAW[k] = FURN_R[k] || FURN[k]; DDRAW[k] = FURN[k]; }
+/* ------------------------------------------------------------------ the garden: trellises, teaching and production structures
+ * Everything a demonstration, production or pollinator garden needs beyond beds and plants. Trellises are line items
+ * (posts, wires and the crop trained on them). The rest are box items registered from GARDEN_T; each draw function
+ * handles the Rendered style and the drafting styles. */
+/* a lobed blob centred anywhere, as path data, so hundreds of leaves can share one <path> */
+function lobedAt(cx, cy, r, k, rng, jit) {
+  const rs = [];
+  for (let i = 0; i < k; i++) rs.push(r * (1 - jit * rng()));
+  let d = '';
+  for (let i = 0; i < k; i++) {
+    const a0 = 2 * Math.PI * i / k, a1 = 2 * Math.PI * (i + 1) / k, am = (a0 + a1) / 2, r0 = rs[i], r2 = rs[(i + 1) % k], rc = Math.max(r0, r2) * 1.12;
+    if (!i) d += `M${n(cx + r0 * Math.cos(a0))},${n(cy + r0 * Math.sin(a0))}`;
+    d += `Q${n(cx + rc * Math.cos(am))},${n(cy + rc * Math.sin(am))} ${n(cx + r2 * Math.cos(a1))},${n(cy + r2 * Math.sin(a1))}`;
+  }
+  return d + 'Z';
+}
+/* foliage as two merged paths (shaded and sunlit masses) over a base */
+function leafMass(spots, c, rng, op) {
+  let dk = '', lt = '';
+  for (const [x, y, r] of spots) { dk += lobedAt(x - r * 0.08, y + r * 0.08, r, 6, rng, 0.25); lt += lobedAt(x + r * 0.16, y - r * 0.16, r * 0.62, 5, rng, 0.3); }
+  return `<path d="${dk}" fill="${tone(c, 0.05, -0.05, 4)}" stroke="${tone(c, 0, -0.22)}" stroke-opacity="0.5" stroke-width="0.03"${op ? ` fill-opacity="${op}"` : ''}/><path d="${lt}" fill="${tone(c, 0.14, 0.1, -6)}" fill-opacity="0.55"/>`;
+}
+const TRELLIS = {
+  grape: { name: 'Grape trellis (high wire)', post: 20, vine: 8, cw: 3, crop: 'Grape vines', c: '#4F8A3A', fr: '#5B2E7A', note: 'Bunch grapes on one high wire, 6 ft up. Posts 20 ft apart, a vine every 8 ft; run the rows north to south.' },
+  muscadine: { name: 'Muscadine trellis', post: 20, vine: 20, cw: 3.4, crop: 'Muscadine vines', c: '#3F7A34', fr: '#8A5A2E', note: 'The native Southern grape. One wire, vines 20 ft apart; plant a self-fertile variety or two kinds.' },
+  berry: { name: 'Blackberry trellis (T-posts, two wires)', post: 20, vine: 4, cw: 3.2, crop: 'Blackberry plants', c: '#4E8438', fr: '#2E1F3E', wires: 2, note: 'Two wires on a T-post hold the canes up. Plants 4 ft apart; fruit in June.' },
+  bean: { name: 'Bean and pea trellis (netting)', post: 6, vine: 0.5, cw: 1.4, crop: 'Pole bean or pea plants', c: '#56963F', fr: '', note: 'Netting on stakes for pole beans, peas or cucumbers. Put it on the north side so it does not shade other crops.' },
+  tomato: { name: 'Tomato stake-and-weave row', post: 4, vine: 2, cw: 2.2, crop: 'Tomato plants', c: '#4F8A3A', fr: '#D8342A', note: 'A stake every two plants and twine woven down each side: the way market growers hold up a long row.' },
+  espalier: { name: 'Espalier fruit wires', post: 10, vine: 8, cw: 1.6, crop: 'Espalier apple or pear trees', c: '#4F8440', fr: '#C8322B', note: 'Fruit trees trained flat on wires against a fence or wall: a lot of fruit from a 2 ft strip.' },
+};
+const trellisStyle = (it) => (TRELLIS[it.style] ? it.style : 'grape');
+function trellisCounts(it) {
+  const T0 = TRELLIS[trellisStyle(it)], L = polyLen(it.pts);
+  return { len: L, posts: Math.floor(L / T0.post) + 1 + Math.max(0, it.pts.length - 2), vines: Math.max(1, Math.round(L / T0.vine)) };
+}
+function trellisDraw(it, o, rng) {
+  const st = trellisStyle(it), T0 = TRELLIS[st], pts = it.pts, L = polyLen(pts), d = ptsD(pts), posts = fencePosts(pts, T0.post);
+  const vines = [];
+  for (let x = Math.min(T0.vine / 2, L / 2); x < L; x += T0.vine) vines.push(pointAlong(pts, x));
+  const wires = T0.wires === 2 ? [offsetLine(pts, 0.9), offsetLine(pts, -0.9)] : [pts];
+  if (!o.render) {
+    const col = o.color ? '#3F6B34' : INK;
+    let s = wires.map((w) => `<path d="${ptsD(w)}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 0.9)}"/>`).join('');
+    if (T0.vine >= 2) s += `<g fill="${o.color ? '#CFE3B4' : '#fff'}" stroke="${col}" stroke-width="${n(o.u * 0.7)}">${vines.map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${n(Math.min(T0.vine, T0.cw) * 0.32)}"/>`).join('')}</g>`;
+    else s += `<path d="${d}" fill="none" stroke="${col}" stroke-width="${n(T0.cw * 0.5)}" stroke-opacity="0.35" stroke-dasharray="${n(o.u * 2)} ${n(o.u * 2)}"/>`;
+    const ps = Math.max(0.45, o.u * 3.4);
+    return s + `<g fill="${INK}">${posts.map((p) => `<rect x="${n(p[0] - ps / 2)}" y="${n(p[1] - ps / 2)}" width="${n(ps)}" height="${n(ps)}"/>`).join('')}</g>`;
+  }
+  let s = o.icon ? '' : lineShadow(pts, T0.cw * 0.8, 0.5, 0.3);
+  // the crop: a ribbon of foliage along the wire, thinning between vines
+  const spots = [];
+  for (let x = 0.3; x < L; x += T0.cw * 0.42) {
+    const p = pointAlong(pts, x), near = vines.length ? Math.min(...vines.map((v) => dist(v, p))) : 0, full = T0.vine < 3 ? 1 : clamp(1.15 - near / (T0.vine * 0.62), 0.45, 1);
+    spots.push([p[0] + (rng() - 0.5) * T0.cw * 0.3, p[1] + (rng() - 0.5) * T0.cw * 0.3, T0.cw * 0.5 * full * (0.8 + rng() * 0.35)]);
+  }
+  s += leafMass(spots, tone(T0.c, 0.3, -0.04), rng);
+  if (T0.fr) { let f = ''; for (const [x, y, r] of spots) if (rng() < 0.6) for (let k = 0; k < 3; k++) f += `<circle cx="${n(x + (rng() - 0.5) * r)}" cy="${n(y + (rng() - 0.5) * r)}" r="${n(st === 'tomato' || st === 'espalier' ? 0.16 : 0.1)}"/>`; s += `<g fill="${T0.fr}">${f}</g>`; }
+  s += wires.map((w) => `<path d="${ptsD(w)}" fill="none" stroke="#D7DCDF" stroke-opacity="0.85" stroke-width="0.05"/>`).join('');
+  if (T0.vine >= 2) s += vines.map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="0.16" fill="#4A3526"/>`).join('');
+  const pr = st === 'bean' || st === 'tomato' ? 0.12 : 0.26;
+  s += posts.map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${pr}" fill="#7A5B3C" stroke="#3B2A1A" stroke-width="0.04"/><circle cx="${n(p[0] + pr * 0.25)}" cy="${n(p[1] - pr * 0.25)}" r="${n(pr * 0.4)}" fill="#A7835B"/>`).join('');
+  return s;
+}
+
+const GARDEN_T = {
+  sqfoot:     { name: 'Square-foot garden, 4 × 4', group: 'Beds and plots', d: { w: 4, h: 4 }, band: 2, tip: 'A 4 ft raised bed divided into sixteen 1 ft squares, each with a different crop. The classic first garden for students.' },
+  trough:     { name: 'Raised planter, waist height', group: 'Beds and plots', d: { w: 6, h: 2.5 }, band: 3, tip: 'A stock-tank planter about 30 in. tall: gardening without bending, and reachable from a wheelchair.' },
+  herbspiral: { name: 'Herb spiral', group: 'Beds and plots', d: { w: 6, h: 6 }, band: 2, tip: 'A stone spiral that rises to the middle: dry-loving herbs at the top, moisture lovers at the bottom.' },
+  keyhole:    { name: 'Keyhole garden', group: 'Beds and plots', d: { w: 8, h: 8 }, band: 2, tip: 'A round raised bed with a path to a compost basket in the middle that feeds and waters the bed.' },
+  threesis:   { name: 'Three Sisters mound', group: 'Beds and plots', d: { w: 5, h: 5 }, band: 2, tip: 'Corn, pole beans and squash grown together, as Native American farmers have for centuries: the corn holds up the beans, the beans feed the soil, the squash shades out weeds.' },
+  container:  { name: 'Planter pot', group: 'Beds and plots', d: { w: 2, h: 2 }, band: 3, tip: 'A large pot for a patio tomato, herbs or flowers.' },
+  gpumpkin:   { name: 'Giant pumpkin patch', group: 'Giant pumpkins', d: { w: 25, h: 30 }, band: 2, tip: 'One Atlantic Giant plant trained in the Christmas-tree pattern: a main vine with side vines cut off at the edge of the patch, and a single fruit. Give each plant 600 to 1,000 sq ft in full sun.' },
+  arbor:      { name: 'Garden arch (cattle-panel arbor)', group: 'Trellises and vines', d: { w: 5, h: 8 }, band: 4.6, tip: 'A livestock panel bent into a tunnel between two beds: gourds, beans and cucumbers hang down inside.' },
+  beehive:    { name: 'Honey bee hive', group: 'Pollinators', d: { w: 2, h: 2.5 }, band: 3.5, tip: 'A Langstroth hive. Face the entrance south-east, away from paths, with a clear flight line.' },
+  beehotel:   { name: 'Native bee house', group: 'Pollinators', d: { w: 2, h: 1 }, band: 3.5, tip: 'Tubes and drilled blocks for mason and leafcutter bees, which nest alone and rarely sting. Face it east, 3 to 5 ft up.' },
+  puddler:    { name: 'Butterfly puddling dish', group: 'Pollinators', d: { w: 2.5, h: 2.5 }, band: 3, tip: 'A shallow dish of wet sand and flat stones: butterflies drink minerals from it and bask on the stones.' },
+  hoophouse:  { name: 'Hoop house / high tunnel', group: 'Growing structures', d: { w: 14, h: 30 }, band: 3.6, tip: 'An unheated plastic tunnel that adds a month or more to each end of the season. Roll the sides up to vent.' },
+  coldframe:  { name: 'Cold frame', group: 'Growing structures', d: { w: 6, h: 3 }, band: 3.5, tip: 'A low glass-topped box for hardening off seedlings and growing greens through winter. Face the slope south.' },
+  potting:    { name: 'Potting bench', group: 'Growing structures', d: { w: 6, h: 2.5 }, band: 3.5, tip: 'A work table for seeding and potting up, best near water and the compost.' },
+  compost:    { name: 'Compost bins, three-bin system', group: 'Growing structures', d: { w: 12, h: 4 }, band: 3.5, tip: 'Fresh material goes in the first bin, is turned into the second, and finishes in the third.' },
+  rainbarrel: { name: 'Rain barrel', group: 'Growing structures', d: { w: 2.5, h: 2.5 }, band: 3.5, tip: 'Catches roof runoff from a downspout: about 55 gallons from a quarter inch of rain on a small roof.' },
+  spigot:     { name: 'Water spigot', group: 'Growing structures', d: { w: 1.5, h: 1.5 }, band: 3.5, tip: 'A hose bib. Keep every bed within a 50 ft hose of one.' },
+  classroom:  { name: 'Outdoor classroom', group: 'Teaching', d: { w: 22, h: 20 }, band: 2.6, tip: 'Curved benches facing a demonstration table: seats about 24.' },
+  sign:       { name: 'Interpretive sign', group: 'Teaching', d: { w: 3, h: 1.2 }, band: 3.6, tip: 'A sign that explains a planting or a practice. Use the Label box under Properties for its title.' },
+  marker:     { name: 'Tour station marker', group: 'Teaching', d: { w: 2.2, h: 2.2 }, band: 4.9, tip: 'A numbered stop on a garden tour. Set the number under Properties.' },
+};
+const GDRAFT = (o, tint) => (o.color ? tint : '#fff');
+const GTEXT = (o, t, fs, fill, halo) => `<text text-anchor="middle" dominant-baseline="central" font-family="${FONT}" font-weight="600" font-size="${n(fs)}" letter-spacing="0.04em" fill="${fill || INK}"${halo ? ` paint-order="stroke" stroke="${halo}" stroke-width="${n(fs * 0.3)}" stroke-linejoin="round"` : ''}>${t}</text>`;
+const GCROPS = [['#8CC356', ''], ['#4F8A3A', '#D8342A'], ['#5E9A48', ''], ['#3F7A3A', ''], ['#58A040', ''], ['#4E7F62', ''], ['#3F7A36', '#E0452B'], ['#6BA84E', '#D8344A'], ['#4E8A3E', '#F2C81E'], ['#62A04C', ''], ['#7FAE86', ''], ['#5A8244', '#8E2A4A'], ['#5C9A52', '#C78AD0'], ['#6AA64E', ''], ['#4F8B3C', ''], ['#5F8B3A', '#F5C211']];
+const GARDEN = {
+  sqfoot(it, o, rng) {
+    const w = it.w, h = it.h, nx = Math.max(1, Math.round(w)), ny = Math.max(1, Math.round(h)), cw = (w - 0.5) / nx, ch = (h - 0.5) / ny, x0 = -w / 2 + 0.25, y0 = -h / 2 + 0.25;
+    let grid = '';
+    for (let i = 1; i < nx; i++) grid += `M${n(x0 + i * cw)},${n(y0)}V${n(-y0)}`;
+    for (let j = 1; j < ny; j++) grid += `M${n(x0)},${n(y0 + j * ch)}H${n(-x0)}`;
+    if (!o.render) return `<rect x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" fill="${GDRAFT(o, '#EAE0CC')}" stroke="${INK}" stroke-width="${n(o.u * 1.6)}"/><path d="${grid}" stroke="${INK}" stroke-width="${n(o.u * 0.6)}"/>`;
+    const fr = RR(-w / 2, -h / 2, w, h, 0.06);
+    let s = DSH(o, fr, 0.7) + P(fr, 'url(#ld-teakv)', '#3B2A1A', 0.06) + `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w - 0.5)}" height="${n(h - 0.5)}" fill="url(#ld-soil)"/>`;
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      const [c, fl] = GCROPS[(i * 5 + j * 3 + i * j) % GCROPS.length], cx = x0 + (i + 0.5) * cw, cy = y0 + (j + 0.5) * ch, k = [1, 4, 4, 9, 1, 4][(i + j * 2) % 6], m = Math.sqrt(k);
+      for (let a = 0; a < m; a++) for (let b = 0; b < m; b++) s += clump({ t: 'annual', c, fl }, cx + (a - (m - 1) / 2) * cw / m, cy + (b - (m - 1) / 2) * ch / m, rng, o, Math.min(cw, ch) / m * 0.9);
+    }
+    return s + `<path d="${grid}" stroke="#F4F1E6" stroke-opacity="0.85" stroke-width="0.04"/>`;
+  },
+  trough(it, o, rng) {
+    const w = it.w, h = it.h, tub = RR(-w / 2, -h / 2, w, h, Math.min(w, h) / 2);
+    if (!o.render) return P(tub, GDRAFT(o, '#E1E4E6'), INK, n(o.u * 1.4)) + P(RR(-w / 2 + 0.2, -h / 2 + 0.2, w - 0.4, h - 0.4, Math.min(w, h) / 2 - 0.2), 'none', INK, n(o.u * 0.6));
+    let s = DSH(o, tub, 1.1) + P(tub, 'url(#ld-steel)', '#6B7378', 0.06) + P(RR(-w / 2 + 0.16, -h / 2 + 0.16, w - 0.32, h - 0.32, Math.min(w, h) / 2 - 0.16), 'url(#ld-soil)', '#3B2A1A', 0.04);
+    for (let x = -w / 2 + 0.9; x < w / 2 - 0.6; x += 0.95) { const g = GCROPS[Math.floor(rng() * GCROPS.length)]; s += clump({ t: 'annual', c: g[0], fl: g[1] }, x, (rng() - 0.5) * (h - 1.4), rng, o, 0.95); }
+    return s;
+  },
+  herbspiral(it, o, rng) {
+    const R = Math.min(it.w, it.h) / 2, turns = 2.1;
+    const pt = (t) => { const a = t * turns * 2 * Math.PI + 0.6, r = R * (0.16 + 0.8 * (1 - t)); return [r * Math.cos(a), r * Math.sin(a)]; };
+    let d = '';
+    for (let i = 0; i <= 60; i++) { const p = pt(1 - i / 60); d += `${i ? 'L' : 'M'}${n(p[0])},${n(p[1])}`; }
+    if (!o.render) return `<circle r="${n(R)}" fill="${GDRAFT(o, '#E3DCCF')}" stroke="${INK}" stroke-width="${n(o.u * 1.2)}"/><path d="${d}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 1.6)}"/>`;
+    let s = (o.icon ? '' : `<circle cx="-0.35" cy="0.35" r="${n(R)}" fill="#06120A" fill-opacity="0.34" filter="url(#ld-softw)"/>`) + `<circle r="${n(R)}" fill="url(#ld-soil)" stroke="#3B2A1A" stroke-width="0.05"/>`;
+    const herbs = [['#93A89A', '#8E6CC6'], ['#5F8A72', ''], ['#6F9A6A', '#D9A8D8'], ['#58A040', ''], ['#3F8A3A', ''], ['#5C9A52', '#C78AD0'], ['#9DB09A', ''], ['#5E9450', '']];
+    for (let i = 0; i < 22; i++) { const p = pt(i / 22 + 0.02), a = Math.atan2(p[1], p[0]), g = herbs[Math.floor(i / 3) % herbs.length]; s += clump({ t: 'perennial', c: g[0], fl: g[1] }, p[0] - Math.cos(a) * R * 0.11, p[1] - Math.sin(a) * R * 0.11, rng, o, R * 0.42); }
+    for (let i = 0; i <= 44; i++) { const p = pt(1 - i / 44); s += boulder(p[0], p[1], R * (0.07 + rng() * 0.03), rng); }
+    return s;
+  },
+  keyhole(it, o, rng) {
+    const R = Math.min(it.w, it.h) / 2, a0 = Math.PI / 2 - 0.3, a1 = Math.PI / 2 + 0.3, ri = R * 0.24;
+    const ring = `M${n(R * Math.cos(a1))},${n(R * Math.sin(a1))}A${n(R)},${n(R)} 0 1 1 ${n(R * Math.cos(a0))},${n(R * Math.sin(a0))}L${n(ri * Math.cos(a0))},${n(ri * Math.sin(a0))}A${n(ri)},${n(ri)} 0 1 0 ${n(ri * Math.cos(a1))},${n(ri * Math.sin(a1))}Z`;
+    if (!o.render) return P(ring, GDRAFT(o, '#EAE0CC'), INK, n(o.u * 1.4)) + `<circle r="${n(ri * 0.62)}" fill="${GDRAFT(o, '#D9C2A6')}" stroke="${INK}" stroke-width="${n(o.u * 0.7)}"/><path d="M${n(-ri * 0.4)},${n(-ri * 0.4)}L${n(ri * 0.4)},${n(ri * 0.4)}M${n(ri * 0.4)},${n(-ri * 0.4)}L${n(-ri * 0.4)},${n(ri * 0.4)}" stroke="${INK}" stroke-width="${n(o.u * 0.5)}"/>`;
+    let s = DSH(o, ring, 1.2) + P(ring, 'url(#ld-soil)', '#3B2A1A', 0.05);
+    for (let i = 0; i < 26; i++) { const a = a1 + (2 * Math.PI - 0.6) * (i + 0.5) / 26, rr = R * (0.42 + 0.36 * ((i * 7) % 3) / 2), g = GCROPS[(i * 3) % GCROPS.length]; s += clump({ t: 'annual', c: g[0], fl: g[1] }, rr * Math.cos(a), rr * Math.sin(a), rng, o, R * 0.26); }
+    for (let i = 0; i < 40; i++) { const a = a1 + (2 * Math.PI - 0.6) * i / 39; s += boulder(R * 0.96 * Math.cos(a), R * 0.96 * Math.sin(a), R * 0.07, rng); }
+    return s + `<circle r="${n(ri * 0.66)}" fill="#3E2A1A" stroke="#8C6A48" stroke-width="0.09" stroke-dasharray="0.16 0.1"/><circle r="${n(ri * 0.46)}" fill="url(#ld-mulch)"/>`;
+  },
+  threesis(it, o, rng) {
+    const R = Math.min(it.w, it.h) / 2;
+    if (!o.render) return `<circle r="${n(R)}" fill="${GDRAFT(o, '#EAE0CC')}" stroke="${INK}" stroke-width="${n(o.u * 1.1)}" stroke-dasharray="${n(o.u * 4)} ${n(o.u * 2)}"/>` + [0, 1, 2, 3].map((i) => `<circle cx="${n(R * 0.22 * Math.cos(i * 1.57 + 0.4))}" cy="${n(R * 0.22 * Math.sin(i * 1.57 + 0.4))}" r="${n(R * 0.12)}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 0.7)}"/>`).join('') + [0, 1, 2].map((i) => `<circle cx="${n(R * 0.68 * Math.cos(i * 2.09))}" cy="${n(R * 0.68 * Math.sin(i * 2.09))}" r="${n(R * 0.24)}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 0.7)}"/>`).join('');
+    let s = `<circle r="${n(R)}" fill="url(#ld-soil)" stroke="#2A1C12" stroke-opacity="0.8" stroke-width="0.05"/><circle r="${n(R * 0.5)}" fill="#000" fill-opacity="0.12"/>`;
+    for (let i = 0; i < 3; i++) { const a = i * 2.09 + 0.3; s += clump({ t: 'annual', c: '#4C8436', fl: '#F2C81E' }, R * 0.66 * Math.cos(a), R * 0.66 * Math.sin(a), rng, o, R * 0.62); }
+    for (let i = 0; i < 6; i++) { const a = i * 1.047; s += `<circle cx="${n(R * 0.36 * Math.cos(a))}" cy="${n(R * 0.36 * Math.sin(a))}" r="${n(R * 0.07)}" fill="#56963F"/>`; }
+    for (let i = 0; i < 4; i++) { const a = i * 1.57 + 0.4; s += clump({ t: 'annual', c: '#6FA03F', fl: '#F2D24A', g: true }, R * 0.2 * Math.cos(a), R * 0.2 * Math.sin(a), rng, o, R * 0.42); }
+    return s;
+  },
+  container(it, o, rng) {
+    const R = Math.min(it.w, it.h) / 2;
+    if (!o.render) return `<circle r="${n(R)}" fill="${GDRAFT(o, '#E9C9B4')}" stroke="${INK}" stroke-width="${n(o.u * 1.1)}"/><circle r="${n(R * 0.78)}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 0.6)}"/>`;
+    return (o.icon ? '' : `<circle cx="${n(-R * 0.3)}" cy="${n(R * 0.3)}" r="${n(R)}" fill="#06120A" fill-opacity="0.34" filter="url(#ld-softw)"/>`) + `<circle r="${n(R)}" fill="#B5613C" stroke="#7A3A20" stroke-width="0.05"/><circle r="${n(R * 0.86)}" fill="#C97A52"/><circle r="${n(R * 0.74)}" fill="url(#ld-soil)"/>` + clump({ t: 'annual', c: '#4F8A3A', fl: '#E8573B' }, 0, 0, rng, o, R * 1.5);
+  },
+  gpumpkin(it, o, rng) {
+    const w = it.w, h = it.h, x0 = -w / 2, y0 = -h / 2, sy = y0 + Math.min(2.5, h * 0.08), ey = -y0 - Math.min(2, h * 0.07), ML = ey - sy, half = w / 2 - 1.2;
+    const fy = sy + ML * 0.42, fr = clamp(Math.min(w, h) * 0.1, 1.4, 3), side = [];
+    let vines = `M0,${n(sy)}V${n(ey)}`;
+    for (let y = sy + 1.6, i = 0; y < ey - 1; y += 2.2, i++) {   // side vines: longest near the base, shorter toward the tip (the Christmas-tree pattern)
+      const t = (y - sy) / ML, len = half * (1 - 0.72 * t);
+      for (const sgn of [-1, 1]) { vines += `M0,${n(y)}Q${n(sgn * len * 0.5)},${n(y + 0.5)} ${n(sgn * len)},${n(y + 0.9)}`; side.push([y, sgn, len]); }
+    }
+    const patch = RR(x0, y0, w, h, 1.2);
+    const pump = `<ellipse cy="${n(fy)}" rx="${n(fr)}" ry="${n(fr * 0.86)}"`;
+    if (!o.render) {
+      return P(patch, GDRAFT(o, '#EAE0CC'), INK, n(o.u * 1.1), ` stroke-dasharray="${n(o.u * 6)} ${n(o.u * 3)}"`) + `<path d="${vines}" fill="none" stroke="${o.color ? '#3F6B34' : INK}" stroke-width="${n(o.u * 0.8)}"/>` +
+        `${pump} fill="${GDRAFT(o, '#F6C08A')}" stroke="${INK}" stroke-width="${n(o.u * 1.1)}"/><path d="M0,${n(fy - fr * 0.86)}V${n(fy + fr * 0.86)}M${n(-fr * 0.5)},${n(fy - fr * 0.72)}Q${n(-fr * 0.8)},${n(fy)} ${n(-fr * 0.5)},${n(fy + fr * 0.72)}M${n(fr * 0.5)},${n(fy - fr * 0.72)}Q${n(fr * 0.8)},${n(fy)} ${n(fr * 0.5)},${n(fy + fr * 0.72)}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 0.6)}"/>` +
+        (o.icon ? '' : `<g transform="translate(0 ${n(y0 + Math.min(1.6, h * 0.06))})">${GTEXT(o, 'GIANT PUMPKIN', Math.min(1.2, w * 0.06), INK, GDRAFT(o, '#EAE0CC'))}</g>`);
+    }
+    let s = `<path d="${patch}" fill="none" stroke="#1A120A" stroke-opacity="0.22" stroke-width="0.4"/>` + P(patch, 'url(#ld-soil)', '#2A1C12', 0.06, ' stroke-opacity="0.8"');
+    s += `<rect x="${n(-fr * 1.5)}" y="${n(fy - fr * 1.4)}" width="${n(fr * 3)}" height="${n(fr * 2.8)}" rx="0.4" fill="url(#ld-sand)" stroke="#B8A06B" stroke-width="0.05"/>`;   // the sand pad that keeps the fruit dry
+    s += `<path d="${vines}" fill="none" stroke="#3E6E2C" stroke-width="0.28" stroke-linecap="round"/><path d="${vines}" fill="none" stroke="#6FA04A" stroke-width="0.1" stroke-linecap="round"/>`;
+    const spots = [];
+    for (let y = sy + 0.8; y < ey; y += 1.5) if (Math.abs(y - fy) > fr * 1.25) spots.push([(rng() - 0.5) * 0.9, y, 0.85 + rng() * 0.35]);
+    for (const [y, sgn, len] of side) for (let x = 1.3; x < len; x += 1.45) { const yy = y + 0.9 * (x / len) * (x / len) + (rng() - 0.5) * 0.7, xx = sgn * x; if (Math.hypot(xx, yy - fy) > fr * 1.5) spots.push([xx, yy, 0.8 + rng() * 0.4]); }
+    s += leafMass(spots, '#3F8A34', rng, 0.95);
+    s += `<circle cx="0" cy="${n(sy)}" r="0.3" fill="#5A4430"/>`;
+    s += (o.icon ? '' : `<ellipse cx="${n(-fr * 0.35)}" cy="${n(fy + fr * 0.3)}" rx="${n(fr * 1.05)}" ry="${n(fr * 0.9)}" fill="#06120A" fill-opacity="0.4" filter="url(#ld-softw)"/>`) +
+      `${pump} fill="url(#ld-pumpkin)" stroke="#8E4A12" stroke-width="0.07"/>`;
+    for (const k of [-0.62, -0.32, 0, 0.32, 0.62]) s += `<path d="M${n(k * fr * 0.55)},${n(fy - fr * 0.84)}Q${n(k * fr * 1.5)},${n(fy)} ${n(k * fr * 0.55)},${n(fy + fr * 0.84)}" fill="none" stroke="#A2520F" stroke-opacity="0.55" stroke-width="0.07"/>`;
+    s += `<ellipse cx="${n(fr * 0.3)}" cy="${n(fy - fr * 0.3)}" rx="${n(fr * 0.3)}" ry="${n(fr * 0.2)}" fill="#fff" fill-opacity="0.22"/><path d="M0,${n(fy - fr * 0.12)}q0.18,-0.3 0.05,-0.6" stroke="#5E7A2E" stroke-width="0.26" stroke-linecap="round" fill="none"/>`;
+    if (it.cover) {   // the shade tent growers put over the fruit in summer
+      const t = fr * 1.55;
+      s += `<rect x="${n(-t)}" y="${n(fy - t)}" width="${n(2 * t)}" height="${n(2 * t)}" fill="#F4F1E6" fill-opacity="0.5" stroke="#E9E4D6" stroke-width="0.1"/><path d="M${n(-t)},${n(fy - t)}L${n(t)},${n(fy + t)}M${n(t)},${n(fy - t)}L${n(-t)},${n(fy + t)}" stroke="#fff" stroke-opacity="0.6" stroke-width="0.06"/>` + [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => `<circle cx="${n(a * t)}" cy="${n(fy + b * t)}" r="0.18" fill="#8E969B" stroke="#4E555A" stroke-width="0.04"/>`).join('');
+    }
+    return s;
+  },
+  arbor(it, o, rng) {
+    const w = it.w, h = it.h, x0 = -w / 2, y0 = -h / 2;
+    let ribs = '';
+    for (let y = y0; y <= -y0 + 0.01; y += h / Math.max(2, Math.round(h / 1.4))) ribs += `M${n(x0)},${n(y)}H${n(-x0)}`;
+    for (const f of [-0.25, 0, 0.25]) ribs += `M${n(w * f)},${n(y0)}V${n(-y0)}`;
+    const posts = [[x0, y0], [-x0, y0], [x0, -y0], [-x0, -y0], [x0, 0], [-x0, 0]];
+    if (!o.render) return `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" fill="${GDRAFT(o, '#E6F0D8')}" fill-opacity="0.6" stroke="${INK}" stroke-width="${n(o.u * 0.8)}" stroke-dasharray="${n(o.u * 4)} ${n(o.u * 2)}"/><path d="${ribs}" stroke="${INK}" stroke-width="${n(o.u * 0.4)}"/><g fill="${INK}">${posts.map((p) => `<rect x="${n(p[0] - 0.2)}" y="${n(p[1] - 0.2)}" width="0.4" height="0.4"/>`).join('')}</g>`;
+    let s = o.icon ? '' : `<rect x="${n(x0 - 0.8)}" y="${n(y0 + 0.8)}" width="${n(w)}" height="${n(h)}" fill="#06120A" fill-opacity="0.24" filter="url(#ld-softw)"/>`;
+    s += `<path d="${ribs}" stroke="#AEB5B9" stroke-width="0.05"/>`;
+    const spots = [];
+    for (let y = y0 + 0.5; y < -y0; y += 0.85) for (const sgn of [-1, 1]) { spots.push([sgn * (w / 2 - 0.5 - rng() * 0.5), y + (rng() - 0.5) * 0.4, 0.7 + rng() * 0.3]); if (rng() < 0.55) spots.push([sgn * (w * 0.12 + rng() * w * 0.12), y, 0.55 + rng() * 0.25]); }
+    s += leafMass(spots, '#4B8C38', rng, 0.92);
+    for (let i = 0; i < 7; i++) s += `<ellipse cx="${n((rng() - 0.5) * w * 0.7)}" cy="${n((rng() - 0.5) * h * 0.85)}" rx="0.2" ry="0.34" fill="${['#E3B878', '#D9C06A', '#8FB04E'][i % 3]}" stroke="#7A5A22" stroke-width="0.03"/>`;
+    return s + posts.map((p) => `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="0.16" fill="#8E969B" stroke="#4E555A" stroke-width="0.04"/>`).join('');
+  },
+  beehive(it, o, rng) {
+    const w = it.w, h = it.h, box = RR(-w / 2, -h / 2, w, h * 0.82, 0.06);
+    if (!o.render) return P(box, GDRAFT(o, '#F4EFD8'), INK, n(o.u * 1.2)) + `<rect x="${n(-w / 2)}" y="${n(h * 0.32)}" width="${n(w)}" height="${n(h * 0.18)}" fill="${GDRAFT(o, '#E2D2A8')}" stroke="${INK}" stroke-width="${n(o.u * 0.7)}"/>` + (o.icon ? '' : `<g transform="translate(0 ${n(-h * 0.1)})">${GTEXT(o, 'HIVE', Math.min(0.6, w * 0.26))}</g>`);
+    let s = DSH(o, box, 0.8) + `<rect x="${n(-w / 2 + 0.1)}" y="${n(h * 0.3)}" width="${n(w - 0.2)}" height="${n(h * 0.2)}" fill="#C9A66B" stroke="#7A5B3C" stroke-width="0.04"/>` + P(box, '#F1EEE4', '#8E8A7E', 0.05) + P(RR(-w / 2 - 0.08, -h / 2 - 0.08, w + 0.16, h * 0.82 + 0.16, 0.08), 'url(#ld-steel)', '#6B7378', 0.04) + SHEEN(box);
+    for (let i = 0; i < 7; i++) s += `<ellipse cx="${n((rng() - 0.5) * w * 1.3)}" cy="${n(h * 0.42 + rng() * h * 0.5)}" rx="0.07" ry="0.045" fill="#3A2A12"/>`;
+    return s;
+  },
+  beehotel(it, o, rng) {
+    const w = it.w, h = it.h, box = RR(-w / 2, -h / 2, w, h, 0.05);
+    if (!o.render) { let dots = ''; for (let i = 0; i < 8; i++) dots += `<circle cx="${n(-w / 2 + w * (i % 4 + 0.5) / 4)}" cy="${n(-h / 2 + h * (Math.floor(i / 4) + 0.5) / 2)}" r="${n(Math.min(w, h) * 0.08)}"/>`; return P(box, GDRAFT(o, '#E6D3B8'), INK, n(o.u * 1.1)) + `<g fill="${INK}">${dots}</g>`; }
+    let s = DSH(o, box, 0.6) + P(box, 'url(#ld-teak)', '#3B2A1A', 0.05), holes = '';
+    for (let i = 0; i < 26; i++) holes += `<circle cx="${n(-w / 2 + 0.14 + rng() * (w - 0.28))}" cy="${n(-h / 2 + 0.12 + rng() * (h - 0.24))}" r="${n(0.035 + rng() * 0.04)}"/>`;
+    return s + `<g fill="#2A1A0E">${holes}</g><rect x="${n(-w / 2 - 0.1)}" y="${n(-h / 2 - 0.1)}" width="${n(w + 0.2)}" height="0.22" fill="#5E4129"/>`;
+  },
+  puddler(it, o, rng) {
+    const R = Math.min(it.w, it.h) / 2;
+    if (!o.render) return `<circle r="${n(R)}" fill="${GDRAFT(o, '#EFE4C2')}" stroke="${INK}" stroke-width="${n(o.u * 1.1)}"/><circle r="${n(R * 0.45)}" fill="url(#dd-water)" stroke="${INK}" stroke-width="${n(o.u * 0.5)}"/>`;
+    let s = (o.icon ? '' : `<circle cx="-0.2" cy="0.2" r="${n(R)}" fill="#06120A" fill-opacity="0.3" filter="url(#ld-softw)"/>`) + `<circle r="${n(R)}" fill="#B5613C" stroke="#7A3A20" stroke-width="0.05"/><circle r="${n(R * 0.86)}" fill="url(#ld-sand)"/><ellipse cx="${n(R * 0.1)}" cy="${n(R * 0.08)}" rx="${n(R * 0.5)}" ry="${n(R * 0.38)}" fill="#7FB8D0" fill-opacity="0.7"/>`;
+    for (let i = 0; i < 6; i++) { const a = i * 1.05 + 0.3; s += boulder(R * 0.55 * Math.cos(a), R * 0.55 * Math.sin(a), R * 0.15, rng); }
+    return s + `<g transform="translate(${n(-R * 0.2)} ${n(-R * 0.25)}) rotate(25)"><path d="M0,0C-0.3,-0.35 -0.5,0.05 0,0.12C0.5,0.05 0.3,-0.35 0,0Z" fill="#F28C1E" stroke="#3A2A12" stroke-width="0.03"/></g>`;
+  },
+  hoophouse(it, o) {
+    const w = it.w, h = it.h, x0 = -w / 2, y0 = -h / 2, k = Math.max(3, Math.round(h / 4));
+    let ribs = '';
+    for (let i = 0; i <= k; i++) ribs += `M${n(x0)},${n(y0 + h * i / k)}H${n(-x0)}`;
+    if (!o.render) return `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" fill="${GDRAFT(o, '#EEF3F2')}" stroke="${INK}" stroke-width="${n(Math.max(0.2, o.u * 1.8))}"/><path d="${ribs}" stroke="${INK}" stroke-width="${n(o.u * 0.5)}" stroke-dasharray="${n(o.u * 4)} ${n(o.u * 2)}"/><path d="M0,${n(y0)}V${n(-y0)}" stroke="${INK}" stroke-width="${n(o.u * 0.5)}"/>` + (o.icon ? '' : GTEXT(o, 'HOOP HOUSE', Math.min(1.3, w * 0.12), INK, GDRAFT(o, '#EEF3F2')));
+    let s = (o.icon ? '' : castShadow(`M${n(x0)},${n(y0)}H${n(-x0)}V${n(-y0)}H${n(x0)}Z`, 1.2, 0.7, 0.3)) + `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" fill="#4A6A44"/>`;
+    for (const f of [-0.28, 0.28]) s += `<rect x="${n(w * f - w * 0.16)}" y="${n(y0 + 1)}" width="${n(w * 0.32)}" height="${n(h - 2)}" fill="url(#ld-soil)"/><path d="M${n(w * f)},${n(y0 + 1.4)}V${n(-y0 - 1.4)}" stroke="#5FA243" stroke-width="${n(w * 0.16)}" stroke-dasharray="0.9 0.5"/>`;
+    s += `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" fill="url(#ld-poly)"/><path d="${ribs}" stroke="#F7F9F8" stroke-opacity="0.9" stroke-width="0.12"/><path d="M0,${n(y0)}V${n(-y0)}" stroke="#fff" stroke-opacity="0.55" stroke-width="${n(w * 0.06)}"/>`;
+    return s + `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" fill="none" stroke="#C9CED1" stroke-width="0.14"/><rect x="-1.5" y="${n(-y0 - 0.12)}" width="3" height="0.24" fill="#7E868B"/>`;
+  },
+  coldframe(it, o) {
+    const w = it.w, h = it.h, x0 = -w / 2, y0 = -h / 2, k = Math.max(2, Math.round(w / 2));
+    let bars = '';
+    for (let i = 1; i < k; i++) bars += `M${n(x0 + w * i / k)},${n(y0)}V${n(-y0)}`;
+    if (!o.render) return `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" fill="${GDRAFT(o, '#DCEDEA')}" stroke="${INK}" stroke-width="${n(o.u * 1.3)}"/><path d="${bars}" stroke="${INK}" stroke-width="${n(o.u * 0.5)}"/>`;
+    const fr = RR(x0, y0, w, h, 0.05);
+    return DSH(o, fr, 0.7) + P(fr, 'url(#ld-teak)', '#3B2A1A', 0.06) + `<rect x="${n(x0 + 0.18)}" y="${n(y0 + 0.18)}" width="${n(w - 0.36)}" height="${n(h - 0.36)}" fill="#3F6A3A"/><rect x="${n(x0 + 0.18)}" y="${n(y0 + 0.18)}" width="${n(w - 0.36)}" height="${n(h - 0.36)}" fill="url(#ld-glass)"/><path d="${bars}" stroke="#F4F7F6" stroke-width="0.1"/><path d="M${n(x0 + 0.5)},${n(y0 + 0.4)}L${n(x0 + w * 0.4)},${n(-y0 - 0.4)}" stroke="#fff" stroke-opacity="0.3" stroke-width="${n(h * 0.12)}"/>`;
+  },
+  potting(it, o, rng) {
+    const w = it.w, h = it.h, top = RR(-w / 2, -h / 2, w, h, 0.06);
+    if (!o.render) return P(top, GDRAFT(o, '#E6D3B8'), INK, n(o.u * 1.2)) + `<circle cx="${n(-w * 0.25)}" cy="0" r="${n(h * 0.22)}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 0.6)}"/><rect x="${n(w * 0.05)}" y="${n(-h * 0.3)}" width="${n(w * 0.35)}" height="${n(h * 0.6)}" fill="none" stroke="${INK}" stroke-width="${n(o.u * 0.6)}"/>`;
+    let s = DSH(o, top, 0.9) + P(top, 'url(#ld-teak)', '#3B2A1A', 0.06) + SHEEN(top);
+    s += `<rect x="${n(w * 0.05)}" y="${n(-h * 0.32)}" width="${n(w * 0.38)}" height="${n(h * 0.64)}" rx="0.06" fill="#2E2E2E"/><rect x="${n(w * 0.07)}" y="${n(-h * 0.28)}" width="${n(w * 0.34)}" height="${n(h * 0.56)}" fill="url(#ld-soil)"/>`;
+    for (let i = 0; i < 4; i++) { const x = -w * 0.42 + i * w * 0.11, y = (i % 2 ? 0.25 : -0.25) * h; s += `<circle cx="${n(x)}" cy="${n(y)}" r="${n(h * 0.16)}" fill="#B5613C" stroke="#7A3A20" stroke-width="0.04"/><circle cx="${n(x)}" cy="${n(y)}" r="${n(h * 0.11)}" fill="${i % 2 ? '#5FA243' : '#4B3828'}"/>`; }
+    return s;
+  },
+  compost(it, o, rng) {
+    const w = it.w, h = it.h, x0 = -w / 2, y0 = -h / 2, bw = w / 3;
+    if (!o.render) return [0, 1, 2].map((i) => `<rect x="${n(x0 + i * bw)}" y="${n(y0)}" width="${n(bw)}" height="${n(h)}" fill="${GDRAFT(o, ['#DDE7C8', '#D9C2A6', '#CDB79A'][i])}" stroke="${INK}" stroke-width="${n(o.u * 1.2)}"/>`).join('') + (o.icon ? '' : GTEXT(o, 'COMPOST', Math.min(0.9, h * 0.26), INK, '#fff'));
+    const fr = RR(x0, y0, w, h, 0.05);
+    let s = DSH(o, fr, 0.9) + P(fr, 'url(#ld-teakv)', '#3B2A1A', 0.06);
+    const fills = ['#6E7A3E', '#5A4630', 'url(#ld-soil)'];
+    for (let i = 0; i < 3; i++) {
+      const bx = x0 + i * bw + 0.22, by = y0 + 0.22, ww = bw - 0.44, hh = h - 0.44;
+      s += `<rect x="${n(bx)}" y="${n(by)}" width="${n(ww)}" height="${n(hh)}" fill="${fills[i]}"/>`;
+      if (i < 2) for (let k = 0; k < 26; k++) s += `<rect x="${n(bx + rng() * (ww - 0.3))}" y="${n(by + rng() * (hh - 0.15))}" width="${n(0.12 + rng() * 0.3)}" height="0.08" transform="rotate(${Math.round(rng() * 180)} ${n(bx + ww / 2)} ${n(by + hh / 2)})" fill="${(i ? ['#7A5B3C', '#4A3626', '#8C6A48'] : ['#8FB04E', '#C9A66B', '#5E8C3A', '#D9C27A'])[k % (i ? 3 : 4)]}" fill-opacity="0.85"/>`;
+      s += `<rect x="${n(bx)}" y="${n(by)}" width="${n(ww)}" height="${n(hh)}" fill="url(#ld-grain)"/>`;
+    }
+    return s;
+  },
+  rainbarrel(it, o) {
+    const R = Math.min(it.w, it.h) / 2;
+    if (!o.render) return `<circle r="${n(R)}" fill="${GDRAFT(o, '#D7ECF6')}" stroke="${INK}" stroke-width="${n(o.u * 1.2)}"/>` + (o.icon ? '' : GTEXT(o, 'RB', R * 0.75));
+    return (o.icon ? '' : `<circle cx="${n(-R * 0.45)}" cy="${n(R * 0.45)}" r="${n(R)}" fill="#06120A" fill-opacity="0.38" filter="url(#ld-softw)"/>`) + `<circle r="${n(R)}" fill="#2F5A48" stroke="#16302A" stroke-width="0.06"/><circle r="${n(R * 0.86)}" fill="#3B6E58"/><circle r="${n(R)}" fill="url(#ld-puff)"/><circle r="${n(R * 0.42)}" fill="#1E2A26" stroke="#55786A" stroke-width="0.06"/><circle r="${n(R * 0.32)}" fill="url(#ld-chain)"/><rect x="${n(-R * 0.14)}" y="${n(R * 0.82)}" width="${n(R * 0.28)}" height="${n(R * 0.36)}" fill="#C9A24A"/>`;
+  },
+  spigot(it, o) {
+    const R = Math.min(it.w, it.h) / 2;
+    if (!o.render) return `<circle r="${n(R)}" fill="#fff" stroke="${INK}" stroke-width="${n(o.u * 1.1)}"/>` + (o.icon ? '' : GTEXT(o, 'W', R * 1.1));
+    return `<circle r="${n(R)}" fill="#DCEAF2" stroke="#5C7E94" stroke-width="0.06"/><circle r="${n(R * 0.55)}" fill="#2E86B8"/><path d="M${n(-R * 0.5)},0H${n(R * 0.5)}M0,${n(-R * 0.5)}V${n(R * 0.5)}" stroke="#C9CED1" stroke-width="0.12" stroke-linecap="round"/><circle r="${n(R * 0.16)}" fill="#8E969B"/>`;
+  },
+  classroom(it, o, rng) {
+    const w = it.w, h = it.h, R = Math.min(w, h * 1.1) / 2, cy = -h / 2 + 2.2;
+    const arc = (r, a) => { const x = r * Math.sin(a), y = cy + r * Math.cos(a); return `M${n(-x)},${n(y)}A${n(r)},${n(r)} 0 0 0 ${n(x)},${n(y)}`; };
+    const rows = [R * 0.42, R * 0.62, R * 0.82].filter((r) => cy + r < h / 2 - 0.4);
+    if (!o.render) return `<ellipse rx="${n(w / 2)}" ry="${n(h / 2)}" fill="${GDRAFT(o, '#EFE8DA')}" fill-opacity="0.7" stroke="${INK}" stroke-width="${n(o.u * 0.8)}" stroke-dasharray="${n(o.u * 5)} ${n(o.u * 3)}"/>` + rows.map((r) => `<path d="${arc(r, 1.05)}" fill="none" stroke="${INK}" stroke-width="${n(Math.max(0.5, o.u * 5))}"/><path d="${arc(r, 1.05)}" fill="none" stroke="${GDRAFT(o, '#E6D3B8')}" stroke-width="${n(Math.max(0.3, o.u * 3))}"/>`).join('') + `<rect x="-2.5" y="${n(cy - 1)}" width="5" height="2" fill="${GDRAFT(o, '#E6D3B8')}" stroke="${INK}" stroke-width="${n(o.u * 1)}"/>`;
+    let s = `<ellipse rx="${n(w / 2)}" ry="${n(h / 2)}" fill="url(#ld-gravel)" stroke="#8E8676" stroke-width="0.08"/>`;
+    for (const r of rows) s += (o.icon ? '' : `<path d="${arc(r, 1.05)}" transform="translate(-0.3 0.3)" fill="none" stroke="#06120A" stroke-opacity="0.3" stroke-width="1.5" stroke-linecap="round" filter="url(#ld-softw)"/>`) + `<path d="${arc(r, 1.05)}" fill="none" stroke="#5E4129" stroke-width="1.5" stroke-linecap="round"/><path d="${arc(r, 1.05)}" fill="none" stroke="#B07F4F" stroke-width="1.2" stroke-linecap="round"/><path d="${arc(r - 0.25, 1.03)}" fill="none" stroke="#D9B07A" stroke-opacity="0.6" stroke-width="0.2"/><path d="${arc(r, 1.05)}" fill="none" stroke="#5E4129" stroke-opacity="0.5" stroke-width="1.2" stroke-dasharray="0.06 2.2"/>`;
+    const tb = RR(-2.5, cy - 1, 5, 2, 0.1);
+    return s + DSH(o, tb, 0.8) + P(tb, 'url(#ld-teak)', '#3B2A1A', 0.06) + SHEEN(tb) + `<circle cx="-1.3" cy="${n(cy)}" r="0.42" fill="#B5613C" stroke="#7A3A20" stroke-width="0.04"/><circle cx="-1.3" cy="${n(cy)}" r="0.3" fill="#5FA243"/><rect x="0.3" y="${n(cy - 0.55)}" width="1.5" height="1.1" fill="#F4F1E6" stroke="#8E8A7E" stroke-width="0.04"/>`;
+  },
+  sign(it, o) {
+    const w = it.w, h = it.h, x0 = -w / 2, y0 = -h / 2;
+    if (!o.render) return `<rect x="${n(x0)}" y="${n(y0)}" width="${n(w)}" height="${n(h)}" fill="${GDRAFT(o, '#F6EFD2')}" stroke="${INK}" stroke-width="${n(o.u * 1.2)}"/>` + (o.icon ? '' : GTEXT(o, 'i', Math.min(h * 0.9, w * 0.4)));
+    const pn = RR(x0, y0, w, h, 0.08);
+    let lines = '';
+    for (let i = 0; i < 3; i++) lines += `M${n(x0 + w * 0.42)},${n(y0 + h * (0.3 + i * 0.2))}H${n(-x0 - w * (0.08 + (i % 2) * 0.12))}`;
+    return [-1, 1].map((e) => `<circle cx="${n(e * (w / 2 - 0.25))}" cy="${n(h / 2 + 0.12)}" r="0.14" fill="#5E4129"/>`).join('') + DSH(o, pn, 0.7) + P(pn, '#1B5633', '#0E3A21', 0.06) + `<rect x="${n(x0 + 0.1)}" y="${n(y0 + 0.1)}" width="${n(w - 0.2)}" height="${n(h - 0.2)}" fill="#F6F5EF"/><rect x="${n(x0 + 0.18)}" y="${n(y0 + 0.18)}" width="${n(w * 0.3)}" height="${n(h - 0.36)}" fill="#7FB05E"/><path d="${lines}" stroke="#4A4A4A" stroke-width="${n(h * 0.07)}"/>` + SHEEN(pn);
+  },
+  marker(it, o) {
+    const R = Math.min(it.w, it.h) / 2, num = String(it.num || 1).slice(0, 2);
+    const t = o.icon ? '' : GTEXT(o, esc(num), R * (num.length > 1 ? 1.05 : 1.3), o.render ? '#0E3A21' : INK);
+    if (!o.render) return `<circle r="${n(R)}" fill="${GDRAFT(o, '#FFE38A')}" stroke="${INK}" stroke-width="${n(o.u * 1.4)}"/>` + t;
+    return (o.icon ? '' : `<circle cx="-0.2" cy="0.2" r="${n(R)}" fill="#06120A" fill-opacity="0.35" filter="url(#ld-softw)"/>`) + `<circle r="${n(R)}" fill="#0E3A21"/><circle r="${n(R * 0.86)}" fill="#FFCE00"/><circle r="${n(R * 0.86)}" fill="url(#ld-puff)"/>` + t;
+  },
+};
+for (const [k, v] of Object.entries(GARDEN_T)) { T[k] = Object.assign({ id: k, kind: 'box', furn: true, garden: true }, v, { d: Object.assign({}, v.d) }); RDRAW[k] = DDRAW[k] = GARDEN[k]; }
+T.trellis = { id: 'trellis', name: 'Trellis', kind: 'line', d: { style: 'grape', width: 3 }, band: 4.4 };
+RDRAW.trellis = DDRAW.trellis = trellisDraw;
+
 /* ------------------------------------------------------------------ garden walls: retaining, stone, seat, brick, timber
  * A line item; `width` is the wall thickness (set by the style), `height` its height, `smooth` makes the run a curve. */
 function openSpline(pts, step) {
@@ -3203,6 +3631,9 @@ const ICON = {
 };
 const CIRCLE_VB = [-5.6, -5.6, 11.2, 11.2];
 for (const [k, v] of Object.entries(FURN_T)) { const w = v.d.w, h = v.d.h, m = Math.max(w, h) * 0.08; ICON[k] = { w, h, vb: [-w / 2 - m, -h / 2 - m, w + 2 * m, h + 2 * m] }; }
+for (const [k, v] of Object.entries(GARDEN_T)) { const w = v.d.w, h = v.d.h, m = Math.max(w, h) * 0.1; ICON[k] = { w, h, vb: [-w / 2 - m, -h / 2 - m, w + 2 * m, h + 2 * m] }; }
+ICON.trellis = { pts: [[-5, 1.6], [5, -1.6]], vb: [-6.2, -4.6, 12.4, 9.2] };
+ICON.gpumpkin.cover = false;
 ICON.pondShape = { pts: [[-4.4, -2.6], [0.5, -3.8], [4.4, -1.6], [3.2, 3.2], [-1.6, 3.6], [-4.6, 0.8]], smooth: true, vb: [-6.2, -5.4, 12.4, 10.8] };
 ICON.stream = { pts: [[-5.4, 3.4], [-2.2, 0.4], [1.8, 1.4], [5.4, -3.2]], smooth: true, width: 2, vb: [-6, -4.6, 12, 9.2] };
 ICON.poolShape = { pts: [[-4.5, -3], [1, -4], [4.6, -1], [3.5, 3.6], [-2, 3.8], [-4.8, 1]], smooth: true, vb: [-6, -5.2, 12, 10.4] };
@@ -3292,6 +3723,7 @@ const LINE_ICO = {
   lotedit: '<path d="M4 6 18 4l2 13-12 3z" stroke-dasharray="3 2"/><circle cx="4" cy="6" r="1.6"/><circle cx="18" cy="4" r="1.6"/><circle cx="20" cy="17" r="1.6"/><circle cx="8" cy="20" r="1.6"/>',
   imgscale: '<rect x="3" y="5" width="18" height="14" rx="1"/><path d="M6 15 18 9"/><circle cx="6" cy="15" r="1.5"/><circle cx="18" cy="9" r="1.5"/>',
   buildlib: '<path d="M3 20h18"/><path d="M5 20V9l7-5 7 5v11"/><path d="M9 20v-6h6v6"/>',
+  gardenlib: '<path d="M12 21V11"/><path d="M12 13c-4 0-6-2.4-6-6 4 0 6 2.4 6 6z"/><path d="M12 11c0-3.4 1.8-5.6 5.6-5.6 0 3.4-1.8 5.6-5.6 5.6z"/><path d="M5 21h14"/>',
   livinglib: '<path d="M4 13h16v4H4z"/><path d="M6 17v3M18 17v3M6 13V9a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4"/><path d="M12 3v2"/>',
   library: '<path d="M4 19V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z"/><path d="M4 19a2 2 0 0 1 2-2h12"/><path d="M12 7c-2 0-3 1.4-3 3 2 0 3-1.4 3-3zm0 0c2 0 3 1.4 3 3-2 0-3-1.4-3-3zm0 0v6"/>',
 };
@@ -3310,6 +3742,7 @@ const TIPS = {
   pondShape: 'Draw a natural pond: click around the edge, then the first dot to close.', stream: 'Click along the course of the stream, double-click to finish. Click near a pond or another stream and the point snaps onto it, so the water joins up. Set its width under Properties.',
   shed: 'Click to place the shed, then turn it with the yellow dot so the doors (the ramp end) face where you want them. Drag the corner dot to resize.',
   stairs: 'Click to place steps, then turn them with the yellow dot so the top points uphill. Drag the corner dot for width and length; longer steps climb higher.',
+  trellis: 'Click each end post of the trellis, double-click to finish. Pick grape, muscadine, blackberry, bean, tomato or espalier at the top.',
   gate: 'Click on or near a fence: the gate sets into the fence line, takes its style, and the fence opens for it.',
   wall: 'Click each corner of the wall, double-click to finish. Pick retaining block, fieldstone, seat wall, brick or timber at the top; Curved makes a smooth arc.',
   lights: 'String lights: click each pole or hook, double-click to finish. Bistro or fairy bulbs at the top.',
@@ -3556,6 +3989,9 @@ function cleanState(raw) {
     if (r.type === 'path') it.finish = PATH_FINISHES[r.finish] ? r.finish : 'concrete';
     if (r.type === 'fence') { it.style = FENCE_STYLES[r.style] ? r.style : 'privacy'; it.height = numOr(r.height, 2, 12, FENCE_HEIGHT[it.style]); }
     if (r.type === 'stairs') it.style = STAIR_STYLES[r.style] ? r.style : 'stone';
+    if (r.type === 'trellis') { it.style = TRELLIS[r.style] ? r.style : 'grape'; it.width = TRELLIS[it.style].cw; }
+    if (r.type === 'marker') it.num = clamp(Math.round(numOr(r.num, 1, 99, 1)), 1, 99);
+    if (r.type === 'gpumpkin' && r.cover) it.cover = true;
     if (r.type === 'shed') { it.style = SHED_STYLES[r.style] ? r.style : 'gable'; it.roof = SHED_ROOFS[r.roof] ? r.roof : 'shingle'; }
     if (r.type === 'gate') { it.style = FENCE_STYLES[r.style] ? r.style : 'privacy'; it.leaves = r.leaves === 2 ? 2 : 1; it.h = 2; it.w = clamp(it.w, 2, 24); if (r.flip) it.flip = true; if (r.hinge === 'r') it.hinge = 'r'; if (r.ownStyle) it.ownStyle = true; }
     if (r.type === 'wall') { it.style = WALL_STYLES[r.style] ? r.style : 'seat'; it.height = numOr(r.height, 0.5, 12, WALL_HEIGHT[it.style]); it.width = WALL_W[it.style]; it.smooth = !!r.smooth; }
@@ -3565,6 +4001,7 @@ function cleanState(raw) {
       const sp = findSp(r.sp);
       if (sp && cats.includes(sp.t)) it.sp = sp.id;
       else if (r.type !== 'bedShape') it.sp = t.d.sp;
+      if (isBedType(r.type) && typeof r.rows === 'boolean') it.rows = r.rows;
       if (isBedType(r.type) && Array.isArray(r.mix)) {
         const mix = r.mix.slice(0, 12).map((m) => m && findSp(m.sp) && cats.includes(findSp(m.sp).t) ? { sp: m.sp, w: numOr(m.w, 1, 100, 1) } : null).filter(Boolean);
         if (mix.length > 1) { it.mix = mix; it.sp = mix[0].sp; }
@@ -4145,8 +4582,9 @@ function renderOverlay() {
   statusSel();
 }
 function nameOf(it) {
-  const sp = spOf(it), base = sp && T[it.type].plant ? sp.cn : T[it.type].name;
+  const sp = spOf(it), base = sp && T[it.type].plant ? sp.cn : it.type === 'trellis' ? TRELLIS[trellisStyle(it)].name.replace(/ \(.*\)$/, '') : it.type === 'marker' ? `Tour station ${it.num || 1}` : T[it.type].name;
   if (it.label) return `${base} “${it.label}”`;
+  if (it.type === 'marker') return base;
   const same = state.items.filter((i) => i.type === it.type && (i.sp || '') === (it.sp || ''));
   return same.length > 1 ? `${base} ${same.indexOf(it) + 1}` : base;
 }
@@ -4180,13 +4618,13 @@ function renderRail() {
     const line = !!LINE_ICO[tl];
     return `<button type="button" class="tool${line ? ' line' : ''}" data-tool="${tl}" aria-pressed="${tool === tl}" aria-label="${esc(toolName(tl))} (${KEYS[tl]})" aria-keyshortcuts="${KEYS[tl]}">${line ? toolIcon(tl) : `<span class="chip">${toolIcon(tl)}</span>`}<span class="key" aria-hidden="true">${KEYS[tl]}</span></button>`;
   }).join('')}</div>`).join('');
-  h += `<div class="grp"><button type="button" class="tool line" data-openlib="plants" aria-label="Plant library">${toolIcon('library')}</button><button type="button" class="tool line" data-openlib="build" aria-label="Build library: fences, patios, walks">${toolIcon('buildlib')}</button><button type="button" class="tool line" data-openlib="living" aria-label="Outdoor living library: furniture, pools, play, fire">${toolIcon('livinglib')}</button></div>`;
+  h += `<div class="grp"><button type="button" class="tool line" data-openlib="plants" aria-label="Plant library">${toolIcon('library')}</button><button type="button" class="tool line" data-openlib="build" aria-label="Build library: fences, patios, walks">${toolIcon('buildlib')}</button><button type="button" class="tool line" data-openlib="living" aria-label="Outdoor living library: furniture, pools, play, fire">${toolIcon('livinglib')}</button><button type="button" class="tool line" data-openlib="garden" aria-label="Garden library: vegetable beds, giant pumpkins, trellises, pollinators, teaching">${toolIcon('gardenlib')}</button></div>`;
   $('rail').innerHTML = h;
   $('rail').querySelectorAll('[data-tool]').forEach((b) => {
     b.addEventListener('click', () => setTool(b.dataset.tool));
     bindTip(b, () => `<b>${esc(toolName(b.dataset.tool))}</b> &nbsp;<kbd>${KEYS[b.dataset.tool]}</kbd><small>${esc(TIPS[b.dataset.tool] || '')}</small>`);
   });
-  const LIBTIP = { plants: ['Plant library', 'Trees, shrubs, perennials, grasses and your own plants.'], build: ['Build', 'Fences and gates, sheds, steps, walls (retaining, stone, seat, brick, timber), patios by surface, walks, decks, sheds, vegetable garden, firewood, bird bath.'], living: ['Outdoor living', 'Furniture, umbrellas, pergola, grill, kitchen, fire pits, pools, hot tub, ponds and streams, play set, swings, trampoline, string lights.'] };
+  const LIBTIP = { garden: ['Garden', 'Vegetable beds and row plots, giant pumpkin patch, grape and berry trellises, pollinator beds and bee houses, hoop house, compost, rain barrels, outdoor classroom, signs and tour markers.'], plants: ['Plant library', 'Trees, shrubs, perennials, vegetables and herbs, pollinator plants, grasses and your own plants.'], build: ['Build', 'Fences and gates, sheds, steps, walls (retaining, stone, seat, brick, timber), patios by surface, walks, decks, sheds, vegetable garden, firewood, bird bath.'], living: ['Outdoor living', 'Furniture, umbrellas, pergola, grill, kitchen, fire pits, pools, hot tub, ponds and streams, play set, swings, trampoline, string lights.'] };
   $('rail').querySelectorAll('[data-openlib]').forEach((b) => {
     b.addEventListener('click', () => { const tab = b.dataset.openlib; if (view.lib && libTab === tab) toggleLib(false); else { if (!view.lib) toggleLib(true); setLibTab(tab); } markLibButtons(); });
     bindTip(b, () => `<b>${LIBTIP[b.dataset.openlib][0]}</b><small>${LIBTIP[b.dataset.openlib][1]}</small>`);
@@ -4224,8 +4662,9 @@ function hintFor(tl) {
   if (bedFormPref[tl]) return `${click} the plan to place the bed${sp ? ` of ${sp.cn.toLowerCase()}` : ''}. Pick its shape with the buttons on the left of this bar.`;
   return `${click} the plan to place the ${t.name.toLowerCase()}${sp ? ` of ${sp.cn.toLowerCase()}` : ''}. Drag its corner dot to resize.`;
 }
-function setTool(tl) {
+function setTool(tl, keepPreset) {
   if (draft && tl !== tool) finishDraft();
+  if (!keepPreset) for (const k of ['annual', 'perennial', 'groundcover', 'bedShape']) delete toolPreset[k];   // a ready-made plot from the Garden tab is placed once; after that the bed tools start plain again
   tool = tl;
   if (tl !== 'measure') measure = null;
   if (T[tl]) {
@@ -4233,7 +4672,7 @@ function setTool(tl) {
     if (L === 'design' && !view.design) { view.design = true; $('tDesign').checked = true; renderPlan(); toast('Design layer turned on'); }
     if (L === 'diagram' && !view.diagram) { view.diagram = true; $('tDiagram').checked = true; renderPlan(); toast('Functional diagram turned on'); }
     const cats = spCats(tl);
-    if (cats.length && curSp[tl] && PLANT_BY_ID[curSp[tl]]) { libSp = curSp[tl]; if (!cats.includes(libCat) && libCat !== 'all' && !(libCat === 'grass' && PLANT_BY_ID[libSp].g)) libCat = cats[0]; renderLib(); }
+    if (cats.length && curSp[tl] && PLANT_BY_ID[curSp[tl]]) { libSp = curSp[tl]; if (!cats.includes(libCat) && libCat !== 'all' && catOf(PLANT_BY_ID[libSp]) !== libCat) libCat = cats[0]; renderLib(); }
   }
   document.querySelectorAll('[data-tool]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.tool === tl ? 'true' : 'false'));
   svg.classList.toggle('sel', tl === 'select');
@@ -4248,7 +4687,7 @@ function setTool(tl) {
 }
 
 /* ------------------------------------------------------------------ plant library */
-let libCat = 'all', libSun = '', libQ = '';
+let libCat = 'all', libSun = '', libQ = '', libPol = false;
 function sunDots(sun) {
   return `<span class="sun" title="${sun.split('/').map((s) => SUN_NAMES[s]).join(', ')}">${sun.split('/').map((s) => `<i class="${s.toLowerCase()}"></i>`).join('')}</span>`;
 }
@@ -4256,9 +4695,15 @@ function plantThumb(sp) {
   if (sp.t === 'perennial' || sp.t === 'annual' || sp.t === 'groundcover') return iconSVG('bedShape', 'render', sp.id);
   return iconSVG(sp.t === 'turf' ? 'lawnShape' : sp.t, 'render', sp.id);
 }
+/* <optgroup>s of the plants an item can hold, grouped like the library (vegetables and grasses get their own groups) */
+function plantOptions(cats, sel0) {
+  return LIB_CATS.map(([k, name]) => { const rows = PLANTS.filter((q) => cats.includes(q.t) && catOf(q) === k); return rows.length ? `<optgroup label="${name}">${rows.map((q) => `<option value="${q.id}" ${sel0 === q.id ? 'selected' : ''}>${esc(q.cn)}${q.custom ? ' (yours)' : ''}</option>`).join('')}</optgroup>` : ''; }).join('');
+}
+const SEASONS = { sp: 'spring', su: 'summer', fa: 'fall' };
+const bloomText = (sp) => (sp.bl || '').split('/').filter((x) => SEASONS[x]).map((x) => SEASONS[x]).join(', ');
 function speciesInfo(sp) {
   return `<b>${esc(sp.cn)}</b> <span style="font-family:var(--display);font-size:11px;border:1px solid #6B6F64;border-radius:2px;padding:0 4px;margin-left:4px">${PLANT_CODE[sp.id]}</span><br><i>${esc(sp.bn)}</i>
-    <dl>${sp.t === 'turf' ? '' : `<dt>Mature size</dt><dd>${sp.w} ft wide × ${sp.h} ft tall</dd>`}<dt>Light</dt><dd>${sp.sun.split('/').map((s) => SUN_NAMES[s]).join(', ')}</dd><dt>Hardiness</dt><dd>${!sp.z ? '—' : sp.z === 'annual' ? 'Annual' : 'USDA zones ' + sp.z}</dd>${sp.spc ? `<dt>Spacing</dt><dd>${sp.spc} ft apart</dd>` : ''}</dl><p>${esc(sp.note || '')}</p>` +
+    <dl>${sp.t === 'turf' ? '' : `<dt>Mature size</dt><dd>${sp.w} ft wide × ${sp.h} ft tall</dd>`}<dt>Light</dt><dd>${sp.sun.split('/').map((s) => SUN_NAMES[s]).join(', ')}</dd><dt>Hardiness</dt><dd>${!sp.z ? '—' : sp.z === 'annual' ? 'Annual' : 'USDA zones ' + sp.z}</dd>${sp.spc ? `<dt>Spacing</dt><dd>${sp.spc < 1 ? Math.round(sp.spc * 12) + ' in.' : sp.spc + ' ft'} apart${sp.row ? `, rows ${sp.row} ft apart` : ''}</dd>` : ''}${sp.sea ? `<dt>Season</dt><dd>${sp.sea === 'cool' ? 'Cool season: spring and fall' : 'Warm season: after the last frost'}</dd>` : ''}${sp.yl ? `<dt>Yield</dt><dd>about ${sp.yl} lb per plant</dd>` : ''}${sp.pol ? `<dt>Pollinators</dt><dd>blooms in ${bloomText(sp)}</dd>` : ''}${sp.host ? `<dt>Host plant</dt><dd>${esc(sp.host)} caterpillars feed on it</dd>` : ''}</dl><p>${esc(sp.note || '')}</p>` +
     libActions(sp) + (sp.custom ? `<div class="btnrow" style="margin-top:6px"><button type="button" class="btn" data-cp-edit="${sp.id}">Edit</button><button type="button" class="btn danger" data-cp-del="${sp.id}">Delete</button></div>` : '');
 }
 function libActions(sp) {
@@ -4270,6 +4715,7 @@ function libActions(sp) {
 }
 function renderLibControls() {
   $('libCat').innerHTML = `<option value="all">All plants (${PLANTS.length})</option>` + LIB_CATS.map(([k, name]) => `<option value="${k}">${name} (${PLANTS.filter((p) => catOf(p) === k).length})</option>`).join('');
+  $('libTags').innerHTML = `<button type="button" data-pol aria-pressed="${libPol}" title="Plants that feed bees, butterflies and hummingbirds">Pollinator plants (${PLANTS.filter((p) => p.pol).length})</button>`;
   $('libSun').innerHTML = [['', 'Any light'], ['F', 'Full sun'], ['P', 'Part shade'], ['S', 'Shade']].map(([k, l]) => `<button type="button" data-sun="${k}" aria-pressed="${libSun === k}">${l}</button>`).join('');
 }
 function renderLib() {
@@ -4280,7 +4726,8 @@ function renderLib() {
   $('libCat').value = libCat;
   $('libSun').querySelectorAll('[data-sun]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.sun === libSun));
   const q = libQ.trim().toLowerCase();
-  const list = PLANTS.filter((p) => (libCat === 'all' || catOf(p) === libCat) && (!libSun || p.sun.includes(libSun)) && (!q || (p.cn + ' ' + p.bn + ' ' + p.note).toLowerCase().includes(q)));
+  $('libTags').querySelectorAll('[data-pol]').forEach((b) => b.setAttribute('aria-pressed', libPol));
+  const list = PLANTS.filter((p) => (libCat === 'all' || catOf(p) === libCat) && (!libPol || p.pol) && (!libSun || p.sun.includes(libSun)) && (!q || (p.cn + ' ' + p.bn + ' ' + p.note).toLowerCase().includes(q)));
   let h = '';
   for (const [cat, name] of LIB_CATS) {
     const rows = list.filter((p) => catOf(p) === cat);
@@ -4407,6 +4854,7 @@ $('libInfo').addEventListener('click', (e) => {
 });
 $('libSearch').addEventListener('input', (e) => { libQ = e.target.value; renderLib(); });
 $('libCat').addEventListener('change', (e) => { libCat = e.target.value; renderLib(); });
+$('libTags').addEventListener('click', (e) => { if (e.target.closest('[data-pol]')) { libPol = !libPol; renderLib(); } });
 $('libSun').addEventListener('click', (e) => { const b = e.target.closest('[data-sun]'); if (b) { libSun = b.dataset.sun; renderLib(); } });
 $('libClose').addEventListener('click', () => toggleLib(false));
 $('libClose').title = 'Hide plant library';
@@ -4464,19 +4912,20 @@ function renderProps() {
   const cats = spCats(it.type);
   if (isBedType(it.type)) {
     const mix = bedMix(it);
-    const opts = (sel0) => cats.map((c) => `<optgroup label="${CATS.find((x) => x[0] === c)[1]}">${PLANTS.filter((q) => q.t === c).map((q) => `<option value="${q.id}" ${sel0 === q.id ? 'selected' : ''}>${esc(q.cn)}${q.custom ? ' (yours)' : ''}</option>`).join('')}</optgroup>`).join('');
+    const opts = (sel0) => plantOptions(cats, sel0), inRows = bedRowsOn(it);
     h += `<div class="fieldlabel" style="margin-bottom:4px">Plants in this bed</div>`;
     h += mix.map((m, i) => `<div class="mixrow"><span class="chip">${plantThumb(m.sp)}</span><select data-mix="${i}" aria-label="Plant ${i + 1}"${dis}>${opts(m.sp.id)}</select>${mix.length > 1 ? `<input type="number" data-mixw="${i}" value="${Math.round(m.w * 100)}" min="1" max="100" aria-label="Share of the bed in percent"${dis}><span class="muted">%</span>` : ''}<button type="button" class="iconbtn" data-mixdel="${i}" aria-label="Remove ${esc(m.sp.cn)} from the bed"${dis || (mix.length === 1 && it.type !== 'bedShape') ? ' disabled style="visibility:hidden"' : ''}><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>`).join('');
     if (!mix.length) h += '<p class="muted" style="margin-bottom:6px">Mulch only. Add plants, or place trees and shrubs on top of it.</p>';
     h += `<div class="btnrow" style="margin-bottom:6px"><button type="button" class="btn" data-act="mixadd"${dis}>+ Add a plant to this bed</button></div>`;
-    h += `<p class="muted" style="margin-bottom:10px">${mix.length > 1 ? 'Plants are set out in natural drifts by their share. ' : ''}Tip: drag a plant from the library onto this bed to add it.</p>`;
+    h += `<label class="check" style="margin-bottom:6px"><input type="checkbox" data-f="rows" ${inRows ? 'checked' : ''}${dis}> Plant in rows (vegetable garden)</label>`;
+    h += `<p class="muted" style="margin-bottom:10px">${inRows ? 'Rows run the long way of the bed, each crop at its own row spacing. ' : mix.length > 1 ? 'Plants are set out in natural drifts by their share. ' : ''}Tip: drag a plant from the library onto this bed to add it.</p>`;
     if (mix.length === 1) h += speciesCard(mix[0].sp);
     h += fld('Edge', `<select data-f="edge" aria-label="Bed edge"${dis}><option value="">None (flat bed)</option>${Object.entries(EDGES).map(([k, l]) => `<option value="${k}" ${it.edge === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`);
     if (it.type !== 'bedShape') h += fld('Bed shape', `<select data-f="form" aria-label="Bed shape"${dis}>${[['oval', 'Oval'], ['rect', 'Rectangle (square corners)'], ['round', 'Rounded rectangle']].map(([k, l]) => `<option value="${k}" ${bedForm(it) === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`);
   } else if (cats.length) {
     if (sp) h += speciesCard(sp);
     const opts = (it.type === 'bedShape' ? '<option value="">Mulch only (no plants)</option>' : '') +
-      cats.map((c) => `<optgroup label="${CATS.find((x) => x[0] === c)[1]}">${PLANTS.filter((p) => p.t === c).map((p) => `<option value="${p.id}" ${it.sp === p.id ? 'selected' : ''}>${esc(p.cn)}</option>`).join('')}</optgroup>`).join('');
+      plantOptions(cats, it.sp);
     h += fld(it.type.startsWith('lawn') ? 'Grass' : 'Plant', `<select data-f="sp" aria-label="Plant"${dis}>${opts}</select>`);
   }
   if (t.kind === 'circle') h += `<div class="row3">${fld(it.type === 'birdbath' ? 'Size ft' : 'Spread ft', numIn('spread', it.r * 2, 0.5, 120, 0.5, 'Spread in feet'))}${fld('X ft', numIn('x', it.x, -50, 150, 0.5, 'X position'))}${fld('Y ft', numIn('y', it.y, -50, 150, 0.5, 'Y position'))}</div>`;
@@ -4492,6 +4941,16 @@ function renderProps() {
   if (it.type === 'fence') {
     h += `<div class="row2">${fld('Fence style', `<select data-f="fstyle" aria-label="Fence style"${dis}>${Object.entries(FENCE_STYLES).map(([k, z]) => `<option value="${k}" ${(it.style || 'privacy') === k ? 'selected' : ''}>${z.replace(' fence', '')}</option>`).join('')}</select>`)}${fld('Height', `<select data-f="fheight" aria-label="Fence height"${dis}>${[3, 4, 5, 6, 8].map((v) => `<option value="${v}" ${(it.height || 6) === v ? 'selected' : ''}>${v} ft</option>`).join('')}</select>`)}</div>`;
     h += `<p class="muted" style="margin-bottom:8px">${{ privacy: 'Solid boards: blocks views and noise. Good for the busy street side and around the patio.', picket: 'Low and open: marks the edge of a front yard.', split: 'Rustic and open: marks a line without blocking views.', chain: 'See-through and low cost: keeps pets and kids in.', iron: 'Open and formal: lets light and views through.' }[it.style || 'privacy']}</p>`;
+  }
+  if (T[it.type].garden) {
+    if (it.type === 'marker') h += fld('Station number', numIn('num', it.num || 1, 1, 99, 1, 'Station number'));
+    if (it.type === 'gpumpkin') h += `<label class="check" style="margin-bottom:6px"><input type="checkbox" data-f="gcover" ${it.cover ? 'checked' : ''}${dis}> Shade tent over the fruit</label>`;
+    h += `<p class="muted" style="margin-bottom:8px">${esc(GARDEN_T[it.type].tip)}${it.type === 'gpumpkin' ? ` This patch is ${Math.round(it.w * it.h).toLocaleString()} sq ft.` : ''}</p>`;
+  }
+  if (it.type === 'trellis') {
+    const tc = trellisCounts(it), T0 = TRELLIS[trellisStyle(it)];
+    h += fld('Trellis', `<select data-f="tstyle" aria-label="Trellis kind"${dis}>${Object.entries(TRELLIS).map(([k, z]) => `<option value="${k}" ${trellisStyle(it) === k ? 'selected' : ''}>${z.name}</option>`).join('')}</select>`);
+    h += `<p class="muted" style="margin-bottom:8px">${esc(T0.note)} This run: ${tc.posts} posts and ${tc.vines} ${T0.crop.toLowerCase()}.</p>`;
   }
   if (it.type === 'shed') {
     h += `<div class="row2">${fld('Building', `<select data-f="shstyle" aria-label="Shed kind"${dis}>${Object.entries(SHED_STYLES).map(([s2, z]) => `<option value="${s2}" ${(it.style || 'gable') === s2 ? 'selected' : ''}>${z}</option>`).join('')}</select>`)}${it.style === 'green' ? '' : fld('Roof', `<select data-f="shroof" aria-label="Roof"${dis}>${Object.entries(SHED_ROOFS).map(([s2, z]) => `<option value="${s2}" ${(it.roof || 'shingle') === s2 ? 'selected' : ''}>${z}</option>`).join('')}</select>`)}</div>`;
@@ -4546,6 +5005,7 @@ $('props').addEventListener('input', (e) => {
     case 'rot': if (ok) it.rot = num % 360; break;
     case 'width': if (ok) it.width = clamp(num, 1, 30); break;
     case 'size': if (ok) it.size = clamp(num, 0.5, 20); break;
+    case 'num': if (ok) it.num = clamp(Math.round(num), 1, 99); break;
     case 'text': it.text = v.slice(0, 200); break;
     case 'label': if (v) it.label = v.slice(0, 120); else delete it.label; break;
     case 'op': { if (ok) { if (num >= 100) delete it.op; else it.op = clamp(num, 10, 100) / 100; } const lb = e.target.closest('.field').querySelector('label'); if (lb) lb.firstChild.textContent = `Opacity ${Math.round((it.op ?? 1) * 100)}%`; break; }
@@ -4571,12 +5031,15 @@ $('props').addEventListener('change', (e) => {
     if (sp) { it.sp = sp.id; if (T[it.type].kind === 'circle') it.r = Math.max(0.5, sp.w / 2); } else delete it.sp;
     renderPlan(); renderProps(); commit('Change plant'); return;
   }
+  if (f === 'rows') { it.rows = e.target.checked; renderItems([it.id]); renderProps(); renderOptCtx(); commit(it.rows ? 'Plant in rows' : 'Plant in drifts'); return; }
   if (f === 'smooth') { it.smooth = e.target.checked; renderItems([it.id]); renderProps(); commit(it.smooth ? 'Smooth edge' : 'Straight edge'); return; }
   if (f === 'zone') { it.zone = ZONES[v] ? v : 'private'; renderItems([it.id]); commit('Change zone'); return; }
   if (f === 'finish') { it.finish = v; renderItems([it.id]); commit('Change surface'); return; }
   if (f === 'form') { it.form = v; renderItems([it.id]); commit('Change bed shape'); return; }
   if (f === 'edge') { if (EDGES[v]) it.edge = v; else delete it.edge; renderItems([it.id]); renderOptCtx(); commit(v ? 'Raise bed' : 'Remove bed edge'); return; }
   if (f === 'fstyle') { it.style = FENCE_STYLES[v] ? v : 'privacy'; it.height = FENCE_HEIGHT[it.style]; Object.assign(lastFence, { style: it.style, height: it.height }); syncGates(); renderPlan(); renderProps(); commit('Change fence style'); return; }
+  if (f === 'tstyle') { it.style = TRELLIS[v] ? v : 'grape'; it.width = TRELLIS[it.style].cw; toolPreset.trellis = { style: it.style, width: it.width }; renderItems([it.id]); renderProps(); renderOptCtx(); commit('Change trellis'); return; }
+  if (f === 'gcover') { if (e.target.checked) it.cover = true; else delete it.cover; renderItems([it.id]); commit('Pumpkin shade tent'); return; }
   if (f === 'shstyle') { it.style = SHED_STYLES[v] ? v : 'gable'; renderItems([it.id]); renderProps(); renderOptCtx(); commit('Change shed'); return; }
   if (f === 'shroof') { it.roof = SHED_ROOFS[v] ? v : 'shingle'; renderItems([it.id]); renderOptCtx(); commit('Change shed roof'); return; }
   if (f === 'sstyle') { it.style = STAIR_STYLES[v] ? v : 'stone'; toolPreset.stairs = Object.assign(toolPreset.stairs || {}, { style: it.style }); renderItems([it.id]); renderProps(); renderOptCtx(); commit('Change step material'); return; }
@@ -4712,11 +5175,13 @@ function newItem(type, p) {
   if (spCats(type).length) { if (PLANT_BY_ID[curSp[type]]) it.sp = curSp[type]; else delete it.sp; }
   if (type === 'fence') Object.assign(it, lastFence);
   if (toolPreset[type]) Object.assign(it, clone(toolPreset[type]));
+  if (Array.isArray(it.mix) && it.mix.length) it.sp = it.mix[0].sp;
   if ((t.kind === 'shape' || t.kind === 'line') && drawSmooth[type] !== undefined) it.smooth = drawSmooth[type];
   if (t.kind === 'line' || t.kind === 'shape') return it;
   it.x = r1(p[0]); it.y = r1(p[1]);
   if (t.kind === 'circle' && t.plant && PLANT_BY_ID[it.sp]) it.r = Math.max(0.5, PLANT_BY_ID[it.sp].w / 2);
-  if (bedFormPref[type] && bedFormPref[type] !== (type === 'groundcover' ? 'round' : 'oval')) it.form = bedFormPref[type];
+  if (bedFormPref[type] && bedFormPref[type] !== (type === 'groundcover' ? 'round' : 'oval') && !(toolPreset[type] && toolPreset[type].form)) it.form = bedFormPref[type];
+  if (type === 'marker') it.num = 1 + Math.max(0, ...state.items.filter((x) => x.type === 'marker').map((x) => +x.num || 0));
   if (t.kind === 'box') it.rot = 0;
   if (t.kind === 'text') it.text = 'Label';
   return it;
@@ -5214,13 +5679,22 @@ function runCheck() {
     const a = trees[i], b = trees[j], d = dist([a.x, a.y], [b.x, b.y]);
     if (d < (a.r + b.r) * 0.55) issues.push({ id: b.id, msg: `${nameOf(a)} and ${nameOf(b)} are only ${d.toFixed(0)} ft apart. At full size they will crowd each other.` });
   }
+  /* a pollinator planting should have something in bloom in every season */
+  {
+    const polSp = new Map();
+    for (const it of state.items) { if (it.hidden || layerOf(it) !== 'design') continue; const list = isBedType(it.type) ? bedMix(it).map((m) => m.sp) : [spOf(it)]; for (const sp of list) if (sp && sp.pol && sp.bl) polSp.set(sp.id, sp); }
+    if (polSp.size >= 3) {
+      const ideas = { sp: 'wild blue indigo, foxglove beardtongue or redbud', su: 'coneflower, bee balm or milkweed', fa: 'goldenrod, New England aster or anise hyssop' };
+      for (const [k, name] of Object.entries(SEASONS)) if (![...polSp.values()].some((sp) => sp.bl.split('/').includes(k))) issues.push({ tip: true, msg: `Pollinators: nothing in the design blooms in ${name}. Add ${ideas[k]} so bees and butterflies have food all season.` });
+    }
+  }
   wantList().forEach((w, i) => { if (!w.d) issues.push({ want: i, msg: `Client wants: “${w.t}” isn't checked off yet.` }); });
   const ul = $('issues');
-  const probs = issues.filter((s) => s.want === undefined).length;
+  const probs = issues.filter((s) => s.want === undefined && !s.tip).length;
   $('checkBadge').textContent = issues.length ? String(issues.length) : '✓';
   if (!issues.length) { ul.innerHTML = '<li class="ok"><span class="dot"></span><span>No problems found. Nice work.</span></li>'; return; }
   ul.innerHTML = (probs ? '' : '<li class="ok"><span class="dot"></span><span>The plan itself passes. Finish the client list.</span></li>') + issues.map((s, i) =>
-    `<li class="${s.want !== undefined ? 'note' : ''}"><span class="dot"></span><span>${esc(s.msg)}</span><button type="button" data-issue="${i}">Show</button></li>`).join('');
+    `<li class="${s.want !== undefined || s.tip ? 'note' : ''}"><span class="dot"></span><span>${esc(s.msg)}</span>${s.tip ? '' : `<button type="button" data-issue="${i}">Show</button>`}</li>`).join('');
   ul.querySelectorAll('[data-issue]').forEach((b) => b.addEventListener('click', () => {
     const s = issues[+b.dataset.issue];
     if (s.id) {
@@ -5241,7 +5715,7 @@ $('bCheck').addEventListener('click', () => { flush(); runCheck(); });
 /* ------------------------------------------------------------------ schedule and takeoff */
 /* the grass of a lawn that actually shows: its outline less the house, driveway and sidewalk, and less whatever
  * sits on top of it (beds, paving, decks, pools, ponds, buildings, other lawns). Counted on a fine grid. */
-const COVERS = (it) => { const t = T[it.type]; return t.kind !== 'text' && t.kind !== 'circle' && it.type !== 'fence' && it.type !== 'gate' && it.type !== 'lights' && !(t.furn && !/^pool|hottub|sandbox/.test(it.type)) && layerOf(it) === 'design'; };
+const COVERS = (it) => { const t = T[it.type]; return t.kind !== 'text' && t.kind !== 'circle' && it.type !== 'fence' && it.type !== 'gate' && it.type !== 'lights' && it.type !== 'trellis' && !(t.furn && !/^pool|hottub|sandbox|gpumpkin|hoophouse|sqfoot|keyhole|herbspiral|threesis|classroom|compost/.test(it.type)) && layerOf(it) === 'design'; };
 function lawnNet(it) {
   const poly = itemPoly(it), xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
   const x1 = Math.min(...xs), x2 = Math.max(...xs), y1 = Math.min(...ys), y2 = Math.max(...ys);
@@ -5289,7 +5763,7 @@ function takeoff() {
     if (isBedType(it.type)) {
       for (const m of bedMix(it)) {
         const row = plants[m.sp.id] = plants[m.sp.id] || { sp: m.sp, qty: 0, area: 0, approx: true };
-        row.area += a * m.w; row.qty += Math.max(1, Math.round(a * m.w / ((m.sp.spc || 1.5) ** 2 * 0.866)));
+        row.area += a * m.w; row.qty += Math.max(1, Math.round(bedRowsOn(it) ? a * m.w / (Math.max(0.5, m.sp.row || m.sp.spc || 1.5) * (m.sp.spc || 1.5)) : a * m.w / ((m.sp.spc || 1.5) ** 2 * 0.866)));
       }
     } else if (sp) {
       const row = plants[sp.id] = plants[sp.id] || { sp, qty: 0, area: 0, approx: false };
@@ -5297,7 +5771,7 @@ function takeoff() {
       else { row.area += a; if (sp.t !== 'turf') { row.qty += Math.max(1, Math.round(a / ((sp.spc || 1.5) ** 2 * 0.866))); row.approx = true; } }
     }
     if (isBedType(it.type) && EDGES[it.edge]) addM('edge-' + it.edge, EDGES[it.edge].replace('Raised: ', 'Raised bed wall, ').replace(' (flat)', ''), 'bedShape', bedPerimeter(it), 'lin ft');
-    if (isBedType(it.type) && !(bedMix(it).length === 1 && bedMix(it)[0].sp.t === 'groundcover')) addM('mulch', 'Hardwood mulch, 3 in. deep', 'bedShape', a, 'sq ft', a * 0.25 / 27);
+    if (isBedType(it.type) && !bedRowsOn(it) && !(bedMix(it).length === 1 && bedMix(it)[0].sp.t === 'groundcover')) addM('mulch', 'Hardwood mulch, 3 in. deep', 'bedShape', a, 'sq ft', a * 0.25 / 27);
     if (it.type === 'patio' || it.type === 'paveShape') addM('pave-' + it.finish, `${FINISHES[it.finish] || 'Paving'} paving`, 'paveShape', a, 'sq ft');
     if (it.type === 'deck') addM('deck', 'Wood deck', 'deck', a, 'sq ft');
     if (it.type === 'path') addM('path-' + it.finish, `${PATH_FINISHES[it.finish] || 'Concrete'} walk`, 'path', polyLen(it.pts), 'lin ft', a);
@@ -5316,6 +5790,7 @@ function takeoff() {
       const wa = it.type === 'poolShape' ? a : it.type === 'pool' ? (it.w - 2.4) * (it.h - 2.4) : (it.w - 2.4) * (it.h - 2.4) * 0.8;
       addM('pool', 'Swimming pool (water area)', it.type, wa, 'sq ft');
     } else if (t.furn) addM('furn-' + it.type, t.name, it.type, 1, 'ea');
+    if (it.type === 'trellis') { const tc = trellisCounts(it), st = trellisStyle(it); addM('trellis-' + st, TRELLIS[st].name, 'trellis', tc.len, 'lin ft'); addM('trellis-posts', 'Trellis posts', 'trellis', tc.posts, 'ea'); addM('trellis-crop-' + st, TRELLIS[st].crop, 'trellis', tc.vines, 'ea'); }
   }
   const order = LIB_CATS.map((c) => c[0]);
   const plantRows = Object.values(plants).sort((a, b) => order.indexOf(catOf(a.sp)) - order.indexOf(catOf(b.sp)) || a.sp.cn.localeCompare(b.sp.cn));
@@ -5330,7 +5805,15 @@ function renderSched() {
   let lastCat = '';
   for (const r of plants) {
     if (catOf(r.sp) !== lastCat) { lastCat = catOf(r.sp); h += `<tr class="grp"><td colspan="3">${LIB_CATS.find((c) => c[0] === lastCat)[1]}</td></tr>`; }
-    h += `<tr><td><span class="code">${PLANT_CODE[r.sp.id]}</span></td><td>${esc(r.sp.cn)}<i>${esc(r.sp.bn)}${r.sp.t === 'turf' ? '' : ` · ${r.sp.w}′×${r.sp.h}′`}</i></td><td class="n">${fmtQty(r)}</td></tr>`;
+    h += `<tr><td><span class="code">${PLANT_CODE[r.sp.id]}</span></td><td>${esc(r.sp.cn)}<i>${esc(r.sp.bn)}${r.sp.t === 'turf' ? '' : ` · ${r.sp.w}′×${r.sp.h}′`}</i></td><td class="n">${fmtQty(r)}${r.sp.yl ? `<i style="display:block;font-style:normal;color:var(--muted);font-size:11px">about ${Math.round(r.qty * r.sp.yl).toLocaleString()} lb</i>` : ''}</td></tr>`;
+  }
+  const crops = plants.filter((r) => r.sp.yl), pol = plants.filter((r) => r.sp.pol && r.sp.bl);
+  if (crops.length) h += `<tr class="grp"><td colspan="3">Harvest estimate</td></tr><tr><td></td><td>All crops in a good year<i>Home-garden averages; real yields vary a lot</i></td><td class="n">≈ ${Math.round(crops.reduce((s2, r) => s2 + r.qty * r.sp.yl, 0)).toLocaleString()} lb</td></tr>`;
+  if (pol.length) {
+    const has = (k) => pol.filter((r) => r.sp.bl.split('/').includes(k));
+    h += '<tr class="grp"><td colspan="3">Bloom calendar for pollinators</td></tr>' + Object.entries(SEASONS).map(([k, name]) => { const list = has(k); return `<tr><td>${list.length ? '●' : '○'}</td><td>${name[0].toUpperCase() + name.slice(1)}<i>${list.length ? esc(list.map((r) => r.sp.cn).join(', ')) : 'Nothing blooming yet'}</i></td><td class="n">${list.length || '—'}</td></tr>`; }).join('');
+    const hosts = plants.filter((r) => r.sp.host);
+    if (hosts.length) h += `<tr><td>●</td><td>Caterpillar host plants<i>${esc(hosts.map((r) => `${r.sp.cn} (${r.sp.host})`).join(', '))}</i></td><td class="n">${hosts.length}</td></tr>`;
   }
   if (mats.length) {
     h += '<tr class="grp"><td colspan="3">Materials</td></tr>';
@@ -5917,12 +6400,20 @@ function readSiteFields() {
   if (!(w >= 10 && w <= 2000 && h >= 10 && h <= 2000)) throw new Error('Enter a lot width and depth between 10 and 2,000 ft.');
   return { kind: 'custom', name: $('nfName').value.trim().slice(0, 60) || 'My yard', client: $('nfClient').value.trim().slice(0, 60), w, h, street: $('nfStreet').value, north: toNorthDeg($('nfNorth').value), scale: SCALES.includes(+$('nfScale').value) ? +$('nfScale').value : undefined, streetName: $('nfStreetName').value.trim().slice(0, 40) };
 }
+/* starting checklists for the kinds of site a design can be for (the list stays fully editable) */
+const BRIEFS = {
+  home: { name: 'A home landscape', note: 'A yard around a house. You write the client checklist yourself.', wants: [] },
+  teach: { name: 'A teaching / demonstration garden', site: 'Demonstration garden', note: 'A garden that shows practices to visitors or a class. Starts with a checklist you can edit.', wants: ['Demonstration plots that each show one practice', 'Wide, firm paths a group can walk (5 ft or more)', 'A gathering spot or outdoor classroom', 'Signs and numbered tour stations', 'Raised beds, with at least one at waist height', 'Compost area', 'Water within a hose length of every bed', 'A pollinator planting', 'Tool storage'] },
+  veg: { name: 'A vegetable production garden', site: 'Production garden', note: 'A garden grown for harvest. The schedule estimates plant counts and yield.', wants: ['Full sun for the crop beds (8 hours)', 'Row plots or beds with paths between them', 'Cool-season and warm-season crops', 'Trellis for vining crops', 'Water source and irrigation', 'Compost bins', 'Season extension: hoop house or cold frame', 'Wash and pack or potting area', 'Fence to keep deer and rabbits out'] },
+  pollinator: { name: 'A pollinator garden', site: 'Pollinator garden', note: 'Habitat for bees and butterflies. The design check looks for bloom in spring, summer and fall.', wants: ['Something in bloom spring, summer and fall', 'Native plants in drifts of three or more', 'Milkweed for monarch caterpillars', 'Other caterpillar host plants', 'A shallow water or puddling spot', 'Nesting places: bare ground, stems, a bee house', 'Shelter from wind', 'A sign explaining the planting'] },
+  community: { name: 'A community or school garden', site: 'Community garden', note: 'Shared plots for many gardeners.', wants: ['Individual plots of the same size', 'A shared tool shed', 'Compost bins', 'Water spigots within reach of every plot', 'An accessible raised bed', 'Seating and shade', 'A fence and gate', 'A sign at the entrance'] },
+};
 function showNew(err) {
   openDialog(`<h3>New design</h3>${err ? `<p class="err" role="alert">${esc(err)}</p>` : ''}
     <p class="muted">Your current design is kept in this browser. Find it again under File → My designs.</p>
     <div class="fmt" style="grid-template-columns:1fr 1fr"><button type="button" class="btn" data-new="scott">Scott Residence lab<small>The AGPS 1024 project on the real base plan</small></button>
-      <button type="button" class="btn gold" data-new="custom" autofocus>My own yard<small>Your lot, your house, a photo to trace</small></button></div>
-    <div id="newForm" hidden>${siteFields()}
+      <button type="button" class="btn gold" data-new="custom" autofocus>My own yard or garden<small>Any site: a home lot, a teaching or production garden</small></button></div>
+    <div id="newForm" hidden>${fld('What are you designing?', `<select id="nfKind">${Object.entries(BRIEFS).map(([k, b]) => `<option value="${k}">${b.name}</option>`).join('')}</select>`)}<p class="muted" id="nfKindNote" style="margin:-4px 0 8px">${BRIEFS.home.note}</p>${siteFields()}
       <label class="check" style="margin:2px 0 8px"><input type="checkbox" id="nfHouse" checked> Start with a house outline (you can reshape it, or draw more buildings with the Building tool)</label>
       <div class="row2" id="nfHouseBox">${fld('House width along the street (ft)', '<input id="nfHW" type="number" min="5" max="500" value="40">')}${fld('House depth (ft)', '<input id="nfHD" type="number" min="5" max="500" value="30">')}
         ${fld('Setback from the street (ft)', '<input id="nfHS" type="number" min="0" max="1000" value="25">')}${fld('From the side lot line (ft)', '<input id="nfHX" type="number" min="0" max="1000" value="15">')}</div>
@@ -5937,10 +6428,11 @@ function showNew(err) {
   });
   $('dlgBody').querySelector('[data-new="custom"]').addEventListener('click', () => { $('newForm').hidden = false; $('nfName').focus(); $('nfName').select(); });
   $('nfHouse').addEventListener('change', (e) => { $('nfHouseBox').hidden = !e.target.checked; });
+  $('nfKind').addEventListener('change', (e) => { const b = BRIEFS[e.target.value]; $('nfKindNote').textContent = b.note; $('nfHouse').checked = e.target.value === 'home'; $('nfHouseBox').hidden = !$('nfHouse').checked; if (b.site && /^(My yard|.* garden)?$/.test($('nfName').value.trim())) $('nfName').value = b.site; });
   $('nfCreate').addEventListener('click', () => {
     let site;
     try { site = readSiteFields(); } catch (e) { toast(e.message); return; }
-    const st = blankState(); st.meta = Object.assign({}, state.meta); st.site = site; st.wants = []; st.customPlants = clone(state.customPlants || []);
+    const st = blankState(); st.meta = Object.assign({}, state.meta); st.site = site; st.wants = (BRIEFS[$('nfKind').value] || BRIEFS.home).wants.map((t) => ({ t, d: false })); st.customPlants = clone(state.customPlants || []);
     if ($('nfHouse').checked) {
       const hw = +$('nfHW').value || 40, hd = +$('nfHD').value || 30, sb = +$('nfHS').value || 0, sx = +$('nfHX').value || 0;
       const box = { bottom: [sx, site.h - sb - hd, sx + hw, site.h - sb], top: [sx, sb, sx + hw, sb + hd], left: [sb, sx, sb + hd, sx + hw], right: [site.w - sb - hd, sx, site.w - sb, sx + hw], none: [sx, sb, sx + hw, sb + hd] }[site.street];
@@ -6255,6 +6747,9 @@ function renderOptCtx() {
     h = `<span class="optlabel">Gate</span><div class="seg shapeseg"><button type="button" data-setgate="1" aria-pressed="${(one.leaves || 1) === 1}"><span>Single</span></button><button type="button" data-setgate="2" aria-pressed="${one.leaves === 2}"><span>Double</span></button></div><div class="seg shapeseg"><button type="button" data-gateflip><span>Swing other way</span></button>${(one.leaves || 1) === 1 ? '<button type="button" data-gatehinge><span>Hinge other side</span></button>' : ''}</div>`;
   } else if (one && !one.locked && (one.type === 'wall' || one.type === 'lights') && tool === 'select') {
     h = (one.type === 'wall' ? wallChips(one.style, one.height, 'data-setwall') : lightChips(one.style, 'data-setlights')) + curveSeg(!!one.smooth, 'data-setsmooth');
+  } else if ((one && !one.locked && one.type === 'trellis' && tool === 'select') || tool === 'trellis') {
+    const cur = tool === 'trellis' ? (toolPreset.trellis || {}).style || 'grape' : trellisStyle(one);
+    h = `<span class="optlabel">Trellis</span><div class="seg shapeseg">${Object.keys(TRELLIS).map((k) => `<button type="button" data-settrellis="${k}" aria-pressed="${cur === k}" title="${TRELLIS[k].name}"><span>${{ grape: 'Grape', muscadine: 'Muscadine', berry: 'Blackberry', bean: 'Bean / pea', tomato: 'Tomato', espalier: 'Espalier' }[k]}</span></button>`).join('')}</div>`;
   } else if (tool === 'wall' || tool === 'lights') {
     h = (tool === 'wall' ? wallChips(toolPreset.wall.style, toolPreset.wall.height, 'data-prefwall') : lightChips((toolPreset.lights || {}).style || 'bistro', 'data-preflights')) + curveSeg(drawSmooth[tool], 'data-drawsmooth');
   } else if (tool === 'fence') {
@@ -6308,6 +6803,7 @@ $('optCtx').addEventListener('click', (e) => {
   if (b.dataset.lotdone !== undefined) { setTool('select'); fit(); return; }
   if (b.dataset.lotrect !== undefined) { const L = lot(); delete state.site.lotPts; state.site.w = r1(L.x2); state.site.h = r1(L.y2); baseKey = ''; renderBase(); renderOverlay(); renderOptCtx(); commit('Property line back to a rectangle'); return; }
   if (b.dataset.preffinish) { toolPreset[tool] = Object.assign(toolPreset[tool] || {}, { finish: b.dataset.preffinish }); renderOptCtx(); renderOverlay(); return; }
+  if (b.dataset.settrellis) { const k = b.dataset.settrellis; toolPreset.trellis = { style: k, width: TRELLIS[k].cw }; if (one && one.type === 'trellis' && tool === 'select' && !one.locked) { one.style = k; one.width = TRELLIS[k].cw; renderItems([one.id]); renderProps(); commit('Change trellis'); } renderOptCtx(); renderOverlay(); return; }
   if (b.dataset.prefwall) { const h0 = WALL_HEIGHT[b.dataset.prefwall]; toolPreset.wall = { style: b.dataset.prefwall, height: h0, width: WALL_W[b.dataset.prefwall] }; renderOptCtx(); renderOverlay(); if (libTab === 'build') renderCatalog(); return; }
   if (b.dataset.preflights) { toolPreset.lights = { style: b.dataset.preflights }; renderOptCtx(); renderOverlay(); return; }
   if (b.dataset.preffence) { lastFence.style = b.dataset.preffence; lastFence.height = FENCE_HEIGHT[lastFence.style]; renderOptCtx(); return; }
@@ -6375,6 +6871,35 @@ const CATALOG = {
     ['Decks and buildings', [{ id: 'deck', name: 'Wood deck', tool: 'deck', icon: 'deck' }, { id: 'building', name: 'House, garage or shed (draw)', tool: 'building', icon: 'building', note: 'Click each corner' }]],
     ['Garden', [{ id: 'veg', name: 'Raised vegetable garden', tool: 'veg', icon: 'veg' }, { id: 'wood', name: 'Firewood stockpile', tool: 'wood', icon: 'wood' }, { id: 'birdbath', name: 'Bird bath / feeder', tool: 'birdbath', icon: 'birdbath' }]],
   ],
+  garden: (() => {
+    const bed = (id, name, tool, preset, note) => { const ip = Object.assign({}, preset); delete ip.w; delete ip.h; return { id, name, tool, preset, icon: tool, iconPreset: ip, note }; };
+    const gt = (g) => Object.entries(GARDEN_T).filter(([, v]) => v.group === g).map(([k, v]) => ({ id: k, name: v.name, tool: k, icon: k, note: `${v.d.w} × ${v.d.h} ft` }));
+    const M = (...a) => a.map(([sp, w]) => ({ sp, w }));
+    return [
+      ['Vegetable beds and plots', [
+        { id: 'crops', name: 'Browse all 43 crops', action: () => { libCat = 'veg'; libPol = false; setLibTab('plants'); }, icon: 'annual', iconPreset: { sp: 'soly', form: 'rect', rows: true }, note: 'Vegetables, herbs and fruit: pick one, then click the plan' },
+        bed('bed-raised', 'Raised bed, 4 × 8 ft', 'annual', { w: 8, h: 4, form: 'rect', edge: 'wood', rows: true, mix: M(['soly', 40], ['caan', 30], ['ocba', 30]) }, 'Timber frame · tomatoes, peppers and basil to start'),
+        bed('bed-rows', 'Row-crop plot, 20 × 30 ft', 'annual', { w: 30, h: 20, form: 'rect', rows: true, mix: M(['soly', 16], ['caan', 10], ['zema', 24], ['phvu', 12], ['cupe', 14], ['abes', 12], ['cusa', 12]) }, 'In-ground rows for production: change the crops and shares under Properties'),
+        bed('bed-salsa', 'Salsa garden, 4 × 8 ft', 'annual', { w: 8, h: 4, form: 'rect', edge: 'wood', rows: true, mix: M(['soly', 40], ['caan', 25], ['alce', 20], ['cosa', 15]) }, 'Tomato, pepper, onion and cilantro'),
+        bed('bed-salad', 'Salad bed, 4 × 8 ft', 'annual', { w: 8, h: 4, form: 'rect', edge: 'wood', rows: true, mix: M(['lasa', 35], ['spol', 20], ['daca', 20], ['rasa', 10], ['beet', 15]) }, 'Cool-season greens and roots for spring and fall'),
+        bed('bed-herb', 'Herb bed, 4 × 8 ft', 'perennial', { w: 8, h: 4, form: 'rect', edge: 'stone', rows: false, mix: M(['saro', 20], ['thvu', 15], ['orvu', 15], ['saof', 15], ['alsc', 15], ['ocba', 20]) }, 'Kitchen herbs in a stone-edged bed'),
+        bed('bed-sisters', 'Three Sisters plot, 20 × 20 ft', 'annual', { w: 20, h: 20, form: 'rect', rows: true, mix: M(['zema', 50], ['phco', 20], ['cumo', 30]) }, 'Corn, pole beans and winter squash together'),
+        bed('bed-berry', 'Strawberry bed, 4 × 12 ft', 'perennial', { w: 12, h: 4, form: 'rect', edge: 'wood', rows: true, sp: 'fran' }, 'Matted rows; fruit in spring'),
+        bed('bed-cut', 'Cut-flower bed, 4 × 12 ft', 'annual', { w: 12, h: 4, form: 'rect', rows: true, mix: M(['ziel', 40], ['hean', 30], ['cobi', 30]) }, 'Zinnias, sunflowers and cosmos for bouquets and bees'),
+        ...gt('Beds and plots'), { id: 'veg', name: 'Vegetable garden symbol', tool: 'veg', icon: 'veg' }]],
+      ['Giant pumpkins', [...gt('Giant pumpkins'),
+        bed('bed-pumpkin', 'Pumpkin patch, 20 × 30 ft', 'annual', { w: 30, h: 20, form: 'rect', rows: true, sp: 'cupu' }, 'Carving pumpkins in hills 5 ft apart, rows 8 ft apart')]],
+      ['Trellises and vines', [...Object.keys(TRELLIS).map((k) => ({ id: 'trellis-' + k, name: TRELLIS[k].name, tool: 'trellis', preset: { style: k, width: TRELLIS[k].cw }, icon: 'trellis', note: 'Click each end post, double-click to finish' })), ...gt('Trellises and vines')]],
+      ['Pollinators', [
+        { id: 'polplants', name: 'Browse pollinator plants', action: () => { libCat = 'all'; libPol = true; setLibTab('plants'); }, icon: 'perennial', iconPreset: { sp: 'ecpu' }, note: 'Bloom season and host plants on every card' },
+        bed('bed-pollinator', 'Pollinator bed, 8 × 20 ft', 'perennial', { w: 20, h: 8, rows: false, mix: M(['pedi', 12], ['astu', 14], ['ecpu', 14], ['modi', 12], ['lisp', 12], ['pymu', 12], ['soru', 12], ['syno', 12]) }, 'Native perennials in bloom from spring to frost'),
+        bed('bed-monarch', 'Monarch waystation, 10 × 10 ft', 'perennial', { w: 10, h: 10, rows: false, mix: M(['astu', 25], ['asin', 25], ['ecpu', 15], ['lisp', 15], ['syno', 20]) }, 'Milkweed for caterpillars, nectar for the adults'),
+        bed('bed-prairie', 'Native prairie patch, 10 × 15 ft', 'perennial', { w: 15, h: 10, rows: false, mix: M(['scsc', 34], ['ruhi', 18], ['ecpu', 16], ['baau', 10], ['lisp', 10], ['soru', 12]) }, 'Little bluestem with prairie wildflowers'),
+        ...gt('Pollinators'), { id: 'birdbath2', name: 'Bird bath', tool: 'birdbath', icon: 'birdbath' }]],
+      ['Growing structures', gt('Growing structures')],
+      ['Teaching', gt('Teaching')],
+    ];
+  })(),
   living: ['Furniture', 'Shade', 'Lighting', 'Cooking & fire', 'Pools & spas', 'Ponds & streams', 'Play'].map((g) => [g, Object.entries(FURN_T).filter(([, v]) => v.group === g).map(([k, v]) => ({ id: k, name: v.name, tool: k, icon: k, note: `${v.d.w} × ${v.d.h} ft` }))
     .concat(g === 'Ponds & streams' ? [{ id: 'pondShape', name: 'Natural pond, draw any shape', tool: 'pondShape', icon: 'pondShape', note: 'Click around the edge, then the first dot to close' }, { id: 'stream-3', name: 'Stream, 3 ft wide', tool: 'stream', preset: { width: 3 }, icon: 'stream', note: 'Click along its course, double-click to finish' }, { id: 'stream-1', name: 'Trickle / rill, 18 in. wide', tool: 'stream', preset: { width: 1.5 }, icon: 'stream', iconPreset: { width: 1.2 }, note: 'Click along its course, double-click to finish' }] : [])
     .concat(g === 'Lighting' ? [{ id: 'lights-bistro', name: 'String lights, bistro bulbs', tool: 'lights', preset: { style: 'bistro' }, smooth: false, icon: 'lights', note: 'Click each pole or hook, double-click to finish' }, { id: 'lights-drape', name: 'String lights, draped', tool: 'lights', preset: { style: 'bistro' }, smooth: true, icon: 'lights', note: 'A soft curve between 3+ points' }, { id: 'lights-fairy', name: 'Fairy lights', tool: 'lights', preset: { style: 'fairy' }, smooth: false, icon: 'lights', note: 'Tiny bulbs: trees, fences, pergola' }] : [])
@@ -6386,12 +6911,12 @@ let libTab = 'plants';
 function entryThumb(e) {
   const spec = ICON[e.icon] || {};
   if (e.iconPreset) { const saved = Object.assign({}, spec); Object.assign(ICON[e.icon], e.iconPreset); const out = iconSVG(e.icon, 'render'); ICON[e.icon] = saved; return out; }
-  if (['fence', 'wall', 'lights'].includes(e.icon) && e.preset) { const it = Object.assign({ id: 'icon-' + e.id, type: e.icon }, clone(ICON[e.icon]), e.preset, e.smooth ? { smooth: true } : {}); delete it.vb; return `<svg viewBox="${ICON[e.icon].vb.join(' ')}" aria-hidden="true">${drawItem(it, { u: 0.28, render: true, color: true, icon: true })}</svg>`; }
+  if (['fence', 'wall', 'lights', 'trellis'].includes(e.icon) && e.preset) { const it = Object.assign({ id: 'icon-' + e.id, type: e.icon }, clone(ICON[e.icon]), e.preset, e.smooth ? { smooth: true } : {}); delete it.vb; return `<svg viewBox="${ICON[e.icon].vb.join(' ')}" aria-hidden="true">${drawItem(it, { u: 0.28, render: true, color: true, icon: true })}</svg>`; }
   return iconSVG(e.icon, 'render');
 }
 function renderCatalog() {
   const groups = CATALOG[libTab];
-  $('libList').innerHTML = `<p class="libhow">${libTab === 'build' ? 'Click an item, then click the plan. Fences, walks and any-shape patios: click each corner.' : 'Click an item, then click the plan, or drag it onto the plan. Drag its corner dot to resize; turn it with the yellow dot.'}</p>` +
+  $('libList').innerHTML = `<p class="libhow">${libTab === 'build' ? 'Click an item, then click the plan. Fences, walks and any-shape patios: click each corner.' : libTab === 'garden' ? 'Click an item, then click the plan. Beds come planted: change the crops and their shares under Properties. Trellises: click each end, double-click to finish.' : 'Click an item, then click the plan, or drag it onto the plan. Drag its corner dot to resize; turn it with the yellow dot.'}</p>` +
     groups.map(([g, list]) => `<div class="libcat">${esc(g)}</div>` + list.map((e) => `<button type="button" class="plant" data-el="${e.id}" aria-pressed="${tool === e.tool && (e.smooth === undefined || !!drawSmooth[e.tool] === e.smooth) && (!e.preset || !toolPreset[e.tool] || JSON.stringify(e.preset) === JSON.stringify(e.tool === 'fence' ? { style: lastFence.style, height: lastFence.height } : toolPreset[e.tool]))}"><span class="thumb">${entryThumb(e)}</span><span class="pn"><b>${esc(e.name)}</b>${e.note ? `<i>${esc(e.note)}</i>` : ''}</span></button>`).join('')).join('');
 }
 function useEntry(id) {
@@ -6402,7 +6927,7 @@ function useEntry(id) {
   else if (e.preset) toolPreset[e.tool] = Object.assign({}, e.preset);
   if (e.smooth !== undefined) drawSmooth[e.tool] = e.smooth;
   if (sel.length) select(null);
-  setTool(e.tool); renderCatalog();
+  setTool(e.tool, true); renderCatalog();
   const k = T[e.tool].kind;
   toast(k === 'line' ? `Click each corner of the ${e.name.toLowerCase()}; double-click to finish` : k === 'shape' ? 'Click around the edge; click the first dot to close' : `Click the plan to place the ${e.name.toLowerCase()}`);
 }
@@ -6411,9 +6936,10 @@ function dropEntry(id, cx, cy) {
   if (!e) return;
   const k = T[e.tool] && T[e.tool].kind;
   if (e.action || k === 'line' || k === 'shape') { useEntry(id); return; }
-  if (e.preset) toolPreset[e.tool] = Object.assign({}, e.preset);
   if (tool !== 'select') setTool('select');
+  if (e.preset) toolPreset[e.tool] = Object.assign({}, e.preset);
   const p = toWorld(cx, cy), it = newItem(e.tool, view.snap ? [Math.round(p[0] * 2) / 2, Math.round(p[1] * 2) / 2] : p);
+  if (isBedType(e.tool)) delete toolPreset[e.tool];
   if (it.type === 'gate') toast(gateSnap(it) ? 'Gate set into the fence' : 'Drag the gate onto a fence and it snaps into the line.');
   addItem(it); sel = [it.id];
   renderProps(); renderPlan(); commit('Place ' + e.name.toLowerCase());
@@ -6448,7 +6974,7 @@ function syncLotSize() {
   state.site.w = r1(L.x2); state.site.h = r1(L.y2);
 }
 function editLot() {
-  if (isScott()) { toast('The Scott lab lot is fixed. Use New → My own yard to shape your own.'); return; }
+  if (isScott()) { toast('The Scott lab lot is fixed. Use New → My own yard or garden to shape your own.'); return; }
   closeDialog(); select(null);
   if (!view.site) { view.site = true; $('tSite').checked = true; baseKey = ''; renderPlan(); saveView(); }
   setTool('lotedit'); fit();
@@ -6461,7 +6987,7 @@ function markLibButtons() { document.querySelectorAll('[data-openlib]').forEach(
 (function boot() {
   try {
     const v = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null');
-    if (v && ['plants', 'build', 'living'].includes(v.libTab)) libTab = v.libTab;
+    if (v && ['plants', 'build', 'living', 'garden'].includes(v.libTab)) libTab = v.libTab;
     if (v) for (const k of ['site', 'grid', 'diagram', 'design', 'tags', 'base', 'snap', 'lib', 'floor', 'img', 'util', 'seeTrees']) if (typeof v[k] === 'boolean') view[k] = v[k];
     if (v && ['render', 'color', 'bw'].includes(v.style)) view.style = v.style;
   } catch (e) { /* ignore */ }

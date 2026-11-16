@@ -63,6 +63,7 @@ const LINE_ICO = {
   lotedit: '<path d="M4 6 18 4l2 13-12 3z" stroke-dasharray="3 2"/><circle cx="4" cy="6" r="1.6"/><circle cx="18" cy="4" r="1.6"/><circle cx="20" cy="17" r="1.6"/><circle cx="8" cy="20" r="1.6"/>',
   imgscale: '<rect x="3" y="5" width="18" height="14" rx="1"/><path d="M6 15 18 9"/><circle cx="6" cy="15" r="1.5"/><circle cx="18" cy="9" r="1.5"/>',
   buildlib: '<path d="M3 20h18"/><path d="M5 20V9l7-5 7 5v11"/><path d="M9 20v-6h6v6"/>',
+  gardenlib: '<path d="M12 21V11"/><path d="M12 13c-4 0-6-2.4-6-6 4 0 6 2.4 6 6z"/><path d="M12 11c0-3.4 1.8-5.6 5.6-5.6 0 3.4-1.8 5.6-5.6 5.6z"/><path d="M5 21h14"/>',
   livinglib: '<path d="M4 13h16v4H4z"/><path d="M6 17v3M18 17v3M6 13V9a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4"/><path d="M12 3v2"/>',
   library: '<path d="M4 19V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z"/><path d="M4 19a2 2 0 0 1 2-2h12"/><path d="M12 7c-2 0-3 1.4-3 3 2 0 3-1.4 3-3zm0 0c2 0 3 1.4 3 3-2 0-3-1.4-3-3zm0 0v6"/>',
 };
@@ -81,6 +82,7 @@ const TIPS = {
   pondShape: 'Draw a natural pond: click around the edge, then the first dot to close.', stream: 'Click along the course of the stream, double-click to finish. Click near a pond or another stream and the point snaps onto it, so the water joins up. Set its width under Properties.',
   shed: 'Click to place the shed, then turn it with the yellow dot so the doors (the ramp end) face where you want them. Drag the corner dot to resize.',
   stairs: 'Click to place steps, then turn them with the yellow dot so the top points uphill. Drag the corner dot for width and length; longer steps climb higher.',
+  trellis: 'Click each end post of the trellis, double-click to finish. Pick grape, muscadine, blackberry, bean, tomato or espalier at the top.',
   gate: 'Click on or near a fence: the gate sets into the fence line, takes its style, and the fence opens for it.',
   wall: 'Click each corner of the wall, double-click to finish. Pick retaining block, fieldstone, seat wall, brick or timber at the top; Curved makes a smooth arc.',
   lights: 'String lights: click each pole or hook, double-click to finish. Bistro or fairy bulbs at the top.',
@@ -327,6 +329,9 @@ function cleanState(raw) {
     if (r.type === 'path') it.finish = PATH_FINISHES[r.finish] ? r.finish : 'concrete';
     if (r.type === 'fence') { it.style = FENCE_STYLES[r.style] ? r.style : 'privacy'; it.height = numOr(r.height, 2, 12, FENCE_HEIGHT[it.style]); }
     if (r.type === 'stairs') it.style = STAIR_STYLES[r.style] ? r.style : 'stone';
+    if (r.type === 'trellis') { it.style = TRELLIS[r.style] ? r.style : 'grape'; it.width = TRELLIS[it.style].cw; }
+    if (r.type === 'marker') it.num = clamp(Math.round(numOr(r.num, 1, 99, 1)), 1, 99);
+    if (r.type === 'gpumpkin' && r.cover) it.cover = true;
     if (r.type === 'shed') { it.style = SHED_STYLES[r.style] ? r.style : 'gable'; it.roof = SHED_ROOFS[r.roof] ? r.roof : 'shingle'; }
     if (r.type === 'gate') { it.style = FENCE_STYLES[r.style] ? r.style : 'privacy'; it.leaves = r.leaves === 2 ? 2 : 1; it.h = 2; it.w = clamp(it.w, 2, 24); if (r.flip) it.flip = true; if (r.hinge === 'r') it.hinge = 'r'; if (r.ownStyle) it.ownStyle = true; }
     if (r.type === 'wall') { it.style = WALL_STYLES[r.style] ? r.style : 'seat'; it.height = numOr(r.height, 0.5, 12, WALL_HEIGHT[it.style]); it.width = WALL_W[it.style]; it.smooth = !!r.smooth; }
@@ -336,6 +341,7 @@ function cleanState(raw) {
       const sp = findSp(r.sp);
       if (sp && cats.includes(sp.t)) it.sp = sp.id;
       else if (r.type !== 'bedShape') it.sp = t.d.sp;
+      if (isBedType(r.type) && typeof r.rows === 'boolean') it.rows = r.rows;
       if (isBedType(r.type) && Array.isArray(r.mix)) {
         const mix = r.mix.slice(0, 12).map((m) => m && findSp(m.sp) && cats.includes(findSp(m.sp).t) ? { sp: m.sp, w: numOr(m.w, 1, 100, 1) } : null).filter(Boolean);
         if (mix.length > 1) { it.mix = mix; it.sp = mix[0].sp; }
@@ -916,8 +922,9 @@ function renderOverlay() {
   statusSel();
 }
 function nameOf(it) {
-  const sp = spOf(it), base = sp && T[it.type].plant ? sp.cn : T[it.type].name;
+  const sp = spOf(it), base = sp && T[it.type].plant ? sp.cn : it.type === 'trellis' ? TRELLIS[trellisStyle(it)].name.replace(/ \(.*\)$/, '') : it.type === 'marker' ? `Tour station ${it.num || 1}` : T[it.type].name;
   if (it.label) return `${base} “${it.label}”`;
+  if (it.type === 'marker') return base;
   const same = state.items.filter((i) => i.type === it.type && (i.sp || '') === (it.sp || ''));
   return same.length > 1 ? `${base} ${same.indexOf(it) + 1}` : base;
 }
@@ -951,13 +958,13 @@ function renderRail() {
     const line = !!LINE_ICO[tl];
     return `<button type="button" class="tool${line ? ' line' : ''}" data-tool="${tl}" aria-pressed="${tool === tl}" aria-label="${esc(toolName(tl))} (${KEYS[tl]})" aria-keyshortcuts="${KEYS[tl]}">${line ? toolIcon(tl) : `<span class="chip">${toolIcon(tl)}</span>`}<span class="key" aria-hidden="true">${KEYS[tl]}</span></button>`;
   }).join('')}</div>`).join('');
-  h += `<div class="grp"><button type="button" class="tool line" data-openlib="plants" aria-label="Plant library">${toolIcon('library')}</button><button type="button" class="tool line" data-openlib="build" aria-label="Build library: fences, patios, walks">${toolIcon('buildlib')}</button><button type="button" class="tool line" data-openlib="living" aria-label="Outdoor living library: furniture, pools, play, fire">${toolIcon('livinglib')}</button></div>`;
+  h += `<div class="grp"><button type="button" class="tool line" data-openlib="plants" aria-label="Plant library">${toolIcon('library')}</button><button type="button" class="tool line" data-openlib="build" aria-label="Build library: fences, patios, walks">${toolIcon('buildlib')}</button><button type="button" class="tool line" data-openlib="living" aria-label="Outdoor living library: furniture, pools, play, fire">${toolIcon('livinglib')}</button><button type="button" class="tool line" data-openlib="garden" aria-label="Garden library: vegetable beds, giant pumpkins, trellises, pollinators, teaching">${toolIcon('gardenlib')}</button></div>`;
   $('rail').innerHTML = h;
   $('rail').querySelectorAll('[data-tool]').forEach((b) => {
     b.addEventListener('click', () => setTool(b.dataset.tool));
     bindTip(b, () => `<b>${esc(toolName(b.dataset.tool))}</b> &nbsp;<kbd>${KEYS[b.dataset.tool]}</kbd><small>${esc(TIPS[b.dataset.tool] || '')}</small>`);
   });
-  const LIBTIP = { plants: ['Plant library', 'Trees, shrubs, perennials, grasses and your own plants.'], build: ['Build', 'Fences and gates, sheds, steps, walls (retaining, stone, seat, brick, timber), patios by surface, walks, decks, sheds, vegetable garden, firewood, bird bath.'], living: ['Outdoor living', 'Furniture, umbrellas, pergola, grill, kitchen, fire pits, pools, hot tub, ponds and streams, play set, swings, trampoline, string lights.'] };
+  const LIBTIP = { garden: ['Garden', 'Vegetable beds and row plots, giant pumpkin patch, grape and berry trellises, pollinator beds and bee houses, hoop house, compost, rain barrels, outdoor classroom, signs and tour markers.'], plants: ['Plant library', 'Trees, shrubs, perennials, vegetables and herbs, pollinator plants, grasses and your own plants.'], build: ['Build', 'Fences and gates, sheds, steps, walls (retaining, stone, seat, brick, timber), patios by surface, walks, decks, sheds, vegetable garden, firewood, bird bath.'], living: ['Outdoor living', 'Furniture, umbrellas, pergola, grill, kitchen, fire pits, pools, hot tub, ponds and streams, play set, swings, trampoline, string lights.'] };
   $('rail').querySelectorAll('[data-openlib]').forEach((b) => {
     b.addEventListener('click', () => { const tab = b.dataset.openlib; if (view.lib && libTab === tab) toggleLib(false); else { if (!view.lib) toggleLib(true); setLibTab(tab); } markLibButtons(); });
     bindTip(b, () => `<b>${LIBTIP[b.dataset.openlib][0]}</b><small>${LIBTIP[b.dataset.openlib][1]}</small>`);
@@ -995,8 +1002,9 @@ function hintFor(tl) {
   if (bedFormPref[tl]) return `${click} the plan to place the bed${sp ? ` of ${sp.cn.toLowerCase()}` : ''}. Pick its shape with the buttons on the left of this bar.`;
   return `${click} the plan to place the ${t.name.toLowerCase()}${sp ? ` of ${sp.cn.toLowerCase()}` : ''}. Drag its corner dot to resize.`;
 }
-function setTool(tl) {
+function setTool(tl, keepPreset) {
   if (draft && tl !== tool) finishDraft();
+  if (!keepPreset) for (const k of ['annual', 'perennial', 'groundcover', 'bedShape']) delete toolPreset[k];   // a ready-made plot from the Garden tab is placed once; after that the bed tools start plain again
   tool = tl;
   if (tl !== 'measure') measure = null;
   if (T[tl]) {
@@ -1004,7 +1012,7 @@ function setTool(tl) {
     if (L === 'design' && !view.design) { view.design = true; $('tDesign').checked = true; renderPlan(); toast('Design layer turned on'); }
     if (L === 'diagram' && !view.diagram) { view.diagram = true; $('tDiagram').checked = true; renderPlan(); toast('Functional diagram turned on'); }
     const cats = spCats(tl);
-    if (cats.length && curSp[tl] && PLANT_BY_ID[curSp[tl]]) { libSp = curSp[tl]; if (!cats.includes(libCat) && libCat !== 'all' && !(libCat === 'grass' && PLANT_BY_ID[libSp].g)) libCat = cats[0]; renderLib(); }
+    if (cats.length && curSp[tl] && PLANT_BY_ID[curSp[tl]]) { libSp = curSp[tl]; if (!cats.includes(libCat) && libCat !== 'all' && catOf(PLANT_BY_ID[libSp]) !== libCat) libCat = cats[0]; renderLib(); }
   }
   document.querySelectorAll('[data-tool]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.tool === tl ? 'true' : 'false'));
   svg.classList.toggle('sel', tl === 'select');
@@ -1019,7 +1027,7 @@ function setTool(tl) {
 }
 
 /* ------------------------------------------------------------------ plant library */
-let libCat = 'all', libSun = '', libQ = '';
+let libCat = 'all', libSun = '', libQ = '', libPol = false;
 function sunDots(sun) {
   return `<span class="sun" title="${sun.split('/').map((s) => SUN_NAMES[s]).join(', ')}">${sun.split('/').map((s) => `<i class="${s.toLowerCase()}"></i>`).join('')}</span>`;
 }
@@ -1027,9 +1035,15 @@ function plantThumb(sp) {
   if (sp.t === 'perennial' || sp.t === 'annual' || sp.t === 'groundcover') return iconSVG('bedShape', 'render', sp.id);
   return iconSVG(sp.t === 'turf' ? 'lawnShape' : sp.t, 'render', sp.id);
 }
+/* <optgroup>s of the plants an item can hold, grouped like the library (vegetables and grasses get their own groups) */
+function plantOptions(cats, sel0) {
+  return LIB_CATS.map(([k, name]) => { const rows = PLANTS.filter((q) => cats.includes(q.t) && catOf(q) === k); return rows.length ? `<optgroup label="${name}">${rows.map((q) => `<option value="${q.id}" ${sel0 === q.id ? 'selected' : ''}>${esc(q.cn)}${q.custom ? ' (yours)' : ''}</option>`).join('')}</optgroup>` : ''; }).join('');
+}
+const SEASONS = { sp: 'spring', su: 'summer', fa: 'fall' };
+const bloomText = (sp) => (sp.bl || '').split('/').filter((x) => SEASONS[x]).map((x) => SEASONS[x]).join(', ');
 function speciesInfo(sp) {
   return `<b>${esc(sp.cn)}</b> <span style="font-family:var(--display);font-size:11px;border:1px solid #6B6F64;border-radius:2px;padding:0 4px;margin-left:4px">${PLANT_CODE[sp.id]}</span><br><i>${esc(sp.bn)}</i>
-    <dl>${sp.t === 'turf' ? '' : `<dt>Mature size</dt><dd>${sp.w} ft wide × ${sp.h} ft tall</dd>`}<dt>Light</dt><dd>${sp.sun.split('/').map((s) => SUN_NAMES[s]).join(', ')}</dd><dt>Hardiness</dt><dd>${!sp.z ? '—' : sp.z === 'annual' ? 'Annual' : 'USDA zones ' + sp.z}</dd>${sp.spc ? `<dt>Spacing</dt><dd>${sp.spc} ft apart</dd>` : ''}</dl><p>${esc(sp.note || '')}</p>` +
+    <dl>${sp.t === 'turf' ? '' : `<dt>Mature size</dt><dd>${sp.w} ft wide × ${sp.h} ft tall</dd>`}<dt>Light</dt><dd>${sp.sun.split('/').map((s) => SUN_NAMES[s]).join(', ')}</dd><dt>Hardiness</dt><dd>${!sp.z ? '—' : sp.z === 'annual' ? 'Annual' : 'USDA zones ' + sp.z}</dd>${sp.spc ? `<dt>Spacing</dt><dd>${sp.spc < 1 ? Math.round(sp.spc * 12) + ' in.' : sp.spc + ' ft'} apart${sp.row ? `, rows ${sp.row} ft apart` : ''}</dd>` : ''}${sp.sea ? `<dt>Season</dt><dd>${sp.sea === 'cool' ? 'Cool season: spring and fall' : 'Warm season: after the last frost'}</dd>` : ''}${sp.yl ? `<dt>Yield</dt><dd>about ${sp.yl} lb per plant</dd>` : ''}${sp.pol ? `<dt>Pollinators</dt><dd>blooms in ${bloomText(sp)}</dd>` : ''}${sp.host ? `<dt>Host plant</dt><dd>${esc(sp.host)} caterpillars feed on it</dd>` : ''}</dl><p>${esc(sp.note || '')}</p>` +
     libActions(sp) + (sp.custom ? `<div class="btnrow" style="margin-top:6px"><button type="button" class="btn" data-cp-edit="${sp.id}">Edit</button><button type="button" class="btn danger" data-cp-del="${sp.id}">Delete</button></div>` : '');
 }
 function libActions(sp) {
@@ -1041,6 +1055,7 @@ function libActions(sp) {
 }
 function renderLibControls() {
   $('libCat').innerHTML = `<option value="all">All plants (${PLANTS.length})</option>` + LIB_CATS.map(([k, name]) => `<option value="${k}">${name} (${PLANTS.filter((p) => catOf(p) === k).length})</option>`).join('');
+  $('libTags').innerHTML = `<button type="button" data-pol aria-pressed="${libPol}" title="Plants that feed bees, butterflies and hummingbirds">Pollinator plants (${PLANTS.filter((p) => p.pol).length})</button>`;
   $('libSun').innerHTML = [['', 'Any light'], ['F', 'Full sun'], ['P', 'Part shade'], ['S', 'Shade']].map(([k, l]) => `<button type="button" data-sun="${k}" aria-pressed="${libSun === k}">${l}</button>`).join('');
 }
 function renderLib() {
@@ -1051,7 +1066,8 @@ function renderLib() {
   $('libCat').value = libCat;
   $('libSun').querySelectorAll('[data-sun]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.sun === libSun));
   const q = libQ.trim().toLowerCase();
-  const list = PLANTS.filter((p) => (libCat === 'all' || catOf(p) === libCat) && (!libSun || p.sun.includes(libSun)) && (!q || (p.cn + ' ' + p.bn + ' ' + p.note).toLowerCase().includes(q)));
+  $('libTags').querySelectorAll('[data-pol]').forEach((b) => b.setAttribute('aria-pressed', libPol));
+  const list = PLANTS.filter((p) => (libCat === 'all' || catOf(p) === libCat) && (!libPol || p.pol) && (!libSun || p.sun.includes(libSun)) && (!q || (p.cn + ' ' + p.bn + ' ' + p.note).toLowerCase().includes(q)));
   let h = '';
   for (const [cat, name] of LIB_CATS) {
     const rows = list.filter((p) => catOf(p) === cat);
@@ -1178,6 +1194,7 @@ $('libInfo').addEventListener('click', (e) => {
 });
 $('libSearch').addEventListener('input', (e) => { libQ = e.target.value; renderLib(); });
 $('libCat').addEventListener('change', (e) => { libCat = e.target.value; renderLib(); });
+$('libTags').addEventListener('click', (e) => { if (e.target.closest('[data-pol]')) { libPol = !libPol; renderLib(); } });
 $('libSun').addEventListener('click', (e) => { const b = e.target.closest('[data-sun]'); if (b) { libSun = b.dataset.sun; renderLib(); } });
 $('libClose').addEventListener('click', () => toggleLib(false));
 $('libClose').title = 'Hide plant library';
@@ -1235,19 +1252,20 @@ function renderProps() {
   const cats = spCats(it.type);
   if (isBedType(it.type)) {
     const mix = bedMix(it);
-    const opts = (sel0) => cats.map((c) => `<optgroup label="${CATS.find((x) => x[0] === c)[1]}">${PLANTS.filter((q) => q.t === c).map((q) => `<option value="${q.id}" ${sel0 === q.id ? 'selected' : ''}>${esc(q.cn)}${q.custom ? ' (yours)' : ''}</option>`).join('')}</optgroup>`).join('');
+    const opts = (sel0) => plantOptions(cats, sel0), inRows = bedRowsOn(it);
     h += `<div class="fieldlabel" style="margin-bottom:4px">Plants in this bed</div>`;
     h += mix.map((m, i) => `<div class="mixrow"><span class="chip">${plantThumb(m.sp)}</span><select data-mix="${i}" aria-label="Plant ${i + 1}"${dis}>${opts(m.sp.id)}</select>${mix.length > 1 ? `<input type="number" data-mixw="${i}" value="${Math.round(m.w * 100)}" min="1" max="100" aria-label="Share of the bed in percent"${dis}><span class="muted">%</span>` : ''}<button type="button" class="iconbtn" data-mixdel="${i}" aria-label="Remove ${esc(m.sp.cn)} from the bed"${dis || (mix.length === 1 && it.type !== 'bedShape') ? ' disabled style="visibility:hidden"' : ''}><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>`).join('');
     if (!mix.length) h += '<p class="muted" style="margin-bottom:6px">Mulch only. Add plants, or place trees and shrubs on top of it.</p>';
     h += `<div class="btnrow" style="margin-bottom:6px"><button type="button" class="btn" data-act="mixadd"${dis}>+ Add a plant to this bed</button></div>`;
-    h += `<p class="muted" style="margin-bottom:10px">${mix.length > 1 ? 'Plants are set out in natural drifts by their share. ' : ''}Tip: drag a plant from the library onto this bed to add it.</p>`;
+    h += `<label class="check" style="margin-bottom:6px"><input type="checkbox" data-f="rows" ${inRows ? 'checked' : ''}${dis}> Plant in rows (vegetable garden)</label>`;
+    h += `<p class="muted" style="margin-bottom:10px">${inRows ? 'Rows run the long way of the bed, each crop at its own row spacing. ' : mix.length > 1 ? 'Plants are set out in natural drifts by their share. ' : ''}Tip: drag a plant from the library onto this bed to add it.</p>`;
     if (mix.length === 1) h += speciesCard(mix[0].sp);
     h += fld('Edge', `<select data-f="edge" aria-label="Bed edge"${dis}><option value="">None (flat bed)</option>${Object.entries(EDGES).map(([k, l]) => `<option value="${k}" ${it.edge === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`);
     if (it.type !== 'bedShape') h += fld('Bed shape', `<select data-f="form" aria-label="Bed shape"${dis}>${[['oval', 'Oval'], ['rect', 'Rectangle (square corners)'], ['round', 'Rounded rectangle']].map(([k, l]) => `<option value="${k}" ${bedForm(it) === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`);
   } else if (cats.length) {
     if (sp) h += speciesCard(sp);
     const opts = (it.type === 'bedShape' ? '<option value="">Mulch only (no plants)</option>' : '') +
-      cats.map((c) => `<optgroup label="${CATS.find((x) => x[0] === c)[1]}">${PLANTS.filter((p) => p.t === c).map((p) => `<option value="${p.id}" ${it.sp === p.id ? 'selected' : ''}>${esc(p.cn)}</option>`).join('')}</optgroup>`).join('');
+      plantOptions(cats, it.sp);
     h += fld(it.type.startsWith('lawn') ? 'Grass' : 'Plant', `<select data-f="sp" aria-label="Plant"${dis}>${opts}</select>`);
   }
   if (t.kind === 'circle') h += `<div class="row3">${fld(it.type === 'birdbath' ? 'Size ft' : 'Spread ft', numIn('spread', it.r * 2, 0.5, 120, 0.5, 'Spread in feet'))}${fld('X ft', numIn('x', it.x, -50, 150, 0.5, 'X position'))}${fld('Y ft', numIn('y', it.y, -50, 150, 0.5, 'Y position'))}</div>`;
@@ -1263,6 +1281,16 @@ function renderProps() {
   if (it.type === 'fence') {
     h += `<div class="row2">${fld('Fence style', `<select data-f="fstyle" aria-label="Fence style"${dis}>${Object.entries(FENCE_STYLES).map(([k, z]) => `<option value="${k}" ${(it.style || 'privacy') === k ? 'selected' : ''}>${z.replace(' fence', '')}</option>`).join('')}</select>`)}${fld('Height', `<select data-f="fheight" aria-label="Fence height"${dis}>${[3, 4, 5, 6, 8].map((v) => `<option value="${v}" ${(it.height || 6) === v ? 'selected' : ''}>${v} ft</option>`).join('')}</select>`)}</div>`;
     h += `<p class="muted" style="margin-bottom:8px">${{ privacy: 'Solid boards: blocks views and noise. Good for the busy street side and around the patio.', picket: 'Low and open: marks the edge of a front yard.', split: 'Rustic and open: marks a line without blocking views.', chain: 'See-through and low cost: keeps pets and kids in.', iron: 'Open and formal: lets light and views through.' }[it.style || 'privacy']}</p>`;
+  }
+  if (T[it.type].garden) {
+    if (it.type === 'marker') h += fld('Station number', numIn('num', it.num || 1, 1, 99, 1, 'Station number'));
+    if (it.type === 'gpumpkin') h += `<label class="check" style="margin-bottom:6px"><input type="checkbox" data-f="gcover" ${it.cover ? 'checked' : ''}${dis}> Shade tent over the fruit</label>`;
+    h += `<p class="muted" style="margin-bottom:8px">${esc(GARDEN_T[it.type].tip)}${it.type === 'gpumpkin' ? ` This patch is ${Math.round(it.w * it.h).toLocaleString()} sq ft.` : ''}</p>`;
+  }
+  if (it.type === 'trellis') {
+    const tc = trellisCounts(it), T0 = TRELLIS[trellisStyle(it)];
+    h += fld('Trellis', `<select data-f="tstyle" aria-label="Trellis kind"${dis}>${Object.entries(TRELLIS).map(([k, z]) => `<option value="${k}" ${trellisStyle(it) === k ? 'selected' : ''}>${z.name}</option>`).join('')}</select>`);
+    h += `<p class="muted" style="margin-bottom:8px">${esc(T0.note)} This run: ${tc.posts} posts and ${tc.vines} ${T0.crop.toLowerCase()}.</p>`;
   }
   if (it.type === 'shed') {
     h += `<div class="row2">${fld('Building', `<select data-f="shstyle" aria-label="Shed kind"${dis}>${Object.entries(SHED_STYLES).map(([s2, z]) => `<option value="${s2}" ${(it.style || 'gable') === s2 ? 'selected' : ''}>${z}</option>`).join('')}</select>`)}${it.style === 'green' ? '' : fld('Roof', `<select data-f="shroof" aria-label="Roof"${dis}>${Object.entries(SHED_ROOFS).map(([s2, z]) => `<option value="${s2}" ${(it.roof || 'shingle') === s2 ? 'selected' : ''}>${z}</option>`).join('')}</select>`)}</div>`;
@@ -1317,6 +1345,7 @@ $('props').addEventListener('input', (e) => {
     case 'rot': if (ok) it.rot = num % 360; break;
     case 'width': if (ok) it.width = clamp(num, 1, 30); break;
     case 'size': if (ok) it.size = clamp(num, 0.5, 20); break;
+    case 'num': if (ok) it.num = clamp(Math.round(num), 1, 99); break;
     case 'text': it.text = v.slice(0, 200); break;
     case 'label': if (v) it.label = v.slice(0, 120); else delete it.label; break;
     case 'op': { if (ok) { if (num >= 100) delete it.op; else it.op = clamp(num, 10, 100) / 100; } const lb = e.target.closest('.field').querySelector('label'); if (lb) lb.firstChild.textContent = `Opacity ${Math.round((it.op ?? 1) * 100)}%`; break; }
@@ -1342,12 +1371,15 @@ $('props').addEventListener('change', (e) => {
     if (sp) { it.sp = sp.id; if (T[it.type].kind === 'circle') it.r = Math.max(0.5, sp.w / 2); } else delete it.sp;
     renderPlan(); renderProps(); commit('Change plant'); return;
   }
+  if (f === 'rows') { it.rows = e.target.checked; renderItems([it.id]); renderProps(); renderOptCtx(); commit(it.rows ? 'Plant in rows' : 'Plant in drifts'); return; }
   if (f === 'smooth') { it.smooth = e.target.checked; renderItems([it.id]); renderProps(); commit(it.smooth ? 'Smooth edge' : 'Straight edge'); return; }
   if (f === 'zone') { it.zone = ZONES[v] ? v : 'private'; renderItems([it.id]); commit('Change zone'); return; }
   if (f === 'finish') { it.finish = v; renderItems([it.id]); commit('Change surface'); return; }
   if (f === 'form') { it.form = v; renderItems([it.id]); commit('Change bed shape'); return; }
   if (f === 'edge') { if (EDGES[v]) it.edge = v; else delete it.edge; renderItems([it.id]); renderOptCtx(); commit(v ? 'Raise bed' : 'Remove bed edge'); return; }
   if (f === 'fstyle') { it.style = FENCE_STYLES[v] ? v : 'privacy'; it.height = FENCE_HEIGHT[it.style]; Object.assign(lastFence, { style: it.style, height: it.height }); syncGates(); renderPlan(); renderProps(); commit('Change fence style'); return; }
+  if (f === 'tstyle') { it.style = TRELLIS[v] ? v : 'grape'; it.width = TRELLIS[it.style].cw; toolPreset.trellis = { style: it.style, width: it.width }; renderItems([it.id]); renderProps(); renderOptCtx(); commit('Change trellis'); return; }
+  if (f === 'gcover') { if (e.target.checked) it.cover = true; else delete it.cover; renderItems([it.id]); commit('Pumpkin shade tent'); return; }
   if (f === 'shstyle') { it.style = SHED_STYLES[v] ? v : 'gable'; renderItems([it.id]); renderProps(); renderOptCtx(); commit('Change shed'); return; }
   if (f === 'shroof') { it.roof = SHED_ROOFS[v] ? v : 'shingle'; renderItems([it.id]); renderOptCtx(); commit('Change shed roof'); return; }
   if (f === 'sstyle') { it.style = STAIR_STYLES[v] ? v : 'stone'; toolPreset.stairs = Object.assign(toolPreset.stairs || {}, { style: it.style }); renderItems([it.id]); renderProps(); renderOptCtx(); commit('Change step material'); return; }
@@ -1483,11 +1515,13 @@ function newItem(type, p) {
   if (spCats(type).length) { if (PLANT_BY_ID[curSp[type]]) it.sp = curSp[type]; else delete it.sp; }
   if (type === 'fence') Object.assign(it, lastFence);
   if (toolPreset[type]) Object.assign(it, clone(toolPreset[type]));
+  if (Array.isArray(it.mix) && it.mix.length) it.sp = it.mix[0].sp;
   if ((t.kind === 'shape' || t.kind === 'line') && drawSmooth[type] !== undefined) it.smooth = drawSmooth[type];
   if (t.kind === 'line' || t.kind === 'shape') return it;
   it.x = r1(p[0]); it.y = r1(p[1]);
   if (t.kind === 'circle' && t.plant && PLANT_BY_ID[it.sp]) it.r = Math.max(0.5, PLANT_BY_ID[it.sp].w / 2);
-  if (bedFormPref[type] && bedFormPref[type] !== (type === 'groundcover' ? 'round' : 'oval')) it.form = bedFormPref[type];
+  if (bedFormPref[type] && bedFormPref[type] !== (type === 'groundcover' ? 'round' : 'oval') && !(toolPreset[type] && toolPreset[type].form)) it.form = bedFormPref[type];
+  if (type === 'marker') it.num = 1 + Math.max(0, ...state.items.filter((x) => x.type === 'marker').map((x) => +x.num || 0));
   if (t.kind === 'box') it.rot = 0;
   if (t.kind === 'text') it.text = 'Label';
   return it;
@@ -1985,13 +2019,22 @@ function runCheck() {
     const a = trees[i], b = trees[j], d = dist([a.x, a.y], [b.x, b.y]);
     if (d < (a.r + b.r) * 0.55) issues.push({ id: b.id, msg: `${nameOf(a)} and ${nameOf(b)} are only ${d.toFixed(0)} ft apart. At full size they will crowd each other.` });
   }
+  /* a pollinator planting should have something in bloom in every season */
+  {
+    const polSp = new Map();
+    for (const it of state.items) { if (it.hidden || layerOf(it) !== 'design') continue; const list = isBedType(it.type) ? bedMix(it).map((m) => m.sp) : [spOf(it)]; for (const sp of list) if (sp && sp.pol && sp.bl) polSp.set(sp.id, sp); }
+    if (polSp.size >= 3) {
+      const ideas = { sp: 'wild blue indigo, foxglove beardtongue or redbud', su: 'coneflower, bee balm or milkweed', fa: 'goldenrod, New England aster or anise hyssop' };
+      for (const [k, name] of Object.entries(SEASONS)) if (![...polSp.values()].some((sp) => sp.bl.split('/').includes(k))) issues.push({ tip: true, msg: `Pollinators: nothing in the design blooms in ${name}. Add ${ideas[k]} so bees and butterflies have food all season.` });
+    }
+  }
   wantList().forEach((w, i) => { if (!w.d) issues.push({ want: i, msg: `Client wants: “${w.t}” isn't checked off yet.` }); });
   const ul = $('issues');
-  const probs = issues.filter((s) => s.want === undefined).length;
+  const probs = issues.filter((s) => s.want === undefined && !s.tip).length;
   $('checkBadge').textContent = issues.length ? String(issues.length) : '✓';
   if (!issues.length) { ul.innerHTML = '<li class="ok"><span class="dot"></span><span>No problems found. Nice work.</span></li>'; return; }
   ul.innerHTML = (probs ? '' : '<li class="ok"><span class="dot"></span><span>The plan itself passes. Finish the client list.</span></li>') + issues.map((s, i) =>
-    `<li class="${s.want !== undefined ? 'note' : ''}"><span class="dot"></span><span>${esc(s.msg)}</span><button type="button" data-issue="${i}">Show</button></li>`).join('');
+    `<li class="${s.want !== undefined || s.tip ? 'note' : ''}"><span class="dot"></span><span>${esc(s.msg)}</span>${s.tip ? '' : `<button type="button" data-issue="${i}">Show</button>`}</li>`).join('');
   ul.querySelectorAll('[data-issue]').forEach((b) => b.addEventListener('click', () => {
     const s = issues[+b.dataset.issue];
     if (s.id) {
@@ -2012,7 +2055,7 @@ $('bCheck').addEventListener('click', () => { flush(); runCheck(); });
 /* ------------------------------------------------------------------ schedule and takeoff */
 /* the grass of a lawn that actually shows: its outline less the house, driveway and sidewalk, and less whatever
  * sits on top of it (beds, paving, decks, pools, ponds, buildings, other lawns). Counted on a fine grid. */
-const COVERS = (it) => { const t = T[it.type]; return t.kind !== 'text' && t.kind !== 'circle' && it.type !== 'fence' && it.type !== 'gate' && it.type !== 'lights' && !(t.furn && !/^pool|hottub|sandbox/.test(it.type)) && layerOf(it) === 'design'; };
+const COVERS = (it) => { const t = T[it.type]; return t.kind !== 'text' && t.kind !== 'circle' && it.type !== 'fence' && it.type !== 'gate' && it.type !== 'lights' && it.type !== 'trellis' && !(t.furn && !/^pool|hottub|sandbox|gpumpkin|hoophouse|sqfoot|keyhole|herbspiral|threesis|classroom|compost/.test(it.type)) && layerOf(it) === 'design'; };
 function lawnNet(it) {
   const poly = itemPoly(it), xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
   const x1 = Math.min(...xs), x2 = Math.max(...xs), y1 = Math.min(...ys), y2 = Math.max(...ys);
@@ -2060,7 +2103,7 @@ function takeoff() {
     if (isBedType(it.type)) {
       for (const m of bedMix(it)) {
         const row = plants[m.sp.id] = plants[m.sp.id] || { sp: m.sp, qty: 0, area: 0, approx: true };
-        row.area += a * m.w; row.qty += Math.max(1, Math.round(a * m.w / ((m.sp.spc || 1.5) ** 2 * 0.866)));
+        row.area += a * m.w; row.qty += Math.max(1, Math.round(bedRowsOn(it) ? a * m.w / (Math.max(0.5, m.sp.row || m.sp.spc || 1.5) * (m.sp.spc || 1.5)) : a * m.w / ((m.sp.spc || 1.5) ** 2 * 0.866)));
       }
     } else if (sp) {
       const row = plants[sp.id] = plants[sp.id] || { sp, qty: 0, area: 0, approx: false };
@@ -2068,7 +2111,7 @@ function takeoff() {
       else { row.area += a; if (sp.t !== 'turf') { row.qty += Math.max(1, Math.round(a / ((sp.spc || 1.5) ** 2 * 0.866))); row.approx = true; } }
     }
     if (isBedType(it.type) && EDGES[it.edge]) addM('edge-' + it.edge, EDGES[it.edge].replace('Raised: ', 'Raised bed wall, ').replace(' (flat)', ''), 'bedShape', bedPerimeter(it), 'lin ft');
-    if (isBedType(it.type) && !(bedMix(it).length === 1 && bedMix(it)[0].sp.t === 'groundcover')) addM('mulch', 'Hardwood mulch, 3 in. deep', 'bedShape', a, 'sq ft', a * 0.25 / 27);
+    if (isBedType(it.type) && !bedRowsOn(it) && !(bedMix(it).length === 1 && bedMix(it)[0].sp.t === 'groundcover')) addM('mulch', 'Hardwood mulch, 3 in. deep', 'bedShape', a, 'sq ft', a * 0.25 / 27);
     if (it.type === 'patio' || it.type === 'paveShape') addM('pave-' + it.finish, `${FINISHES[it.finish] || 'Paving'} paving`, 'paveShape', a, 'sq ft');
     if (it.type === 'deck') addM('deck', 'Wood deck', 'deck', a, 'sq ft');
     if (it.type === 'path') addM('path-' + it.finish, `${PATH_FINISHES[it.finish] || 'Concrete'} walk`, 'path', polyLen(it.pts), 'lin ft', a);
@@ -2087,6 +2130,7 @@ function takeoff() {
       const wa = it.type === 'poolShape' ? a : it.type === 'pool' ? (it.w - 2.4) * (it.h - 2.4) : (it.w - 2.4) * (it.h - 2.4) * 0.8;
       addM('pool', 'Swimming pool (water area)', it.type, wa, 'sq ft');
     } else if (t.furn) addM('furn-' + it.type, t.name, it.type, 1, 'ea');
+    if (it.type === 'trellis') { const tc = trellisCounts(it), st = trellisStyle(it); addM('trellis-' + st, TRELLIS[st].name, 'trellis', tc.len, 'lin ft'); addM('trellis-posts', 'Trellis posts', 'trellis', tc.posts, 'ea'); addM('trellis-crop-' + st, TRELLIS[st].crop, 'trellis', tc.vines, 'ea'); }
   }
   const order = LIB_CATS.map((c) => c[0]);
   const plantRows = Object.values(plants).sort((a, b) => order.indexOf(catOf(a.sp)) - order.indexOf(catOf(b.sp)) || a.sp.cn.localeCompare(b.sp.cn));
@@ -2101,7 +2145,15 @@ function renderSched() {
   let lastCat = '';
   for (const r of plants) {
     if (catOf(r.sp) !== lastCat) { lastCat = catOf(r.sp); h += `<tr class="grp"><td colspan="3">${LIB_CATS.find((c) => c[0] === lastCat)[1]}</td></tr>`; }
-    h += `<tr><td><span class="code">${PLANT_CODE[r.sp.id]}</span></td><td>${esc(r.sp.cn)}<i>${esc(r.sp.bn)}${r.sp.t === 'turf' ? '' : ` · ${r.sp.w}′×${r.sp.h}′`}</i></td><td class="n">${fmtQty(r)}</td></tr>`;
+    h += `<tr><td><span class="code">${PLANT_CODE[r.sp.id]}</span></td><td>${esc(r.sp.cn)}<i>${esc(r.sp.bn)}${r.sp.t === 'turf' ? '' : ` · ${r.sp.w}′×${r.sp.h}′`}</i></td><td class="n">${fmtQty(r)}${r.sp.yl ? `<i style="display:block;font-style:normal;color:var(--muted);font-size:11px">about ${Math.round(r.qty * r.sp.yl).toLocaleString()} lb</i>` : ''}</td></tr>`;
+  }
+  const crops = plants.filter((r) => r.sp.yl), pol = plants.filter((r) => r.sp.pol && r.sp.bl);
+  if (crops.length) h += `<tr class="grp"><td colspan="3">Harvest estimate</td></tr><tr><td></td><td>All crops in a good year<i>Home-garden averages; real yields vary a lot</i></td><td class="n">≈ ${Math.round(crops.reduce((s2, r) => s2 + r.qty * r.sp.yl, 0)).toLocaleString()} lb</td></tr>`;
+  if (pol.length) {
+    const has = (k) => pol.filter((r) => r.sp.bl.split('/').includes(k));
+    h += '<tr class="grp"><td colspan="3">Bloom calendar for pollinators</td></tr>' + Object.entries(SEASONS).map(([k, name]) => { const list = has(k); return `<tr><td>${list.length ? '●' : '○'}</td><td>${name[0].toUpperCase() + name.slice(1)}<i>${list.length ? esc(list.map((r) => r.sp.cn).join(', ')) : 'Nothing blooming yet'}</i></td><td class="n">${list.length || '—'}</td></tr>`; }).join('');
+    const hosts = plants.filter((r) => r.sp.host);
+    if (hosts.length) h += `<tr><td>●</td><td>Caterpillar host plants<i>${esc(hosts.map((r) => `${r.sp.cn} (${r.sp.host})`).join(', '))}</i></td><td class="n">${hosts.length}</td></tr>`;
   }
   if (mats.length) {
     h += '<tr class="grp"><td colspan="3">Materials</td></tr>';
@@ -2688,12 +2740,20 @@ function readSiteFields() {
   if (!(w >= 10 && w <= 2000 && h >= 10 && h <= 2000)) throw new Error('Enter a lot width and depth between 10 and 2,000 ft.');
   return { kind: 'custom', name: $('nfName').value.trim().slice(0, 60) || 'My yard', client: $('nfClient').value.trim().slice(0, 60), w, h, street: $('nfStreet').value, north: toNorthDeg($('nfNorth').value), scale: SCALES.includes(+$('nfScale').value) ? +$('nfScale').value : undefined, streetName: $('nfStreetName').value.trim().slice(0, 40) };
 }
+/* starting checklists for the kinds of site a design can be for (the list stays fully editable) */
+const BRIEFS = {
+  home: { name: 'A home landscape', note: 'A yard around a house. You write the client checklist yourself.', wants: [] },
+  teach: { name: 'A teaching / demonstration garden', site: 'Demonstration garden', note: 'A garden that shows practices to visitors or a class. Starts with a checklist you can edit.', wants: ['Demonstration plots that each show one practice', 'Wide, firm paths a group can walk (5 ft or more)', 'A gathering spot or outdoor classroom', 'Signs and numbered tour stations', 'Raised beds, with at least one at waist height', 'Compost area', 'Water within a hose length of every bed', 'A pollinator planting', 'Tool storage'] },
+  veg: { name: 'A vegetable production garden', site: 'Production garden', note: 'A garden grown for harvest. The schedule estimates plant counts and yield.', wants: ['Full sun for the crop beds (8 hours)', 'Row plots or beds with paths between them', 'Cool-season and warm-season crops', 'Trellis for vining crops', 'Water source and irrigation', 'Compost bins', 'Season extension: hoop house or cold frame', 'Wash and pack or potting area', 'Fence to keep deer and rabbits out'] },
+  pollinator: { name: 'A pollinator garden', site: 'Pollinator garden', note: 'Habitat for bees and butterflies. The design check looks for bloom in spring, summer and fall.', wants: ['Something in bloom spring, summer and fall', 'Native plants in drifts of three or more', 'Milkweed for monarch caterpillars', 'Other caterpillar host plants', 'A shallow water or puddling spot', 'Nesting places: bare ground, stems, a bee house', 'Shelter from wind', 'A sign explaining the planting'] },
+  community: { name: 'A community or school garden', site: 'Community garden', note: 'Shared plots for many gardeners.', wants: ['Individual plots of the same size', 'A shared tool shed', 'Compost bins', 'Water spigots within reach of every plot', 'An accessible raised bed', 'Seating and shade', 'A fence and gate', 'A sign at the entrance'] },
+};
 function showNew(err) {
   openDialog(`<h3>New design</h3>${err ? `<p class="err" role="alert">${esc(err)}</p>` : ''}
     <p class="muted">Your current design is kept in this browser. Find it again under File → My designs.</p>
     <div class="fmt" style="grid-template-columns:1fr 1fr"><button type="button" class="btn" data-new="scott">Scott Residence lab<small>The AGPS 1024 project on the real base plan</small></button>
-      <button type="button" class="btn gold" data-new="custom" autofocus>My own yard<small>Your lot, your house, a photo to trace</small></button></div>
-    <div id="newForm" hidden>${siteFields()}
+      <button type="button" class="btn gold" data-new="custom" autofocus>My own yard or garden<small>Any site: a home lot, a teaching or production garden</small></button></div>
+    <div id="newForm" hidden>${fld('What are you designing?', `<select id="nfKind">${Object.entries(BRIEFS).map(([k, b]) => `<option value="${k}">${b.name}</option>`).join('')}</select>`)}<p class="muted" id="nfKindNote" style="margin:-4px 0 8px">${BRIEFS.home.note}</p>${siteFields()}
       <label class="check" style="margin:2px 0 8px"><input type="checkbox" id="nfHouse" checked> Start with a house outline (you can reshape it, or draw more buildings with the Building tool)</label>
       <div class="row2" id="nfHouseBox">${fld('House width along the street (ft)', '<input id="nfHW" type="number" min="5" max="500" value="40">')}${fld('House depth (ft)', '<input id="nfHD" type="number" min="5" max="500" value="30">')}
         ${fld('Setback from the street (ft)', '<input id="nfHS" type="number" min="0" max="1000" value="25">')}${fld('From the side lot line (ft)', '<input id="nfHX" type="number" min="0" max="1000" value="15">')}</div>
@@ -2708,10 +2768,11 @@ function showNew(err) {
   });
   $('dlgBody').querySelector('[data-new="custom"]').addEventListener('click', () => { $('newForm').hidden = false; $('nfName').focus(); $('nfName').select(); });
   $('nfHouse').addEventListener('change', (e) => { $('nfHouseBox').hidden = !e.target.checked; });
+  $('nfKind').addEventListener('change', (e) => { const b = BRIEFS[e.target.value]; $('nfKindNote').textContent = b.note; $('nfHouse').checked = e.target.value === 'home'; $('nfHouseBox').hidden = !$('nfHouse').checked; if (b.site && /^(My yard|.* garden)?$/.test($('nfName').value.trim())) $('nfName').value = b.site; });
   $('nfCreate').addEventListener('click', () => {
     let site;
     try { site = readSiteFields(); } catch (e) { toast(e.message); return; }
-    const st = blankState(); st.meta = Object.assign({}, state.meta); st.site = site; st.wants = []; st.customPlants = clone(state.customPlants || []);
+    const st = blankState(); st.meta = Object.assign({}, state.meta); st.site = site; st.wants = (BRIEFS[$('nfKind').value] || BRIEFS.home).wants.map((t) => ({ t, d: false })); st.customPlants = clone(state.customPlants || []);
     if ($('nfHouse').checked) {
       const hw = +$('nfHW').value || 40, hd = +$('nfHD').value || 30, sb = +$('nfHS').value || 0, sx = +$('nfHX').value || 0;
       const box = { bottom: [sx, site.h - sb - hd, sx + hw, site.h - sb], top: [sx, sb, sx + hw, sb + hd], left: [sb, sx, sb + hd, sx + hw], right: [site.w - sb - hd, sx, site.w - sb, sx + hw], none: [sx, sb, sx + hw, sb + hd] }[site.street];
@@ -3026,6 +3087,9 @@ function renderOptCtx() {
     h = `<span class="optlabel">Gate</span><div class="seg shapeseg"><button type="button" data-setgate="1" aria-pressed="${(one.leaves || 1) === 1}"><span>Single</span></button><button type="button" data-setgate="2" aria-pressed="${one.leaves === 2}"><span>Double</span></button></div><div class="seg shapeseg"><button type="button" data-gateflip><span>Swing other way</span></button>${(one.leaves || 1) === 1 ? '<button type="button" data-gatehinge><span>Hinge other side</span></button>' : ''}</div>`;
   } else if (one && !one.locked && (one.type === 'wall' || one.type === 'lights') && tool === 'select') {
     h = (one.type === 'wall' ? wallChips(one.style, one.height, 'data-setwall') : lightChips(one.style, 'data-setlights')) + curveSeg(!!one.smooth, 'data-setsmooth');
+  } else if ((one && !one.locked && one.type === 'trellis' && tool === 'select') || tool === 'trellis') {
+    const cur = tool === 'trellis' ? (toolPreset.trellis || {}).style || 'grape' : trellisStyle(one);
+    h = `<span class="optlabel">Trellis</span><div class="seg shapeseg">${Object.keys(TRELLIS).map((k) => `<button type="button" data-settrellis="${k}" aria-pressed="${cur === k}" title="${TRELLIS[k].name}"><span>${{ grape: 'Grape', muscadine: 'Muscadine', berry: 'Blackberry', bean: 'Bean / pea', tomato: 'Tomato', espalier: 'Espalier' }[k]}</span></button>`).join('')}</div>`;
   } else if (tool === 'wall' || tool === 'lights') {
     h = (tool === 'wall' ? wallChips(toolPreset.wall.style, toolPreset.wall.height, 'data-prefwall') : lightChips((toolPreset.lights || {}).style || 'bistro', 'data-preflights')) + curveSeg(drawSmooth[tool], 'data-drawsmooth');
   } else if (tool === 'fence') {
@@ -3079,6 +3143,7 @@ $('optCtx').addEventListener('click', (e) => {
   if (b.dataset.lotdone !== undefined) { setTool('select'); fit(); return; }
   if (b.dataset.lotrect !== undefined) { const L = lot(); delete state.site.lotPts; state.site.w = r1(L.x2); state.site.h = r1(L.y2); baseKey = ''; renderBase(); renderOverlay(); renderOptCtx(); commit('Property line back to a rectangle'); return; }
   if (b.dataset.preffinish) { toolPreset[tool] = Object.assign(toolPreset[tool] || {}, { finish: b.dataset.preffinish }); renderOptCtx(); renderOverlay(); return; }
+  if (b.dataset.settrellis) { const k = b.dataset.settrellis; toolPreset.trellis = { style: k, width: TRELLIS[k].cw }; if (one && one.type === 'trellis' && tool === 'select' && !one.locked) { one.style = k; one.width = TRELLIS[k].cw; renderItems([one.id]); renderProps(); commit('Change trellis'); } renderOptCtx(); renderOverlay(); return; }
   if (b.dataset.prefwall) { const h0 = WALL_HEIGHT[b.dataset.prefwall]; toolPreset.wall = { style: b.dataset.prefwall, height: h0, width: WALL_W[b.dataset.prefwall] }; renderOptCtx(); renderOverlay(); if (libTab === 'build') renderCatalog(); return; }
   if (b.dataset.preflights) { toolPreset.lights = { style: b.dataset.preflights }; renderOptCtx(); renderOverlay(); return; }
   if (b.dataset.preffence) { lastFence.style = b.dataset.preffence; lastFence.height = FENCE_HEIGHT[lastFence.style]; renderOptCtx(); return; }
@@ -3146,6 +3211,35 @@ const CATALOG = {
     ['Decks and buildings', [{ id: 'deck', name: 'Wood deck', tool: 'deck', icon: 'deck' }, { id: 'building', name: 'House, garage or shed (draw)', tool: 'building', icon: 'building', note: 'Click each corner' }]],
     ['Garden', [{ id: 'veg', name: 'Raised vegetable garden', tool: 'veg', icon: 'veg' }, { id: 'wood', name: 'Firewood stockpile', tool: 'wood', icon: 'wood' }, { id: 'birdbath', name: 'Bird bath / feeder', tool: 'birdbath', icon: 'birdbath' }]],
   ],
+  garden: (() => {
+    const bed = (id, name, tool, preset, note) => { const ip = Object.assign({}, preset); delete ip.w; delete ip.h; return { id, name, tool, preset, icon: tool, iconPreset: ip, note }; };
+    const gt = (g) => Object.entries(GARDEN_T).filter(([, v]) => v.group === g).map(([k, v]) => ({ id: k, name: v.name, tool: k, icon: k, note: `${v.d.w} × ${v.d.h} ft` }));
+    const M = (...a) => a.map(([sp, w]) => ({ sp, w }));
+    return [
+      ['Vegetable beds and plots', [
+        { id: 'crops', name: 'Browse all 43 crops', action: () => { libCat = 'veg'; libPol = false; setLibTab('plants'); }, icon: 'annual', iconPreset: { sp: 'soly', form: 'rect', rows: true }, note: 'Vegetables, herbs and fruit: pick one, then click the plan' },
+        bed('bed-raised', 'Raised bed, 4 × 8 ft', 'annual', { w: 8, h: 4, form: 'rect', edge: 'wood', rows: true, mix: M(['soly', 40], ['caan', 30], ['ocba', 30]) }, 'Timber frame · tomatoes, peppers and basil to start'),
+        bed('bed-rows', 'Row-crop plot, 20 × 30 ft', 'annual', { w: 30, h: 20, form: 'rect', rows: true, mix: M(['soly', 16], ['caan', 10], ['zema', 24], ['phvu', 12], ['cupe', 14], ['abes', 12], ['cusa', 12]) }, 'In-ground rows for production: change the crops and shares under Properties'),
+        bed('bed-salsa', 'Salsa garden, 4 × 8 ft', 'annual', { w: 8, h: 4, form: 'rect', edge: 'wood', rows: true, mix: M(['soly', 40], ['caan', 25], ['alce', 20], ['cosa', 15]) }, 'Tomato, pepper, onion and cilantro'),
+        bed('bed-salad', 'Salad bed, 4 × 8 ft', 'annual', { w: 8, h: 4, form: 'rect', edge: 'wood', rows: true, mix: M(['lasa', 35], ['spol', 20], ['daca', 20], ['rasa', 10], ['beet', 15]) }, 'Cool-season greens and roots for spring and fall'),
+        bed('bed-herb', 'Herb bed, 4 × 8 ft', 'perennial', { w: 8, h: 4, form: 'rect', edge: 'stone', rows: false, mix: M(['saro', 20], ['thvu', 15], ['orvu', 15], ['saof', 15], ['alsc', 15], ['ocba', 20]) }, 'Kitchen herbs in a stone-edged bed'),
+        bed('bed-sisters', 'Three Sisters plot, 20 × 20 ft', 'annual', { w: 20, h: 20, form: 'rect', rows: true, mix: M(['zema', 50], ['phco', 20], ['cumo', 30]) }, 'Corn, pole beans and winter squash together'),
+        bed('bed-berry', 'Strawberry bed, 4 × 12 ft', 'perennial', { w: 12, h: 4, form: 'rect', edge: 'wood', rows: true, sp: 'fran' }, 'Matted rows; fruit in spring'),
+        bed('bed-cut', 'Cut-flower bed, 4 × 12 ft', 'annual', { w: 12, h: 4, form: 'rect', rows: true, mix: M(['ziel', 40], ['hean', 30], ['cobi', 30]) }, 'Zinnias, sunflowers and cosmos for bouquets and bees'),
+        ...gt('Beds and plots'), { id: 'veg', name: 'Vegetable garden symbol', tool: 'veg', icon: 'veg' }]],
+      ['Giant pumpkins', [...gt('Giant pumpkins'),
+        bed('bed-pumpkin', 'Pumpkin patch, 20 × 30 ft', 'annual', { w: 30, h: 20, form: 'rect', rows: true, sp: 'cupu' }, 'Carving pumpkins in hills 5 ft apart, rows 8 ft apart')]],
+      ['Trellises and vines', [...Object.keys(TRELLIS).map((k) => ({ id: 'trellis-' + k, name: TRELLIS[k].name, tool: 'trellis', preset: { style: k, width: TRELLIS[k].cw }, icon: 'trellis', note: 'Click each end post, double-click to finish' })), ...gt('Trellises and vines')]],
+      ['Pollinators', [
+        { id: 'polplants', name: 'Browse pollinator plants', action: () => { libCat = 'all'; libPol = true; setLibTab('plants'); }, icon: 'perennial', iconPreset: { sp: 'ecpu' }, note: 'Bloom season and host plants on every card' },
+        bed('bed-pollinator', 'Pollinator bed, 8 × 20 ft', 'perennial', { w: 20, h: 8, rows: false, mix: M(['pedi', 12], ['astu', 14], ['ecpu', 14], ['modi', 12], ['lisp', 12], ['pymu', 12], ['soru', 12], ['syno', 12]) }, 'Native perennials in bloom from spring to frost'),
+        bed('bed-monarch', 'Monarch waystation, 10 × 10 ft', 'perennial', { w: 10, h: 10, rows: false, mix: M(['astu', 25], ['asin', 25], ['ecpu', 15], ['lisp', 15], ['syno', 20]) }, 'Milkweed for caterpillars, nectar for the adults'),
+        bed('bed-prairie', 'Native prairie patch, 10 × 15 ft', 'perennial', { w: 15, h: 10, rows: false, mix: M(['scsc', 34], ['ruhi', 18], ['ecpu', 16], ['baau', 10], ['lisp', 10], ['soru', 12]) }, 'Little bluestem with prairie wildflowers'),
+        ...gt('Pollinators'), { id: 'birdbath2', name: 'Bird bath', tool: 'birdbath', icon: 'birdbath' }]],
+      ['Growing structures', gt('Growing structures')],
+      ['Teaching', gt('Teaching')],
+    ];
+  })(),
   living: ['Furniture', 'Shade', 'Lighting', 'Cooking & fire', 'Pools & spas', 'Ponds & streams', 'Play'].map((g) => [g, Object.entries(FURN_T).filter(([, v]) => v.group === g).map(([k, v]) => ({ id: k, name: v.name, tool: k, icon: k, note: `${v.d.w} × ${v.d.h} ft` }))
     .concat(g === 'Ponds & streams' ? [{ id: 'pondShape', name: 'Natural pond, draw any shape', tool: 'pondShape', icon: 'pondShape', note: 'Click around the edge, then the first dot to close' }, { id: 'stream-3', name: 'Stream, 3 ft wide', tool: 'stream', preset: { width: 3 }, icon: 'stream', note: 'Click along its course, double-click to finish' }, { id: 'stream-1', name: 'Trickle / rill, 18 in. wide', tool: 'stream', preset: { width: 1.5 }, icon: 'stream', iconPreset: { width: 1.2 }, note: 'Click along its course, double-click to finish' }] : [])
     .concat(g === 'Lighting' ? [{ id: 'lights-bistro', name: 'String lights, bistro bulbs', tool: 'lights', preset: { style: 'bistro' }, smooth: false, icon: 'lights', note: 'Click each pole or hook, double-click to finish' }, { id: 'lights-drape', name: 'String lights, draped', tool: 'lights', preset: { style: 'bistro' }, smooth: true, icon: 'lights', note: 'A soft curve between 3+ points' }, { id: 'lights-fairy', name: 'Fairy lights', tool: 'lights', preset: { style: 'fairy' }, smooth: false, icon: 'lights', note: 'Tiny bulbs: trees, fences, pergola' }] : [])
@@ -3157,12 +3251,12 @@ let libTab = 'plants';
 function entryThumb(e) {
   const spec = ICON[e.icon] || {};
   if (e.iconPreset) { const saved = Object.assign({}, spec); Object.assign(ICON[e.icon], e.iconPreset); const out = iconSVG(e.icon, 'render'); ICON[e.icon] = saved; return out; }
-  if (['fence', 'wall', 'lights'].includes(e.icon) && e.preset) { const it = Object.assign({ id: 'icon-' + e.id, type: e.icon }, clone(ICON[e.icon]), e.preset, e.smooth ? { smooth: true } : {}); delete it.vb; return `<svg viewBox="${ICON[e.icon].vb.join(' ')}" aria-hidden="true">${drawItem(it, { u: 0.28, render: true, color: true, icon: true })}</svg>`; }
+  if (['fence', 'wall', 'lights', 'trellis'].includes(e.icon) && e.preset) { const it = Object.assign({ id: 'icon-' + e.id, type: e.icon }, clone(ICON[e.icon]), e.preset, e.smooth ? { smooth: true } : {}); delete it.vb; return `<svg viewBox="${ICON[e.icon].vb.join(' ')}" aria-hidden="true">${drawItem(it, { u: 0.28, render: true, color: true, icon: true })}</svg>`; }
   return iconSVG(e.icon, 'render');
 }
 function renderCatalog() {
   const groups = CATALOG[libTab];
-  $('libList').innerHTML = `<p class="libhow">${libTab === 'build' ? 'Click an item, then click the plan. Fences, walks and any-shape patios: click each corner.' : 'Click an item, then click the plan, or drag it onto the plan. Drag its corner dot to resize; turn it with the yellow dot.'}</p>` +
+  $('libList').innerHTML = `<p class="libhow">${libTab === 'build' ? 'Click an item, then click the plan. Fences, walks and any-shape patios: click each corner.' : libTab === 'garden' ? 'Click an item, then click the plan. Beds come planted: change the crops and their shares under Properties. Trellises: click each end, double-click to finish.' : 'Click an item, then click the plan, or drag it onto the plan. Drag its corner dot to resize; turn it with the yellow dot.'}</p>` +
     groups.map(([g, list]) => `<div class="libcat">${esc(g)}</div>` + list.map((e) => `<button type="button" class="plant" data-el="${e.id}" aria-pressed="${tool === e.tool && (e.smooth === undefined || !!drawSmooth[e.tool] === e.smooth) && (!e.preset || !toolPreset[e.tool] || JSON.stringify(e.preset) === JSON.stringify(e.tool === 'fence' ? { style: lastFence.style, height: lastFence.height } : toolPreset[e.tool]))}"><span class="thumb">${entryThumb(e)}</span><span class="pn"><b>${esc(e.name)}</b>${e.note ? `<i>${esc(e.note)}</i>` : ''}</span></button>`).join('')).join('');
 }
 function useEntry(id) {
@@ -3173,7 +3267,7 @@ function useEntry(id) {
   else if (e.preset) toolPreset[e.tool] = Object.assign({}, e.preset);
   if (e.smooth !== undefined) drawSmooth[e.tool] = e.smooth;
   if (sel.length) select(null);
-  setTool(e.tool); renderCatalog();
+  setTool(e.tool, true); renderCatalog();
   const k = T[e.tool].kind;
   toast(k === 'line' ? `Click each corner of the ${e.name.toLowerCase()}; double-click to finish` : k === 'shape' ? 'Click around the edge; click the first dot to close' : `Click the plan to place the ${e.name.toLowerCase()}`);
 }
@@ -3182,9 +3276,10 @@ function dropEntry(id, cx, cy) {
   if (!e) return;
   const k = T[e.tool] && T[e.tool].kind;
   if (e.action || k === 'line' || k === 'shape') { useEntry(id); return; }
-  if (e.preset) toolPreset[e.tool] = Object.assign({}, e.preset);
   if (tool !== 'select') setTool('select');
+  if (e.preset) toolPreset[e.tool] = Object.assign({}, e.preset);
   const p = toWorld(cx, cy), it = newItem(e.tool, view.snap ? [Math.round(p[0] * 2) / 2, Math.round(p[1] * 2) / 2] : p);
+  if (isBedType(e.tool)) delete toolPreset[e.tool];
   if (it.type === 'gate') toast(gateSnap(it) ? 'Gate set into the fence' : 'Drag the gate onto a fence and it snaps into the line.');
   addItem(it); sel = [it.id];
   renderProps(); renderPlan(); commit('Place ' + e.name.toLowerCase());
@@ -3219,7 +3314,7 @@ function syncLotSize() {
   state.site.w = r1(L.x2); state.site.h = r1(L.y2);
 }
 function editLot() {
-  if (isScott()) { toast('The Scott lab lot is fixed. Use New → My own yard to shape your own.'); return; }
+  if (isScott()) { toast('The Scott lab lot is fixed. Use New → My own yard or garden to shape your own.'); return; }
   closeDialog(); select(null);
   if (!view.site) { view.site = true; $('tSite').checked = true; baseKey = ''; renderPlan(); saveView(); }
   setTool('lotedit'); fit();
@@ -3232,7 +3327,7 @@ function markLibButtons() { document.querySelectorAll('[data-openlib]').forEach(
 (function boot() {
   try {
     const v = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null');
-    if (v && ['plants', 'build', 'living'].includes(v.libTab)) libTab = v.libTab;
+    if (v && ['plants', 'build', 'living', 'garden'].includes(v.libTab)) libTab = v.libTab;
     if (v) for (const k of ['site', 'grid', 'diagram', 'design', 'tags', 'base', 'snap', 'lib', 'floor', 'img', 'util', 'seeTrees']) if (typeof v[k] === 'boolean') view[k] = v[k];
     if (v && ['render', 'color', 'bw'].includes(v.style)) view.style = v.style;
   } catch (e) { /* ignore */ }
